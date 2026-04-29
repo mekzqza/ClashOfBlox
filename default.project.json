@@ -1,0 +1,34 @@
+{
+  "name": "CocProject",
+  "tree": {
+    "$className": "DataModel",
+
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+
+      "Server": {
+        "$path": "src/ServerScriptService/Server.server.luau"
+      }
+    },
+
+    "ServerStorage": {
+      "$className": "ServerStorage"
+    },
+
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage"
+    },
+
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+
+        "Client": {
+          "$path": "src/StarterPlayer/StarterPlayerScripts/Client.client.luau"
+        }
+      }
+    }
+  }
+}
