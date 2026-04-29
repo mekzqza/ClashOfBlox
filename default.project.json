@@ -6,17 +6,69 @@
     "ServerScriptService": {
       "$className": "ServerScriptService",
 
+      "CmdrCommands": {
+        "$path": "src/ServerScriptService/CmdrCommands"
+      },
+
+      "Libs": {
+        "$path": "src/ServerScriptService/Libs"
+      },
+
+      "Services": {
+        "$className": "Folder",
+
+        "Core": {
+          "$path": "src/ServerScriptService/Services/Core"
+        },
+
+        "Gameplay": {
+          "$path": "src/ServerScriptService/Services/Gameplay"
+        },
+
+        "Data": {
+          "$path": "src/ServerScriptService/Services/Data"
+        }
+      },
+
+      "Utils": {
+        "$path": "src/ServerScriptService/Utils"
+      },
+
       "Server": {
         "$path": "src/ServerScriptService/Server.server.luau"
       }
     },
 
     "ServerStorage": {
-      "$className": "ServerStorage"
+      "$className": "ServerStorage",
+
+      "Secrets": {
+        "$path": "src/ServerStorage/Secrets"
+      }
     },
 
     "ReplicatedStorage": {
-      "$className": "ReplicatedStorage"
+      "$className": "ReplicatedStorage",
+
+      "Packages": {
+        "$path": "src/ReplicatedStorage/Packages"
+      },
+
+      "Cmdr": {
+        "$path": "src/ReplicatedStorage/Cmdr"
+      },
+
+      "SystemsShared": {
+        "$path": "src/ReplicatedStorage/SystemsShared"
+      },
+
+      "Shared": {
+        "$path": "src/ReplicatedStorage/Shared"
+      },
+
+      "Utils": {
+        "$path": "src/ReplicatedStorage/Utils"
+      }
     },
 
     "StarterPlayer": {
@@ -27,6 +79,29 @@
 
         "Client": {
           "$path": "src/StarterPlayer/StarterPlayerScripts/Client.client.luau"
+        },
+
+        "Core": {
+          "$path": "src/StarterPlayer/StarterPlayerScripts/Core"
+        },
+
+        "Gameplay": {
+          "$path": "src/StarterPlayer/StarterPlayerScripts/Gameplay"
+        },
+
+        "Inputs": {
+          "$path": "src/StarterPlayer/StarterPlayerScripts/Inputs"
+        },
+
+        "UiController": {
+          "$path": "src/StarterPlayer/StarterPlayerScripts/UiController"
+        },
+
+        "Visuals": {
+          "$path": "src/StarterPlayer/StarterPlayerScripts/Visuals"
+        },
+        "Dev": {
+          "$path": "src/StarterPlayer/StarterPlayerScripts/Dev"
         }
       }
     }

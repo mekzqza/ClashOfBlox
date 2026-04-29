@@ -1,0 +1,7 @@
+{
+  "languageMode": "strict",
+  "aliases": {
+    "ServerScriptService": "src/ServerScriptService",
+    "ReplicatedStorage": "src/ReplicatedStorage"
+  }
+}
