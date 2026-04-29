@@ -6,6 +6,10 @@
     "ServerScriptService": {
       "$className": "ServerScriptService",
 
+      "Services": {
+        "$path": "src/ServerScriptService/Services"
+      },
+
       "Server": {
         "$path": "src/ServerScriptService/Server.server.luau"
       }
@@ -16,7 +20,11 @@
     },
 
     "ReplicatedStorage": {
-      "$className": "ReplicatedStorage"
+      "$className": "ReplicatedStorage",
+
+      "Packages": {
+        "$path": "src/ReplicatedStorage/Packages"
+      }
     },
 
     "StarterPlayer": {
