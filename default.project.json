@@ -54,6 +54,10 @@
         "$path": "src/ReplicatedStorage/Packages"
       },
 
+      "Cmdr": {
+        "$path": "src/ReplicatedStorage/Cmdr"
+      },
+
       "SystemsShared": {
         "$path": "src/ReplicatedStorage/SystemsShared"
       },
@@ -95,6 +99,9 @@
 
         "Visuals": {
           "$path": "src/StarterPlayer/StarterPlayerScripts/Visuals"
+        },
+        "Dev": {
+          "$path": "src/StarterPlayer/StarterPlayerScripts/Dev"
         }
       }
     }
