@@ -1,0 +1,33 @@
+--!strict
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local GameEnum = require(ReplicatedStorage.Shared.GameEnum)
+local Events = require(ReplicatedStorage.Shared.Events)
+local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
+local ZapClient = require(ReplicatedStorage.Shared.ZapClient)
+
+local ClientNetworkController = {}
+
+local function BuildingSystem()
+	EventBus:On(Events.C2S_PLAYER_REQUEST_PLACE, function(data)
+		ZapClient.PlayerRequestPalceBulidings.Fire({
+			BuildingTypeEnum = GameEnum:GetBuildingTypeIdByName(data.BuildingType),
+			Position = data.Position,
+		})
+	end)
+
+	ZapClient.PlayersCreateBuilding.On(function(data)
+		EventBus:Emit(Events.LOCAL_CREATE_BUILDING,{
+			BuildingType = GameEnum:GetBuildingTypeById(data.BuildingTypeEnum),
+			Position = data.Position,
+		})
+		end)
+end
+
+function ClientNetworkController:Init() end
+
+function ClientNetworkController:Start()
+	BuildingSystem()
+end
+
+return ClientNetworkController

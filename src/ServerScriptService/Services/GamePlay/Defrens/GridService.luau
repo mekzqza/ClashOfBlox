@@ -1,5 +1,4 @@
 --!strict
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -130,6 +129,7 @@ function GridService:Start()
 		for folderName, data in pairs(GridStore) do
 			if not data.owner then
 				AssignOwner(folderName, player)
+				break
 			end
 		end
 	end)

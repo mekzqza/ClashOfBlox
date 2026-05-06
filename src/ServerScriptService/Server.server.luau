@@ -14,9 +14,11 @@ local Data = Services:FindFirstChild("Data")
 local Gameplay = Services:FindFirstChild("GamePlay")
 
 local CmdrService = require(Core.CmdrService)
+local ServerNetWorkHandler = require(Core.ServerNetWorkHandler)
 
 local Defrens = Gameplay:FindFirstChild("Defrens")
-local GridService = require(Defrens.GridService) :: ModuleScript
+local GridService = require(Defrens.GridService)
+local BuildingService = require(Defrens.BuildingService)
 
 local TIMEOUTS = {
 	ServiceInit = 15,
@@ -83,7 +85,10 @@ Promise
 	.resolve()
 	:andThen(function()
 		ServiceLocator:Register("CmdrService", CmdrService)
+		ServiceLocator:Register("ServerNetWorkHandler", ServerNetWorkHandler)
+
 		ServiceLocator:Register("GridService", GridService)
+		ServiceLocator:Register("BuildingService", BuildingService)
 	end)
 	:catch(function(err)
 		error(`[Server Init] Failed to initialize server: {err}`)
@@ -94,6 +99,7 @@ Promise
 		print("[Init] CoreLayer initialized")
 		return Promise.all({
 			initService(CmdrService, "CmdrService"),
+			initService(ServerNetWorkHandler, "ServerNetWorkHandler"),
 		}):timeout(TIMEOUTS.LayerInit)
 	end)
 	:andThen(function()
@@ -105,6 +111,7 @@ Promise
 		print("[Init] GameplayLayer initialized")
 		return Promise.all({
 			initService(GridService, "GridService"),
+			initService(BuildingService, "BuildingService"),
 		}):timeout(TIMEOUTS.LayerInit)
 	end)
 	-- Start services
@@ -112,6 +119,7 @@ Promise
 		print("[Init] CoreLayer started")
 		return Promise.all({
 			startService(CmdrService, "CmdrService"),
+			startService(ServerNetWorkHandler, "ServerNetWorkHandler"),
 		}):timeout(TIMEOUTS.LayerStart)
 	end)
 	:andThen(function()
@@ -122,5 +130,6 @@ Promise
 		print("[Init] GameplayLayer started")
 		return Promise.all({
 			startService(GridService, "GridService"),
+			startService(BuildingService, "BuildingService"),
 		}):timeout(TIMEOUTS.LayerStart)
 	end)
