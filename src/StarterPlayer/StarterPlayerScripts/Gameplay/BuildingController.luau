@@ -3,8 +3,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
+
 local Events = require(ReplicatedStorage.Shared.Events)
 local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
+local BuildingConfig = require(ReplicatedStorage.Shared.BuildingConfig)
 local Player = Players.LocalPlayer
 
 local BuildingController = {}
@@ -59,12 +61,18 @@ local function startPlacement(buildType: string)
 		return
 	end
 
+	local dimention = BuildingConfig:GetBuildingDimensions(buildType)
+	if not dimention then
+		warn(`[BuildingController] Building config with id {buildType} not found in BuildingConfig`)
+		return
+	end
+
 	if not Template:IsA("Model") then
 		return
 	end
 	indicatorModel = Template:Clone()
 
-	local templateRotation = (Template :: Model):GetPivot().Rotation
+	local templateRotation = Template:GetPivot().Rotation
 
 	indicatorModel.Parent = Workspace
 	isPlacing = true
@@ -85,11 +93,11 @@ local function startPlacement(buildType: string)
 			return
 		end
 
-		local snapPos = GridController:SnapToGrid(mouse.Hit.Position) :: Vector3
+		local snapPos = GridController:SnapToGrid(mouse.Hit.Position, dimention.Length, dimention.Width) :: Vector3
 
 		local halfHeight = primaryPart.Size.Y / 2
 
-		if GridController:Canplace(snapPos) then
+		if GridController:Canplace(snapPos, dimention.Length, dimention.Width) then
 			for _, child in ipairs(indicatorModel:GetChildren()) do
 				if child:IsA("UnionOperation") then
 					child.UsePartColor = true
@@ -104,17 +112,17 @@ local function startPlacement(buildType: string)
 				end
 			end
 		end
-
+		-- แก้ไขตำแหน่งของ indicatorModel ให้ตรงกับ snapPos
 		indicatorModel:SetPrimaryPartCFrame(CFrame.new(snapPos.X, snapPos.Y + halfHeight, snapPos.Z) * templateRotation)
 	end)
 
 	local mouse = Player:GetMouse()
 	mouseConnettion = mouse.Button1Down:Connect(function()
-		local snapPos = GridController:SnapToGrid(mouse.Hit.Position) :: Vector3
-		if GridController:Canplace(snapPos) then
+		local snapPos = GridController:SnapToGrid(mouse.Hit.Position, dimention.Length, dimention.Width) :: Vector3
+		if GridController:Canplace(snapPos, dimention.Length, dimention.Width) then
 			requestPlaceBuilding(buildType, snapPos)
 			CreateBuilding(buildType, snapPos)
-			GridController:occupyCell(snapPos)
+			GridController:occupyCell(snapPos, dimention.Length, dimention.Width)
 		end
 	end)
 end
@@ -148,7 +156,7 @@ function BuildingController:Start()
 	startPlacement(CONFIG.BUILDING_DEBUG)
 
 	-- EventBus:On(Events.LOCAL_CREATE_BUILDING, function(data)
-	
+
 	-- end)
 end
 

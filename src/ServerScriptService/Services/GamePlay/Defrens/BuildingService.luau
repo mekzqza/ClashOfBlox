@@ -11,6 +11,7 @@ local BuildingService = {}
 
 -- BoardCast to all client about building changes
 -- Update
+
 -- Deleted
 
 -- Create
