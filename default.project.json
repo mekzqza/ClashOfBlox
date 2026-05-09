@@ -21,8 +21,8 @@
           "$path": "src/ServerScriptService/Services/Core"
         },
 
-        "Gameplay": {
-          "$path": "src/ServerScriptService/Services/Gameplay"
+        "GamePlay": {
+          "$path": "src/ServerScriptService/Services/GamePlay"
         },
 
         "Data": {

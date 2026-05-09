@@ -3,16 +3,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
--- ═══════════════════════════════════════════════════════════════
--- LOAD PROMISE LIBRARY
--- ═══════════════════════════════════════════════════════════════
-
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 local Promise = require(Packages.Promise)
-
--- ═══════════════════════════════════════════════════════════════
--- UTILS & CONFIG
--- ═══════════════════════════════════════════════════════════════
 
 local Utils = ReplicatedStorage:WaitForChild("Utils")
 local IdempotentGuard = require(Utils.IdempotentGuard)
@@ -30,10 +22,6 @@ local bootStartTime = os.clock()
 print("🔌 Client Init: Starting Controllers...")
 print(`⏱️  Boot started at: {os.date("%X", os.time())}`)
 
--- ═══════════════════════════════════════════════════════════════
--- GET FOLDERS
--- ═══════════════════════════════════════════════════════════════
-
 local ControllersRoot = script.Parent
 local Core = ControllersRoot:WaitForChild("Core")
 local Dev = ControllersRoot:WaitForChild("Dev")
@@ -42,21 +30,15 @@ local Inputs = ControllersRoot:WaitForChild("Inputs")
 local UiController = ControllersRoot:WaitForChild("UiController")
 local Visuals = ControllersRoot:WaitForChild("Visuals")
 
--- ═══════════════════════════════════════════════════════════════
--- CONFIGURATION
--- ═══════════════════════════════════════════════════════════════
-
 local IS_PRODUCTION = false
 
--- ✅ TIMEOUTS ต้องอยู่ที่นี่ - ก่อนใช้งาน!
 local TIMEOUTS = {
-	ControllerInit = 10, -- Max 10s per controller Init
-	ControllerStart = 10, -- Max 10s per controller Start
-	LayerInit = 30, -- Max 30s per layer Init
-	LayerStart = 30, -- Max 30s per layer Start
+	ControllerInit = 10,
+	ControllerStart = 10,
+	LayerInit = 30,
+	LayerStart = 30,
 }
 
--- ✅ Structured storage for O(n) access
 local controllersByCategory: { [string]: { [string]: any } } = {
 	Core = {},
 	Inputs = {},
@@ -87,10 +69,6 @@ end
 function ControllerLocator:GetAll(): { [string]: any }
 	return self._registry
 end
-
--- ═══════════════════════════════════════════════════════════════
--- HELPER FUNCTIONS (NOW TIMEOUTS IS AVAILABLE!)
--- ═══════════════════════════════════════════════════════════════
 
 local function loadControllersFromFolder(folder: Folder, categoryName: string, skipInProduction: boolean?): { any }
 	print(`[Init.client] Loading {categoryName} controllers...`)
@@ -141,12 +119,6 @@ local function loadControllersFromFolder(folder: Folder, categoryName: string, s
 	return controllers
 end
 
---[[]
-    Initialize a single controller with timeout protection
-    @param controller table - Controller instance
-    @param timeout number? - Timeout in seconds (default 10s)
-    @return Promise<boolean>
-]]
 local function initController(controller: any, timeout: number?): any
 	timeout = timeout or TIMEOUTS.ControllerInit -- ✅ NOW THIS WORKS!
 
@@ -196,12 +168,6 @@ local function initController(controller: any, timeout: number?): any
 		end)
 end
 
---[[]
-    Start a single controller with timeout protection
-    @param controller table - Controller instance
-    @param timeout number? - Timeout in seconds (default 10s)
-    @return Promise<boolean>
-]]
 local function startController(controller: any, timeout: number?): any
 	timeout = timeout or TIMEOUTS.ControllerStart -- ✅ NOW THIS WORKS!
 
@@ -245,10 +211,6 @@ local function startController(controller: any, timeout: number?): any
 		end)
 end
 
--- ═══════════════════════════════════════════════════════════════
--- LOAD CONTROLLERS (BY CATEGORY) + REGISTER IN LOCATOR
--- ═══════════════════════════════════════════════════════════════
-
 print("\n[Init.client] 📦 Loading controllers by category...")
 print(
 	"═════════════════════════════════════════════════════════"
@@ -270,10 +232,6 @@ for qualifiedKey, controller in pairs(controllersFlat) do
 	ControllerLocator:Register(controller._name, controller)
 end
 print(`[Init.client] ✅ Registered {#controllersFlat} controllers`)
-
--- ═══════════════════════════════════════════════════════════════
--- INITIALIZE CONTROLLERS (WITH TIMEOUTS)
--- ═══════════════════════════════════════════════════════════════
 
 print("\n[Init.client] 🔧 Initializing controllers...")
 print(
@@ -369,18 +327,13 @@ Promise
 				return Promise.resolve()
 			end)
 	end)
-	-- ═══════════════════════════════════════════════════════════
-	-- START CONTROLLERS (WITH TIMEOUTS)
-	-- ═══════════════════════════════════════════════════════════
-	:andThen(
-		function()
-			print("\n[Init.client] ▶️ Starting controllers...")
-			print(
-				"═════════════════════════════════════════════════════════"
-			)
-			return Promise.resolve()
-		end
-	)
+	:andThen(function()
+		print("\n[Init.client] ▶️ Starting controllers...")
+		print(
+			"═════════════════════════════════════════════════════════"
+		)
+		return Promise.resolve()
+	end)
 	-- Start Core
 	:andThen(function()
 		local promises = {}
@@ -431,75 +384,60 @@ Promise
 			return Promise.resolve()
 		end)
 	end)
-	-- ═══════════════════════════════════════════════════════════
-	-- FINALIZE
-	-- ═══════════════════════════════════════════════════════════
-	:andThen(
-		function()
-			if not bootGuard:MarkStarted() then
-				warn("[Init.client] ⚠️ Failed to mark boot as started")
-			end
-
-			local bootTime = os.clock() - bootStartTime
-
-			print(
-				"\n═════════════════════════════════════════════════════════"
-			)
-			print("✅ All controllers initialized and started successfully.")
-			print(string.format("⏱️ Total boot time: %.3fs", bootTime))
-			print(
-				"═════════════════════════════════════════════════════════"
-			)
-
-			-- Print category breakdown
-			print("\n📊 Category Timing Breakdown:")
-			print(
-				"─────────────────────────────────────────────────────────"
-			)
-			for category, time in pairs(categoryTimes) do
-				local percentage = (time / bootTime) * 100
-				print(string.format("  %s: %.3fs (%.1f%%)", category, time, percentage))
-			end
-			print(
-				"─────────────────────────────────────────────────────────\n"
-			)
-
-			-- Print Guard summary
-			if IdempotentGuard and IdempotentGuard.printSummary then
-				IdempotentGuard.printSummary(bootGuard)
-			end
+	:andThen(function()
+		if not bootGuard:MarkStarted() then
+			warn("[Init.client] ⚠️ Failed to mark boot as started")
 		end
-	)
-	-- ═══════════════════════════════════════════════════════════
-	-- ERROR HANDLING
-	-- ═══════════════════════════════════════════════════════════
-	:catch(
-		function(err)
-			error(`[Init.client] ❌ CRITICAL ERROR during boot: {err}`)
-		end
-	)
-	-- ═══════════════════════════════════════════════════════════
-	-- FINALLY (always runs)
-	-- ═══════════════════════════════════════════════════════════
-	:finally(
-		function()
-			print(`\n⏱️  Boot completed at: {os.date("%X", os.time())}`)
 
-			if not IS_PRODUCTION or RunService:IsStudio() then
-				_G.Controllers = controllersFlat
-				_G.ControllersByCategory = controllersByCategory
-				_G.ControllerLocator = ControllerLocator -- ✅ NEW
-				_G.BootGuard = bootGuard
-				_G.IdempotentGuard = IdempotentGuard
-				_G.Promise = Promise
+		local bootTime = os.clock() - bootStartTime
 
-				print("[Init.client] 🔍 Debug mode enabled:")
-				print("  • _G.Controllers (flat, qualified keys)")
-				print("  • _G.ControllersByCategory (structured)")
-				print("  • _G.ControllerLocator (dependency injection)") -- ✅ NEW
-				print("  • _G.BootGuard (boot lifecycle)")
-				print("  • _G.IdempotentGuard (utility)")
-				print("  • _G.Promise (for testing)")
-			end
+		print(
+			"\n═════════════════════════════════════════════════════════"
+		)
+		print("✅ All controllers initialized and started successfully.")
+		print(string.format("⏱️ Total boot time: %.3fs", bootTime))
+		print(
+			"═════════════════════════════════════════════════════════"
+		)
+
+		-- Print category breakdown
+		print("\n📊 Category Timing Breakdown:")
+		print(
+			"─────────────────────────────────────────────────────────"
+		)
+		for category, time in pairs(categoryTimes) do
+			local percentage = (time / bootTime) * 100
+			print(string.format("  %s: %.3fs (%.1f%%)", category, time, percentage))
 		end
-	)
+		print(
+			"─────────────────────────────────────────────────────────\n"
+		)
+
+		-- Print Guard summary
+		if IdempotentGuard and IdempotentGuard.printSummary then
+			IdempotentGuard.printSummary(bootGuard)
+		end
+	end)
+	:catch(function(err)
+		error(`[Init.client] ❌ CRITICAL ERROR during boot: {err}`)
+	end)
+	:finally(function()
+		print(`\n⏱️  Boot completed at: {os.date("%X", os.time())}`)
+
+		if not IS_PRODUCTION or RunService:IsStudio() then
+			_G.Controllers = controllersFlat
+			_G.ControllersByCategory = controllersByCategory
+			_G.ControllerLocator = ControllerLocator -- ✅ NEW
+			_G.BootGuard = bootGuard
+			_G.IdempotentGuard = IdempotentGuard
+			_G.Promise = Promise
+
+			print("[Init.client] 🔍 Debug mode enabled:")
+			print("  • _G.Controllers (flat, qualified keys)")
+			print("  • _G.ControllersByCategory (structured)")
+			print("  • _G.ControllerLocator (dependency injection)") -- ✅ NEW
+			print("  • _G.BootGuard (boot lifecycle)")
+			print("  • _G.IdempotentGuard (utility)")
+			print("  • _G.Promise (for testing)")
+		end
+	end)

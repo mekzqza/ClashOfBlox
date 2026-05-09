@@ -1,17 +1,22 @@
-opt server_output = "src/ServerScriptService/Services/ZapServer.lua"
+opt server_output = "src/ServerScriptService/Services/Core/ZapServer.lua"
 opt client_output = "src/ReplicatedStorage/Shared/ZapClient.lua"
 
-
-event ApiRespone = {
-    from: Server,
+event PlayerRequestPalceBulidings = {
+    from: Client,
     type: Reliable,
     call: SingleAsync,
     data: struct {
-        Services: string.utf8,
-        Action: string.utf8,
-        Success: boolean,
-        KeyId: u8,
-        KeyValue:u8,
-        Message: string.utf8
+        BuildingTypeEnum: u8,
+        Position: Vector3
+    }
+}
+
+event PlayersCreateBuilding = {
+    from: Server,
+    type: Reliable,
+    call: ManyAsync,
+    data: struct {
+        BuildingTypeEnum: u8,
+        Position: Vector3
     }
 }
