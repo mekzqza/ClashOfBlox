@@ -97,22 +97,16 @@ local function startPlacement(buildType: string)
 
 		local halfHeight = primaryPart.Size.Y / 2
 
-		if GridController:Canplace(snapPos, dimention.Length, dimention.Width) then
-			for _, child in ipairs(indicatorModel:GetChildren()) do
+		local canPlace = GridController:Canplace(snapPos, dimention.Length, dimention.Width)
+		local color = if canPlace then Color3.new(0, 1, 0) else Color3.new(1, 0, 0)
+		for _, child in ipairs(indicatorModel:GetDescendants()) do
+			if child:IsA("BasePart") then
 				if child:IsA("UnionOperation") then
 					child.UsePartColor = true
-					child.Color = Color3.new(0, 1, 0)
 				end
-			end
-		else
-			for _, child in ipairs(indicatorModel:GetChildren()) do
-				if child:IsA("UnionOperation") then
-					child.UsePartColor = true
-					child.Color = Color3.new(1, 0, 0)
-				end
+				child.Color = color
 			end
 		end
-		-- แก้ไขตำแหน่งของ indicatorModel ให้ตรงกับ snapPos
 		indicatorModel:SetPrimaryPartCFrame(CFrame.new(snapPos.X, snapPos.Y + halfHeight, snapPos.Z) * templateRotation)
 	end)
 
@@ -156,7 +150,6 @@ function BuildingController:Start()
 	startPlacement(CONFIG.BUILDING_DEBUG)
 
 	-- EventBus:On(Events.LOCAL_CREATE_BUILDING, function(data)
-
 	-- end)
 end
 
