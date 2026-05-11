@@ -44,13 +44,14 @@ function BuildingController:_createBuilding(buildingType: string, snapPosition: 
 
 	local newBuilding = Template:Clone()
 	newBuilding.Parent = Workspace
-	local primaryPart: BasePart = newBuilding.PrimaryPart
+	local primaryPart: BasePart? = newBuilding.PrimaryPart
 	if not primaryPart then
 		warn(`[BuildingController] Building model with id {buildingType} does not have a PrimaryPart`)
 		return
 	end
+	local templateRotation = Template:GetPivot().Rotation
 	local halfHeight = primaryPart.Size.Y / 2
-	newBuilding:PivotTo(CFrame.new(snapPosition.X, snapPosition.Y + halfHeight, snapPosition.Z))
+	newBuilding:PivotTo(CFrame.new(snapPosition.X, snapPosition.Y + halfHeight, snapPosition.Z) * templateRotation)
 end
 
 function BuildingController:_requestPlaceBuilding(buildingType: string, position: Vector3)
@@ -154,6 +155,7 @@ function BuildingController:Init()
 end
 
 function BuildingController:Start()
+	task.wait(5)
 	self:_startPlacement(CONFIG.BUILDING_DEBUG)
 
 	-- EventBus:On(Events.LOCAL_CREATE_BUILDING, function(data)
