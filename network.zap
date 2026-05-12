@@ -20,3 +20,12 @@ event PlayersCreateBuilding = {
         Position: Vector3
     }
 }
+
+event AssingZoneOwner = {
+    from: Server,
+    type: Reliable,
+    call: SingleAsync,
+    data: struct {
+        FolderName:string.utf8 ,
+    }
+}

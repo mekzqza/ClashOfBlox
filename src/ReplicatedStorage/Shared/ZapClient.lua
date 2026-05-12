@@ -138,6 +138,9 @@ if not RunService:IsRunning() then
 		PlayerRequestPalceBulidings = table.freeze({
 			Fire = noop
 		}),
+		AssingZoneOwner = table.freeze({
+			SetCallback = noop
+		}),
 	}) :: Events
 end
 local remotes = ReplicatedStorage:WaitForChild("ZAP")
@@ -162,10 +165,11 @@ end
 
 RunService.Heartbeat:Connect(SendEvents)
 
-local reliable_events = table.create(1)
-local reliable_event_queue: { [number]: { any } } = table.create(1)
+local reliable_events = table.create(2)
+local reliable_event_queue: { [number]: { any } } = table.create(2)
 reliable_events[0] = {}
 reliable_event_queue[0] = {}
+reliable_event_queue[1] = {}
 reliable.OnClientEvent:Connect(function(buff, inst)
 	incoming_buff = buff
 	incoming_inst = inst
@@ -187,6 +191,20 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 				table.insert(reliable_event_queue[0], value)
 				if #reliable_event_queue[0] > 64 then
 					warn(`[ZAP] {#reliable_event_queue[0]} events in queue for PlayersCreateBuilding. Did you forget to attach a listener?`)
+				end
+			end
+		elseif id == 1 then -- AssingZoneOwner
+			local value
+			value = {  }
+			local len_1 = buffer.readu16(incoming_buff, read(2))
+			value["FolderName"] = buffer.readstring(incoming_buff, read(len_1), len_1)
+			assert(utf8.len(value["FolderName"]) ~= nil, "value is not valid utf-8")
+			if reliable_events[1] then
+				task.spawn(reliable_events[1], value)
+			else
+				table.insert(reliable_event_queue[1], value)
+				if #reliable_event_queue[1] > 64 then
+					warn(`[ZAP] {#reliable_event_queue[1]} events in queue for AssingZoneOwner. Did you forget to attach a listener?`)
 				end
 			end
 		else
@@ -229,6 +247,20 @@ local returns = {
 			buffer.writef32(outgoing_buff, outgoing_apos, Value["Position"].Y)
 			alloc(4)
 			buffer.writef32(outgoing_buff, outgoing_apos, Value["Position"].Z)
+		end,
+	},
+	AssingZoneOwner = {
+		SetCallback = function(Callback: (Value: ({
+			["FolderName"]: (string),
+		})) -> ()): () -> ()
+			reliable_events[1] = Callback
+			for _, value in reliable_event_queue[1] do
+				task.spawn(Callback, value)
+			end
+			reliable_event_queue[1] = {}
+			return function()
+				reliable_events[1] = nil
+			end
 		end,
 	},
 }

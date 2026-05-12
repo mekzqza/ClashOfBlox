@@ -26,6 +26,10 @@ local function BuildingSytem()
 			Position = data.Position,
 		})
 	end)
+
+	EventBus:On(Events.S2C_ASSING_ZONE_OWNER, function(data)
+		ZapServer.AssingZoneOwner.Fire(data.Player, { FolderName = data.FolderName })
+	end)
 end
 
 function ServerNetWorkHandler:Init()

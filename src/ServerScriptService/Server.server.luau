@@ -15,10 +15,9 @@ local Gameplay = Services:FindFirstChild("GamePlay")
 
 local CmdrService = require(Core.CmdrService)
 local ServerNetWorkHandler = require(Core.ServerNetWorkHandler)
-
 local Defrens = Gameplay:FindFirstChild("Defrens")
-local GridService = require(Defrens.GridService)
-local BuildingService = require(Defrens.BuildingService)
+local GridService = require(Defrens.GridService).new()
+local BuildingService = require(Defrens.BuildingService).new()
 
 local TIMEOUTS = {
 	ServiceInit = 15,

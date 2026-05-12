@@ -17,11 +17,15 @@ local function BuildingSystem()
 	end)
 
 	ZapClient.PlayersCreateBuilding.On(function(data)
-		EventBus:Emit(Events.LOCAL_CREATE_BUILDING,{
+		EventBus:Emit(Events.LOCAL_CREATE_BUILDING, {
 			BuildingType = GameEnum:GetBuildingTypeById(data.BuildingTypeEnum),
 			Position = data.Position,
 		})
-		end)
+	end)
+
+	ZapClient.AssingZoneOwner.SetCallback(function(Value: { FolderName: string })
+		EventBus:Emit(Events.LOCAL_ASSING_ZONE_OWNER, { FolderName = Value.FolderName })
+	end)
 end
 
 function ClientNetworkController:Init() end
