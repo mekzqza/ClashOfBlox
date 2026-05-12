@@ -46,9 +46,36 @@ local Buildings: BuildingData = {
 			Damage = 50,
 		},
 	},
+
+	["ElixirStorage_1"] = {
+		Width = 3,
+		Length = 3,
+	},
+	["ElixirCollector_1"] = {
+		Width = 3,
+		Length = 3,
+	},
+
+	["GoldMine_1"] = {
+		Width = 3,
+		Length = 3,
+	},
+	["GoldStorage_1"] = {
+		Width = 3,
+		Length = 3,
+	},
+
 	["Tree_1"] = {
 		Width = 2,
 		Length = 2,
+	},
+	["Barrack_1"] = {
+		Width = 3,
+		Length = 3,
+	},
+	["Campfire_1"] = {
+		Width = 4,
+		Length = 4,
 	},
 	["Builinghall_1"] = {
 		Width = 2,

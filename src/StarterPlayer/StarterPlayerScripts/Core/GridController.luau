@@ -131,7 +131,7 @@ end
 
 function GridController:Start()
 	EventBus:On(Events.LOCAL_ASSING_ZONE_OWNER, function(data)
-		self._PlayerFolder = self._Structure:WaitForChild(data.FolderName)
+		self._PlayerFolder = self._Structure:WaitForChild(data.FolderName, 30)
 		if not self._PlayerFolder or not self._PlayerFolder:IsA("Folder") then
 			warn(`[GridController] Player folder not found for folder: {data.FolderName}`)
 			return
@@ -142,6 +142,7 @@ function GridController:Start()
 			return
 		end
 		self:RegisterZone(self._GridPart)
+		warn(`[GridController] Registered grid zone for player folder: {data.FolderName}`)
 	end)
 end
 

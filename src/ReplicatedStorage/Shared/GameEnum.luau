@@ -6,6 +6,12 @@ local BuildingTypeById: { [number]: string } = {
 	[3] = "ArcherTower",
 	[4] = "Tree_1",
 	[5] = "Builinghall_1",
+	[6] = "Barrack_1",
+	[7] = "Campfire_1",
+	[8] = "ElixirStorage_1",
+	[9] = "ElixirCollector_1",
+	[10] = "GoldMine_1",
+	[11] = "GoldStorage_1",
 }
 
 local BuildingTypeIdByName: { [string]: number } = {}
