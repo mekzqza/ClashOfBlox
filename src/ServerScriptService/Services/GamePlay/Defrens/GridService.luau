@@ -28,11 +28,12 @@ function GridService.new()
 end
 
 function GridService:_AssignOwner(folderName: string, player: Player)
-	if self._GridStore[folderName] then
-		self._GridStore[folderName].owner = player
-		self._PlayerStore[player] = folderName
+	if not self._GridStore[folderName] then
+		warn(`[GridService] ❌ Invalid folderName: {folderName}`)
+		return
 	end
-
+	self._GridStore[folderName].owner = player
+	self._PlayerStore[player] = folderName
 	EventBus:Emit(Events.S2C_ASSING_ZONE_OWNER, { Player = player, FolderName = folderName })
 end
 

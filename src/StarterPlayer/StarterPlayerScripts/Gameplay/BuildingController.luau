@@ -23,7 +23,6 @@ function BuildingController.new()
 	self._renderConnection = nil
 	self._indicatorModel = nil
 	self._mouseConnettion = nil
-
 	return self
 end
 

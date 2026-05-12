@@ -50,6 +50,10 @@ local Buildings: BuildingData = {
 		Width = 2,
 		Length = 2,
 	},
+	["Builinghall_1"] = {
+		Width = 2,
+		Length = 2,
+	},
 }
 
 function BuildingConfig:GetBuildingDimensions(buildingType: string): { Width: number, Length: number }?

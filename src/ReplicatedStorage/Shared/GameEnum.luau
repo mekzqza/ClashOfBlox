@@ -5,6 +5,7 @@ local BuildingTypeById: { [number]: string } = {
 	[2] = "Cannon_1",
 	[3] = "ArcherTower",
 	[4] = "Tree_1",
+	[5] = "Builinghall_1",
 }
 
 local BuildingTypeIdByName: { [string]: number } = {}

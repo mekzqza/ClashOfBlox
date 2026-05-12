@@ -15,8 +15,8 @@ GridController.__index = GridController
 function GridController.new()
 	local self = setmetatable({}, GridController)
 	self._Structure = nil :: Folder?
-	self._PlayerFolder = nil :: Folder?
 	self._GridPart = nil
+	self._PlayerFolder = nil :: Folder?
 	self._validCells = {} :: { [string]: true }
 	self._occupiedCells = {} :: { [string]: true }
 	self._gridOriginX = 0
@@ -110,6 +110,11 @@ function GridController:SnapToGrid(position: Vector3, sizeX: number?, sizeZ: num
 	local snapZ = self._gridOriginZ + gridz * CONFIG.CELL_SIZE + sz * CONFIG.CELL_SIZE / 2
 
 	return Vector3.new(snapX, position.Y, snapZ)
+end
+
+--Api
+function GridController:GetPlayerFolder()
+	return self._PlayerFolder
 end
 
 function GridController:Init()

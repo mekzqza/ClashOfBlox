@@ -11,7 +11,7 @@ local BuildingService = {}
 BuildingService.__index = BuildingService
 function BuildingService.new()
 	local self = setmetatable({}, BuildingService)
-
+	self._BuildingStore = {}
 	return self
 end
 
