@@ -1,6 +1,8 @@
 --!strict
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
-local GridPart: BasePart = nil
+local Events = require(ReplicatedStorage.Shared.Events)
+local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
 
 local CONFIG = {
 	CELL_SIZE = 4,
@@ -12,6 +14,9 @@ local GridController = {}
 GridController.__index = GridController
 function GridController.new()
 	local self = setmetatable({}, GridController)
+	self._Structure = nil :: Folder?
+	self._PlayerFolder = nil :: Folder?
+	self._GridPart = nil
 	self._validCells = {} :: { [string]: true }
 	self._occupiedCells = {} :: { [string]: true }
 	self._gridOriginX = 0
@@ -112,20 +117,27 @@ function GridController:Init()
 	    wait for Server Send Folder that no owner for player to render Grid
 	--]]
 
-	local Structure = Workspace:WaitForChild("Map"):WaitForChild("Structure")
-	if not Structure then
+	self._Structure = Workspace:WaitForChild("Map"):WaitForChild("Structure")
+	if not self._Structure then
 		warn("[GridController] Structure folder not found in Workspace.Map")
 		return
 	end
-
-	GridPart = Structure:WaitForChild("Base1"):WaitForChild("GridPart"):WaitForChild("LogicPart")
-	if not GridPart or not GridPart:IsA("BasePart") then
-		warn(`[GridController] Grid part not found in Structure.{CONFIG.GRID_PART}`)
-		return
-	end
-	self:RegisterZone(GridPart)
 end
 
-function GridController:Start() end
+function GridController:Start()
+	EventBus:On(Events.LOCAL_ASSING_ZONE_OWNER, function(data)
+		self._PlayerFolder = self._Structure:WaitForChild(data.FolderName)
+		if not self._PlayerFolder or not self._PlayerFolder:IsA("Folder") then
+			warn(`[GridController] Player folder not found for folder: {data.FolderName}`)
+			return
+		end
+		self._GridPart = self._PlayerFolder:WaitForChild("GridPart"):WaitForChild(CONFIG.GRID_PART)
+		if not self._GridPart or not self._GridPart:IsA("BasePart") then
+			warn(`[GridController] Grid part not found for folder: {data.FolderName}`)
+			return
+		end
+		self:RegisterZone(self._GridPart)
+	end)
+end
 
 return GridController.new()

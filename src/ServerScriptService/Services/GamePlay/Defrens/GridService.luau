@@ -32,6 +32,8 @@ function GridService:_AssignOwner(folderName: string, player: Player)
 		self._GridStore[folderName].owner = player
 		self._PlayerStore[player] = folderName
 	end
+
+	EventBus:Emit(Events.S2C_ASSING_ZONE_OWNER, { Player = player, FolderName = folderName })
 end
 
 function GridService:_worldToGrid(position: Vector3): string

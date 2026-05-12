@@ -95,7 +95,7 @@ function BuildingController:_startPlacement(buildType: string)
 			return
 		end
 
-		local primaryPart: BasePart = self._indicatorModel.PrimaryPart
+		local primaryPart: BasePart? = self._indicatorModel.PrimaryPart
 		if not primaryPart then
 			return
 		end
@@ -155,9 +155,6 @@ function BuildingController:Init()
 end
 
 function BuildingController:Start()
-	task.wait(5)
-	self:_startPlacement(CONFIG.BUILDING_DEBUG)
-
 	-- EventBus:On(Events.LOCAL_CREATE_BUILDING, function(data)
 	-- end)
 

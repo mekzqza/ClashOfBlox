@@ -2,20 +2,25 @@
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Events = require(ReplicatedStorage.Shared.Events)
-local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
 local ServiceLocaltor = require(ServerScriptService.Utils.ServiceLocator)
+local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
+local GridService
+local BuildingTemplate
 
-local GridService = nil
-local BuildingTemplate = nil
 local BuildingService = {}
+BuildingService.__index = BuildingService
+function BuildingService.new()
+	local self = setmetatable({}, BuildingService)
+
+	return self
+end
 
 -- BoardCast to all client about building changes
 -- Update
 
 -- Deleted
 
--- Create
-local function BroadCastBuilding(player: Player, buildingType: string, position: Vector3)
+function BuildingService:_BroadCastBuilding(player: Player, buildingType: string, position: Vector3)
 	EventBus:Emit(Events.S2C_CREATE_BUILDING, {
 		Player = player,
 		BuildingType = buildingType,
@@ -23,13 +28,13 @@ local function BroadCastBuilding(player: Player, buildingType: string, position:
 	})
 end
 
-local function PlaceBuilding(player: Player, buildingType: string, position: Vector3)
+function BuildingService:_PlaceBuilding(player: Player, buildingType: string, position: Vector3)
 	local template = BuildingTemplate:FindFirstChild(buildingType, true)
 	if not template then
 		warn(`[BuildingService] ❌ Invalid buildingType: {buildingType}`)
 		return
 	end
-	BroadCastBuilding(player, buildingType, position)
+	self:_BroadCastBuilding(player, buildingType, position)
 end
 
 function BuildingService:Init()
@@ -48,7 +53,7 @@ end
 
 function BuildingService:Start()
 	EventBus:On(Events.LOCAL_PLAYER_REQUIRE_PLACE, function(data)
-		PlaceBuilding(data.Player, data.BuildingType, data.Position)
+		self:_PlaceBuilding(data.Player, data.BuildingType, data.Position)
 	end)
 end
 

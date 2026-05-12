@@ -2,8 +2,9 @@ local GameEnum = {}
 -- Enum maps
 local BuildingTypeById: { [number]: string } = {
 	[1] = "TownHall_1",
-	[2] = "Cannon",
+	[2] = "Cannon_1",
 	[3] = "ArcherTower",
+	[4] = "Tree_1",
 }
 
 local BuildingTypeIdByName: { [string]: number } = {}
