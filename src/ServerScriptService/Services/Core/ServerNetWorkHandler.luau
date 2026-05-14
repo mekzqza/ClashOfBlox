@@ -11,6 +11,12 @@ local guard = IdempotentGuard.new("ServerNetWorkHandler")
 
 local ServerNetWorkHandler = {}
 
+local function DataLayer()
+	ZapServer.ClientReady.SetCallback(function(player: Player)
+		EventBus:Emit(Events.LOCAL_CLIENT_READY, player)
+	end)
+end
+
 local function BuildingSytem()
 	ZapServer.PlayerRequestPalceBulidings.SetCallback(function(player, data)
 		EventBus:Emit(Events.LOCAL_PLAYER_REQUIRE_PLACE, {
@@ -44,6 +50,7 @@ function ServerNetWorkHandler:Start()
 	end
 
 	BuildingSytem()
+	DataLayer()
 end
 
 return ServerNetWorkHandler

@@ -144,6 +144,9 @@ if not RunService:IsRunning() then
 		PlayerRequestPalceBulidings = table.freeze({
 			SetCallback = noop
 		}),
+		ClientReady = table.freeze({
+			SetCallback = noop
+		}),
 		AssingZoneOwner = table.freeze({
 			Fire = noop,
 			FireAll = noop,
@@ -200,7 +203,7 @@ end
 
 RunService.Heartbeat:Connect(SendEvents)
 
-local reliable_events = table.create(1)
+local reliable_events = table.create(2)
 reliable.OnServerEvent:Connect(function(player, buff, inst)
 	incoming_buff = buff
 	incoming_inst = inst
@@ -216,6 +219,11 @@ reliable.OnServerEvent:Connect(function(player, buff, inst)
 			value["Position"] = Vector3.new(buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)))
 			if reliable_events[0] then
 				task.spawn(reliable_events[0], player, value)
+			end
+		elseif id == 1 then -- ClientReady
+			local value
+			if reliable_events[1] then
+				task.spawn(reliable_events[1], player, value)
 			end
 		else
 			error("Unknown event id")
@@ -352,6 +360,14 @@ local returns = {
 			reliable_events[0] = Callback
 			return function()
 				reliable_events[0] = nil
+			end
+		end,
+	},
+	ClientReady = {
+		SetCallback = function(Callback: (Player: Player) -> ()): () -> ()
+			reliable_events[1] = Callback
+			return function()
+				reliable_events[1] = nil
 			end
 		end,
 	},

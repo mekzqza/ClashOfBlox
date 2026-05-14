@@ -3,6 +3,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
+local Events = require(ReplicatedStorage.Shared.Events)
+local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
+
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 local Promise = require(Packages.Promise)
 
@@ -303,30 +306,6 @@ Promise
 			end)
 			:timeout(TIMEOUTS.LayerInit)
 	end)
-	-- 4️⃣ Dev Layer (optional)
-	:andThen(function()
-		if IS_PRODUCTION then
-			return Promise.resolve()
-		end
-
-		print("[Init.client] 4️⃣ Dev Layer...")
-		local startTime = os.clock()
-
-		local promises = {}
-		for _, controller in pairs(controllersByCategory.Dev) do
-			table.insert(promises, initController(controller))
-		end
-
-		return Promise.all(promises)
-			:andThen(function()
-				categoryTimes["Dev"] = os.clock() - startTime
-			end)
-			:timeout(TIMEOUTS.LayerInit)
-			:catch(function(err)
-				warn(`[Init.client] ⚠️ Dev Layer failed: {err}`)
-				return Promise.resolve()
-			end)
-	end)
 	:andThen(function()
 		print("\n[Init.client] ▶️ Starting controllers...")
 		print(
@@ -367,22 +346,6 @@ Promise
 		end
 
 		return Promise.all(promises):timeout(TIMEOUTS.LayerStart)
-	end)
-	-- Start Dev (optional)
-	:andThen(function()
-		if IS_PRODUCTION then
-			return Promise.resolve()
-		end
-
-		local promises = {}
-		for _, controller in pairs(controllersByCategory.Dev) do
-			table.insert(promises, startController(controller))
-		end
-
-		return Promise.all(promises):timeout(TIMEOUTS.LayerStart):catch(function(err)
-			warn(`[Init.client] ⚠️ Dev controllers start failed: {err}`)
-			return Promise.resolve()
-		end)
 	end)
 	:andThen(function()
 		if not bootGuard:MarkStarted() then
@@ -440,4 +403,6 @@ Promise
 			print("  • _G.IdempotentGuard (utility)")
 			print("  • _G.Promise (for testing)")
 		end
+		EventBus:Emit(Events.C2S_CLIENT_READY)
+		warn("[Init.client] this Emit Is waiting for production now is For testing !")
 	end)

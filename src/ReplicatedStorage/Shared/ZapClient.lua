@@ -138,6 +138,9 @@ if not RunService:IsRunning() then
 		PlayerRequestPalceBulidings = table.freeze({
 			Fire = noop
 		}),
+		ClientReady = table.freeze({
+			Fire = noop
+		}),
 		AssingZoneOwner = table.freeze({
 			SetCallback = noop
 		}),
@@ -247,6 +250,12 @@ local returns = {
 			buffer.writef32(outgoing_buff, outgoing_apos, Value["Position"].Y)
 			alloc(4)
 			buffer.writef32(outgoing_buff, outgoing_apos, Value["Position"].Z)
+		end,
+	},
+	ClientReady = {
+		Fire = function()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
 		end,
 	},
 	AssingZoneOwner = {

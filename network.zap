@@ -29,3 +29,9 @@ event AssingZoneOwner = {
         FolderName:string.utf8 ,
     }
 }
+
+event ClientReady = {
+    from: Client,
+    type: Reliable,
+    call: SingleAsync,
+}

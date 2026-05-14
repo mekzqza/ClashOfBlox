@@ -25,6 +25,7 @@ local BuildingController = {}
 BuildingController.__index = BuildingController
 function BuildingController.new()
 	local self = setmetatable({}, BuildingController)
+	self._buildings = {} :: { [string]: string }
 	self._isPlacing = false
 	self._renderConnection = nil
 	self._indicatorModel = nil

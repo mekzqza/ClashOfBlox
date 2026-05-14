@@ -8,6 +8,12 @@ local ZapClient = require(ReplicatedStorage.Shared.ZapClient)
 
 local ClientNetworkController = {}
 
+local function DataLayer()
+	EventBus:On(Events.C2S_CLIENT_READY, function()
+		ZapClient.ClientReady.Fire()
+	end)
+end
+
 local function BuildingSystem()
 	EventBus:On(Events.C2S_PLAYER_REQUEST_PLACE, function(data)
 		ZapClient.PlayerRequestPalceBulidings.Fire({
@@ -32,6 +38,7 @@ function ClientNetworkController:Init() end
 
 function ClientNetworkController:Start()
 	BuildingSystem()
+	DataLayer()
 end
 
 return ClientNetworkController

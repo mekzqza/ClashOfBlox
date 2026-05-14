@@ -19,13 +19,19 @@ function GridController.new()
 	self._PlayerFolder = nil :: Folder?
 	self._validCells = {} :: { [string]: true }
 	self._occupiedCells = {} :: { [string]: true }
-	self._gridOriginX = 0
-	self._gridOriginZ = 0
+	self._gridOriginX = 0 :: number
+	self._gridOriginZ = 0 :: number
 	return self
 end
 
 function GridController:_gridKeyfromCoords(gridx: number, gridz: number): string
 	return `{gridx},{gridz}`
+end
+
+function GridController:GridCoordsToWorld(startX: number, startZ: number, sizeX: number, sizeZ: number): Vector3
+	local x = self._gridOriginX + startX * CONFIG.CELL_SIZE + sizeX * CONFIG.CELL_SIZE / 2
+	local z = self._gridOriginZ + startZ * CONFIG.CELL_SIZE + sizeZ * CONFIG.CELL_SIZE / 2
+	return Vector3.new(x, 0, z)
 end
 
 function GridController:RegisterZone(part: BasePart)
@@ -41,7 +47,7 @@ function GridController:RegisterZone(part: BasePart)
 	end
 end
 
-function GridController:_getFootPrintStart(position: Vector3, sizeX: number?, sizeZ: number?)
+function GridController:GetFootPrintStart(position: Vector3, sizeX: number?, sizeZ: number?)
 	local halfX = (sizeX or 1) * CONFIG.CELL_SIZE / 2
 	local halfZ = (sizeZ or 1) * CONFIG.CELL_SIZE / 2
 	local startX = math.floor((position.X - self._gridOriginX - halfX) / CONFIG.CELL_SIZE)
@@ -52,7 +58,7 @@ end
 function GridController:Canplace(position: Vector3, sizeX: number?, sizeZ: number?): boolean
 	local sx = sizeX or 1
 	local sz = sizeZ or 1
-	local startX, startZ = self:_getFootPrintStart(position, sx, sz)
+	local startX, startZ = self:GetFootPrintStart(position, sx, sz)
 
 	for x = 0, sx - 1 do
 		for z = 0, sz - 1 do
@@ -72,7 +78,7 @@ end
 function GridController:occupyCell(position: Vector3, sizeX: number?, sizeZ: number?)
 	local sx = sizeX or 1
 	local sz = sizeZ or 1
-	local startX, startZ = self:_getFootPrintStart(position, sx, sz)
+	local startX, startZ = self:GetFootPrintStart(position, sx, sz)
 
 	for x = 0, sx - 1 do
 		for z = 0, sz - 1 do
@@ -87,7 +93,7 @@ end
 function GridController:freeCell(position: Vector3, sizeX: number?, sizeZ: number?)
 	local sx = sizeX or 1
 	local sz = sizeZ or 1
-	local startX, startZ = self:_getFootPrintStart(position, sx, sz)
+	local startX, startZ = self:GetFootPrintStart(position, sx, sz)
 
 	for x = 0, sx - 1 do
 		for z = 0, sz - 1 do
