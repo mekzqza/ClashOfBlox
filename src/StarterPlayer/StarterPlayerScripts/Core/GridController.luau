@@ -3,17 +3,21 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local Events = require(ReplicatedStorage.Shared.Events)
 local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
+local Promise = require(ReplicatedStorage.Packages.Promise)
 
 local CONFIG = {
 	CELL_SIZE = 4,
 	BASE_DEBUG = "Base1",
 	GRID_PART = "LogicPart",
+	READY_TIMEOUT = 10,
 }
 
 local GridController = {}
 GridController.__index = GridController
 function GridController.new()
 	local self = setmetatable({}, GridController)
+	self._isReady = false
+	self._onReadyCallback = nil :: ((BasePart) -> ())?
 	self._Structure = nil :: Folder?
 	self._GridPart = nil
 	self._PlayerFolder = nil :: Folder?
@@ -21,6 +25,7 @@ function GridController.new()
 	self._occupiedCells = {} :: { [string]: true }
 	self._gridOriginX = 0 :: number
 	self._gridOriginZ = 0 :: number
+	self._gridSurfaceY = 0 :: number
 	return self
 end
 
@@ -31,12 +36,13 @@ end
 function GridController:GridCoordsToWorld(startX: number, startZ: number, sizeX: number, sizeZ: number): Vector3
 	local x = self._gridOriginX + startX * CONFIG.CELL_SIZE + sizeX * CONFIG.CELL_SIZE / 2
 	local z = self._gridOriginZ + startZ * CONFIG.CELL_SIZE + sizeZ * CONFIG.CELL_SIZE / 2
-	return Vector3.new(x, 0, z)
+	return Vector3.new(x, self._gridSurfaceY, z)
 end
 
 function GridController:RegisterZone(part: BasePart)
 	self._gridOriginX = part.Position.X - part.Size.X / 2
 	self._gridOriginZ = part.Position.Z - part.Size.Z / 2
+	self._gridSurfaceY = part.Position.Y + part.Size.Y / 2
 	local xCells = math.ceil(part.Size.X / CONFIG.CELL_SIZE)
 	local zCells = math.ceil(part.Size.Z / CONFIG.CELL_SIZE)
 
@@ -44,6 +50,12 @@ function GridController:RegisterZone(part: BasePart)
 		for z = 0, zCells - 1 do
 			self._validCells[self:_gridKeyfromCoords(x, z)] = true
 		end
+	end
+
+	self._isReady = true
+	if self._onReadyCallback then
+		self._onReadyCallback(part)
+		self._onReadyCallback = nil
 	end
 end
 
@@ -135,6 +147,27 @@ function GridController:Init()
 	end
 end
 
+function GridController:WaitForGridPartReady(timeout: number?): any
+	timeout = timeout or CONFIG.READY_TIMEOUT
+
+	return Promise.new(function(resolve, reject)
+		if self._isReady and self._GridPart then
+			resolve(self._GridPart)
+			return
+		end
+
+		self._onReadyCallback = resolve
+	end)
+		:timeout(timeout)
+		:catch(function(err)
+			if Promise.Error.isKind(err, Promise.Error.Kind.TimedOut) then
+				warn(`[PlayerDataController] ⏱️ TIMEOUT: Data not received in {timeout}s`)
+				return nil
+			end
+			error(err)
+		end)
+end
+
 function GridController:Start()
 	EventBus:On(Events.LOCAL_ASSING_ZONE_OWNER, function(data)
 		self._PlayerFolder = self._Structure:WaitForChild(data.FolderName, 30)
@@ -148,7 +181,6 @@ function GridController:Start()
 			return
 		end
 		self:RegisterZone(self._GridPart)
-		warn(`[GridController] Registered grid zone for player folder: {data.FolderName}`)
 	end)
 end
 

@@ -157,8 +157,27 @@ function BuildingController:_startPlacement(buildType: string)
 			self:_createBuilding(buildType, snapPos)
 			self:_createFootPrints(snapPos, dimention.Length * dimention.Width)
 			GridController:occupyCell(snapPos, dimention.Length, dimention.Width)
+
+			local startX, startZ = GridController:GetFootPrintStart(snapPos, dimention.Length, dimention.Width)
+			self._buildings[`{startX}_{startZ}`] = buildType
 		end
 	end)
+end
+
+function BuildingController:RecreateBuildings(snapPosition: string, buildingType: string)
+	local startX, startZ = string.match(snapPosition, "(-?%d+)_(-?%d+)")
+	local dimention = BuildingConfig:GetBuildingDimensions(buildingType)
+	if not dimention then
+		warn(`[BuildingController] Building config with id {buildingType} not found in BuildingConfig`)
+		return
+	end
+
+	local worldPos =
+		GridController:GridCoordsToWorld(tonumber(startX), tonumber(startZ), dimention.Length, dimention.Width)
+
+	self:_createBuilding(buildingType, worldPos)
+	self:_createFootPrints(worldPos, dimention.Length * dimention.Width)
+	GridController:occupyCell(worldPos, dimention.Length, dimention.Width)
 end
 
 function BuildingController:_stopPlacement()
@@ -200,6 +219,10 @@ function BuildingController:Start()
 		warn(`[BuildingController] Test building: {building}`)
 		self:_stopPlacement()
 		self:_startPlacement(building)
+	end)
+
+	GridController:WaitForGridPartReady():andThen(function(GridPart)
+		-- self:RecreateBuildings("0_0", "TownHall_1")
 	end)
 end
 

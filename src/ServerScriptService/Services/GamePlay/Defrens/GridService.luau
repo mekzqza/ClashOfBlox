@@ -149,7 +149,6 @@ function GridService:Start()
 		for folderName, data in pairs(self._GridStore) do
 			if not data.owner then
 				self:_AssignOwner(folderName, player)
-				warn(`[GridService] Assigned folder {folderName} to player {player.Name}`)
 				break
 			end
 		end
