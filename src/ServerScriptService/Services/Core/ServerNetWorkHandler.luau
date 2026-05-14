@@ -21,7 +21,8 @@ local function BuildingSytem()
 	ZapServer.PlayerRequestPalceBulidings.SetCallback(function(player, data)
 		EventBus:Emit(Events.LOCAL_PLAYER_REQUIRE_PLACE, {
 			Player = player,
-			BuildingType = GameEnum:GetBuildingTypeById(data.BuildingTypeEnum),
+			SnapToString = data.SnapToString,
+			BuildingTypeEnum = data.BuildingTypeEnum,
 			Position = data.Position,
 		})
 	end)

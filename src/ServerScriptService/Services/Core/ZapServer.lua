@@ -215,6 +215,9 @@ reliable.OnServerEvent:Connect(function(player, buff, inst)
 		if id == 0 then -- PlayerRequestPalceBulidings
 			local value
 			value = {  }
+			local len_1 = buffer.readu16(incoming_buff, read(2))
+			value["SnapToString"] = buffer.readstring(incoming_buff, read(len_1), len_1)
+			assert(utf8.len(value["SnapToString"]) ~= nil, "value is not valid utf-8")
 			value["BuildingTypeEnum"] = buffer.readu8(incoming_buff, read(1))
 			value["Position"] = Vector3.new(buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)))
 			if reliable_events[0] then
@@ -354,6 +357,7 @@ local returns = {
 	},
 	PlayerRequestPalceBulidings = {
 		SetCallback = function(Callback: (Player: Player, Value: ({
+			["SnapToString"]: (string),
 			["BuildingTypeEnum"]: (number),
 			["Position"]: (Vector3),
 		})) -> ()): () -> ()
@@ -378,12 +382,12 @@ local returns = {
 			load_player(Player)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
-			local len_1 = #Value["FolderName"]
+			local len_2 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_1)
-			alloc(len_1)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_1)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_2)
+			alloc(len_2)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_2)
 			player_map[Player] = save()
 		end,
 		FireAll = function(Value: ({
@@ -392,12 +396,12 @@ local returns = {
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
-			local len_2 = #Value["FolderName"]
+			local len_3 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_2)
-			alloc(len_2)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_3)
+			alloc(len_3)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_3)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				load_player(player)
@@ -413,12 +417,12 @@ local returns = {
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
-			local len_3 = #Value["FolderName"]
+			local len_4 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_3)
-			alloc(len_3)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_3)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_4)
+			alloc(len_4)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_4)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				if player ~= Except then
@@ -436,12 +440,12 @@ local returns = {
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
-			local len_4 = #Value["FolderName"]
+			local len_5 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_4)
-			alloc(len_4)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_4)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_5)
+			alloc(len_5)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_5)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in List do
 				load_player(player)
@@ -457,12 +461,12 @@ local returns = {
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
-			local len_5 = #Value["FolderName"]
+			local len_6 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_5)
-			alloc(len_5)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_5)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_6)
+			alloc(len_6)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_6)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for player in Set do
 				load_player(player)

@@ -237,11 +237,18 @@ local returns = {
 	},
 	PlayerRequestPalceBulidings = {
 		Fire = function(Value: ({
+			["SnapToString"]: (string),
 			["BuildingTypeEnum"]: (number),
 			["Position"]: (Vector3),
 		}))
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			local len_2 = #Value["SnapToString"]
+			assert(utf8.len(Value["SnapToString"]) ~= nil, "value is not valid utf-8")
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_2)
+			alloc(len_2)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["SnapToString"], len_2)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["BuildingTypeEnum"])
 			alloc(4)

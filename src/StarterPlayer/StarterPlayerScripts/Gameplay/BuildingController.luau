@@ -79,8 +79,9 @@ function BuildingController:_createBuilding(buildingType: string, snapPosition: 
 	newBuilding:PivotTo(CFrame.new(snapPosition.X, snapPosition.Y + halfHeight, snapPosition.Z) * templateRotation)
 end
 
-function BuildingController:_requestPlaceBuilding(buildingType: string, position: Vector3)
+function BuildingController:_requestPlaceBuilding(snapToString: string, buildingType: string, position: Vector3)
 	EventBus:Emit(Events.C2S_PLAYER_REQUEST_PLACE, {
+		SnapToString = snapToString,
 		BuildingType = buildingType,
 		Position = position,
 	})
@@ -153,12 +154,12 @@ function BuildingController:_startPlacement(buildType: string)
 	self._mouseConnettion = mouse.Button1Down:Connect(function()
 		local snapPos = GridController:SnapToGrid(mouse.Hit.Position, dimention.Length, dimention.Width) :: Vector3
 		if GridController:Canplace(snapPos, dimention.Length, dimention.Width) then
-			self:_requestPlaceBuilding(buildType, snapPos)
+			local startX, startZ = GridController:GetFootPrintStart(snapPos, dimention.Length, dimention.Width)
+			self:_requestPlaceBuilding(`{startX}_{startZ}`, buildType, snapPos)
 			self:_createBuilding(buildType, snapPos)
 			self:_createFootPrints(snapPos, dimention.Length * dimention.Width)
 			GridController:occupyCell(snapPos, dimention.Length, dimention.Width)
 
-			local startX, startZ = GridController:GetFootPrintStart(snapPos, dimention.Length, dimention.Width)
 			self._buildings[`{startX}_{startZ}`] = buildType
 		end
 	end)

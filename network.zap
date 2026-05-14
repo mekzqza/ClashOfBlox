@@ -6,6 +6,7 @@ event PlayerRequestPalceBulidings = {
     type: Reliable,
     call: SingleAsync,
     data: struct {
+        SnapToString: string.utf8,
         BuildingTypeEnum: u8,
         Position: Vector3
     }
