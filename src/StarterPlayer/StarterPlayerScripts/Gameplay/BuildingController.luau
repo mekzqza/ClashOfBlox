@@ -12,7 +12,13 @@ local Player = Players.LocalPlayer
 local GridController = nil
 local BuildingTemplate = nil
 local CONFIG = {
-	BUILDING_DEBUG = "TownHall_1",
+	FOOTPRINTS_TEMPLATE = "FootPrints",
+	FOOTPRINTS = {
+		[1] = "1*1Grid",
+		[4] = "2*2Grid",
+		[9] = "3*3Grid",
+		[16] = "4*4Grid",
+	},
 }
 
 local BuildingController = {}
@@ -23,11 +29,30 @@ function BuildingController.new()
 	self._renderConnection = nil
 	self._indicatorModel = nil
 	self._mouseConnettion = nil
+	self._footPrintindicator = nil
 	return self
 end
 
 function BuildingController:SetDependencies(locator)
 	GridController = locator:Get("GridController")
+end
+
+function BuildingController:_createFootPrints(position: Vector3, size: number)
+	local template = BuildingTemplate:FindFirstChild(CONFIG.FOOTPRINTS_TEMPLATE, true)
+	if not template then
+		warn(`[BuildingController] Footprints template not found in BuildingTemplate`)
+		return
+	end
+
+	local newFootPrint: BasePart = template:FindFirstChild(CONFIG.FOOTPRINTS[size], true):Clone()
+	if not newFootPrint then
+		warn(`[BuildingController] Footprints model with size {size} not found in BuildingTemplate`)
+		return
+	end
+
+	local haffHeight = newFootPrint.Size.Y / 2
+	newFootPrint.Parent = Workspace
+	newFootPrint.CFrame = CFrame.new(position.X, position.Y + haffHeight, position.Z)
 end
 
 function BuildingController:_createBuilding(buildingType: string, snapPosition: Vector3)
@@ -77,11 +102,22 @@ function BuildingController:_startPlacement(buildType: string)
 		return
 	end
 	self._indicatorModel = Template:Clone()
-
+	self._footPrintindicator = BuildingTemplate:FindFirstChild(CONFIG.FOOTPRINTS_TEMPLATE, true)
+		:FindFirstChild(CONFIG.FOOTPRINTS[dimention.Length * dimention.Width], true)
+		:Clone()
+	self._footPrintindicator.Parent = self._indicatorModel
 	local templateRotation = Template:GetPivot().Rotation
 
 	self._indicatorModel.Parent = Workspace
 	self._isPlacing = true
+
+	local primaryPart: BasePart? = self._indicatorModel.PrimaryPart
+	if not primaryPart then
+		return
+	end
+
+	local indicatorModelhalfHeight = primaryPart.Size.Y / 2
+	local footPrintindicatorhalfHeight = self._footPrintindicator.Size.Y / 2
 
 	self._renderConnection = RunService.RenderStepped:Connect(function()
 		local mouse = Player:GetMouse()
@@ -94,14 +130,7 @@ function BuildingController:_startPlacement(buildType: string)
 			return
 		end
 
-		local primaryPart: BasePart? = self._indicatorModel.PrimaryPart
-		if not primaryPart then
-			return
-		end
-
 		local snapPos = GridController:SnapToGrid(mouse.Hit.Position, dimention.Length, dimention.Width) :: Vector3
-
-		local halfHeight = primaryPart.Size.Y / 2
 
 		local canPlace = GridController:Canplace(snapPos, dimention.Length, dimention.Width)
 		local color = if canPlace then Color3.new(0, 1, 0) else Color3.new(1, 0, 0)
@@ -114,8 +143,9 @@ function BuildingController:_startPlacement(buildType: string)
 			end
 		end
 		self._indicatorModel:SetPrimaryPartCFrame(
-			CFrame.new(snapPos.X, snapPos.Y + halfHeight, snapPos.Z) * templateRotation
+			CFrame.new(snapPos.X, snapPos.Y + indicatorModelhalfHeight, snapPos.Z) * templateRotation
 		)
+		self._footPrintindicator.CFrame = CFrame.new(snapPos.X, snapPos.Y + footPrintindicatorhalfHeight, snapPos.Z)
 	end)
 
 	local mouse = Player:GetMouse()
@@ -124,15 +154,17 @@ function BuildingController:_startPlacement(buildType: string)
 		if GridController:Canplace(snapPos, dimention.Length, dimention.Width) then
 			self:_requestPlaceBuilding(buildType, snapPos)
 			self:_createBuilding(buildType, snapPos)
+			self:_createFootPrints(snapPos, dimention.Length * dimention.Width)
 			GridController:occupyCell(snapPos, dimention.Length, dimention.Width)
 		end
 	end)
 end
 
 function BuildingController:_stopPlacement()
-	self.isPlacing = false
+	self._isPlacing = false
 	if self._renderConnection then
 		self._renderConnection:Disconnect()
+		self._renderConnection = nil
 	end
 
 	if self._mouseConnettion then
@@ -142,6 +174,12 @@ function BuildingController:_stopPlacement()
 
 	if self._indicatorModel then
 		self._indicatorModel:Destroy()
+		self._indicatorModel = nil
+	end
+
+	if self._footPrintindicator then
+		self._footPrintindicator:Destroy()
+		self._footPrintindicator = nil
 	end
 end
 

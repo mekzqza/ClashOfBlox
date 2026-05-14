@@ -23,28 +23,11 @@ local Buildings: BuildingData = {
 	["TownHall_1"] = {
 		Width = 4,
 		Length = 4,
-		[1] = {
-			UpgradeCost = 0,
-			UpgradeTime = 0,
-			MaxHp = 1000,
-		},
-		[2] = {
-			UpgradeCost = 100,
-			UpgradeTime = 60,
-			MaxHp = 1200,
-		},
 	},
 
 	["Cannon_1"] = {
 		Width = 3,
 		Length = 3,
-		[1] = {
-			UpgradeCost = 50,
-			UpgradeTime = 30,
-			MaxHp = 500,
-			FireRange = 10,
-			Damage = 50,
-		},
 	},
 
 	["ElixirStorage_1"] = {

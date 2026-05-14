@@ -122,7 +122,7 @@ function GridController:Init()
 	    wait for Server Send Folder that no owner for player to render Grid
 	--]]
 
-	self._Structure = Workspace:WaitForChild("Map"):WaitForChild("Structure")
+	self._Structure = Workspace:WaitForChild("Map", 30):WaitForChild("Structure", 30)
 	if not self._Structure then
 		warn("[GridController] Structure folder not found in Workspace.Map")
 		return
@@ -136,7 +136,7 @@ function GridController:Start()
 			warn(`[GridController] Player folder not found for folder: {data.FolderName}`)
 			return
 		end
-		self._GridPart = self._PlayerFolder:WaitForChild("GridPart"):WaitForChild(CONFIG.GRID_PART)
+		self._GridPart = self._PlayerFolder:WaitForChild("GridPart", 30):WaitForChild(CONFIG.GRID_PART, 30)
 		if not self._GridPart or not self._GridPart:IsA("BasePart") then
 			warn(`[GridController] Grid part not found for folder: {data.FolderName}`)
 			return
