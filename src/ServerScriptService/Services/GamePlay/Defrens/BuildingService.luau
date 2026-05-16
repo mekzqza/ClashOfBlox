@@ -20,6 +20,17 @@ end
 -- Update
 -- Deleted
 
+local function MapTOArray(tbl: { [string]: any }): { [number]: any }
+	local arr = {}
+	for key, value in pairs(tbl) do
+		table.insert(arr, {
+			SnapToString = key,
+			BuildingTypeEnum = value[1], -- value = { buildingTypeEnum }
+		})
+	end
+	return arr
+end
+
 function BuildingService:_BroadCastBuilding(player: Player, buildingType: string, position: Vector3)
 	EventBus:Emit(Events.S2C_CREATE_BUILDING, {
 		Player = player,
@@ -43,13 +54,24 @@ function BuildingService:_PlaceBuilding(
 
 	self:_BroadCastBuilding(player, buildingType, position)
 
-	--[[
-	delta = {
-        ["0_0"] = {1,2,3,4,5},
-	    self:RecreateBuildings("0_0", "TownHall_1")
-	]]
 	self.PlayerDataService:Set(player, `PlayerBuildings.{snapTostring}`, { buildingTypeEnum })
-	warn(`[BuildingService] Player {player.Name} placed building {buildingType} at {snapTostring}`)
+end
+
+function BuildingService:SendSnapshotBuildings(player: Player)
+	local loaded = self.PlayerDataService:WaitForData(player, 10)
+	if not loaded then
+		warn(`[BuildingService] Timeout waiting for data: {player.Name}`)
+		return
+	end
+
+	local PlayerData = self.PlayerDataService:GetAll(player)
+	if not PlayerData then
+		warn(`[BuildingService] No player data found for player {player.Name} (ID: {player.UserId})`)
+		return
+	end
+
+	local ArrayBuilding = MapTOArray(PlayerData.PlayerBuildings)
+	EventBus:Emit(Events.S2C_SEND_BUILDING_SNAP_PLAYER, player, ArrayBuilding)
 end
 
 function BuildingService:Init()
@@ -75,6 +97,10 @@ end
 function BuildingService:Start()
 	EventBus:On(Events.LOCAL_PLAYER_REQUIRE_PLACE, function(data)
 		self:_PlaceBuilding(data.Player, data.SnapToString, data.BuildingTypeEnum, data.Position)
+	end)
+
+	EventBus:On(Events.LOCAL_CLIENT_READY, function(player)
+		self:SendSnapshotBuildings(player)
 	end)
 end
 

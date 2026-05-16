@@ -15,6 +15,10 @@ local function DataLayer()
 	ZapServer.ClientReady.SetCallback(function(player: Player)
 		EventBus:Emit(Events.LOCAL_CLIENT_READY, player)
 	end)
+
+	EventBus:On(Events.S2C_SEND_BUILDING_SNAP_PLAYER, function(player, Arraybuildings)
+		ZapServer.SnapshotBuildings.Fire(player, { FolderName = "asdasd", Buildings = Arraybuildings })
+	end)
 end
 
 local function BuildingSytem()

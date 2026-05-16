@@ -12,7 +12,7 @@ local ProfileService: any = nil
 
 export type PlayerData = {
 	_version: number,
-	PLayerBuildings: { [string]: number },
+	PlayerBuildings: { [string]: { number } },
 	Coins: number,
 }
 
@@ -24,8 +24,20 @@ function PlayerDataService.new()
 	self._PROFILE_STORE_NAME = "COB_PlayerData_v1"
 	self._DEFAULT_DATA = {
 		_version = self._DATA_VERSION,
-
-		PLayerBuildings = {},
+		PlayerBuildings = {
+			["18_24"] = {
+				7,
+			},
+			["23_20"] = {
+				1,
+			},
+			["29_23"] = {
+				5,
+			},
+			["26_26"] = {
+				10,
+			},
+		},
 		Coins = 0,
 	} :: PlayerData
 	self._ProfileStore = nil
@@ -277,8 +289,8 @@ function PlayerDataService:Start()
 
 	Players.PlayerAdded:Connect(function(player: Player)
 		self:_loadPlayerProfile(player)
-		warn(`[PlayerDataService] Player {player.Name} has {self:Get(player, "Coins")} coins`)
 	end)
+
 	Players.PlayerRemoving:Connect(function(player: Player)
 		self:_releasePlayerProfile(player)
 	end)

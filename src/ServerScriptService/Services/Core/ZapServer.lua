@@ -134,6 +134,13 @@ if not RunService:IsRunning() then
 	local noop = function() end
 	return table.freeze({
 		SendEvents = noop,
+		SnapshotBuildings = table.freeze({
+			Fire = noop,
+			FireAll = noop,
+			FireExcept = noop,
+			FireList = noop,
+			FireSet = noop
+		}),
 		PlayersCreateBuilding = table.freeze({
 			Fire = noop,
 			FireAll = noop,
@@ -184,6 +191,10 @@ end
 Players.PlayerRemoving:Connect(function(player)
 	player_map[player] = nil
 end)
+export type BuildingEntry = ({
+	["SnapToString"]: (string),
+	["BuildingTypeEnum"]: (number),
+})
 
 local function SendEvents()
 	for player, outgoing in player_map do
@@ -238,6 +249,198 @@ table.freeze(polling_queues_unreliable)
 
 local returns = {
 	SendEvents = SendEvents,
+	SnapshotBuildings = {
+		Fire = function(Player: Player, Value: ({
+			["FolderName"]: (string),
+			["Buildings"]: ({ ({
+				["SnapToString"]: (string),
+				["BuildingTypeEnum"]: (number),
+			}) }),
+		}))
+			load_player(Player)
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			local len_2 = #Value["FolderName"]
+			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_2)
+			alloc(len_2)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_2)
+			local len_3 = #Value["Buildings"]
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_3)
+			for i_1 = 1, len_3 do
+				local val_1 = Value["Buildings"][i_1]
+				local len_4 = #val_1["SnapToString"]
+				assert(utf8.len(val_1["SnapToString"]) ~= nil, "value is not valid utf-8")
+				alloc(2)
+				buffer.writeu16(outgoing_buff, outgoing_apos, len_4)
+				alloc(len_4)
+				buffer.writestring(outgoing_buff, outgoing_apos, val_1["SnapToString"], len_4)
+				alloc(1)
+				buffer.writeu8(outgoing_buff, outgoing_apos, val_1["BuildingTypeEnum"])
+			end
+			player_map[Player] = save()
+		end,
+		FireAll = function(Value: ({
+			["FolderName"]: (string),
+			["Buildings"]: ({ ({
+				["SnapToString"]: (string),
+				["BuildingTypeEnum"]: (number),
+			}) }),
+		}))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			local len_5 = #Value["FolderName"]
+			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_5)
+			alloc(len_5)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_5)
+			local len_6 = #Value["Buildings"]
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_6)
+			for i_2 = 1, len_6 do
+				local val_2 = Value["Buildings"][i_2]
+				local len_7 = #val_2["SnapToString"]
+				assert(utf8.len(val_2["SnapToString"]) ~= nil, "value is not valid utf-8")
+				alloc(2)
+				buffer.writeu16(outgoing_buff, outgoing_apos, len_7)
+				alloc(len_7)
+				buffer.writestring(outgoing_buff, outgoing_apos, val_2["SnapToString"], len_7)
+				alloc(1)
+				buffer.writeu8(outgoing_buff, outgoing_apos, val_2["BuildingTypeEnum"])
+			end
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in Players:GetPlayers() do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
+			end
+		end,
+		FireExcept = function(Except: Player, Value: ({
+			["FolderName"]: (string),
+			["Buildings"]: ({ ({
+				["SnapToString"]: (string),
+				["BuildingTypeEnum"]: (number),
+			}) }),
+		}))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			local len_8 = #Value["FolderName"]
+			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_8)
+			alloc(len_8)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_8)
+			local len_9 = #Value["Buildings"]
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_9)
+			for i_3 = 1, len_9 do
+				local val_3 = Value["Buildings"][i_3]
+				local len_10 = #val_3["SnapToString"]
+				assert(utf8.len(val_3["SnapToString"]) ~= nil, "value is not valid utf-8")
+				alloc(2)
+				buffer.writeu16(outgoing_buff, outgoing_apos, len_10)
+				alloc(len_10)
+				buffer.writestring(outgoing_buff, outgoing_apos, val_3["SnapToString"], len_10)
+				alloc(1)
+				buffer.writeu8(outgoing_buff, outgoing_apos, val_3["BuildingTypeEnum"])
+			end
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in Players:GetPlayers() do
+				if player ~= Except then
+					load_player(player)
+					alloc(used)
+					buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+					table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+					player_map[player] = save()
+				end
+			end
+		end,
+		FireList = function(List: { [unknown]: Player }, Value: ({
+			["FolderName"]: (string),
+			["Buildings"]: ({ ({
+				["SnapToString"]: (string),
+				["BuildingTypeEnum"]: (number),
+			}) }),
+		}))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			local len_11 = #Value["FolderName"]
+			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_11)
+			alloc(len_11)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_11)
+			local len_12 = #Value["Buildings"]
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_12)
+			for i_4 = 1, len_12 do
+				local val_4 = Value["Buildings"][i_4]
+				local len_13 = #val_4["SnapToString"]
+				assert(utf8.len(val_4["SnapToString"]) ~= nil, "value is not valid utf-8")
+				alloc(2)
+				buffer.writeu16(outgoing_buff, outgoing_apos, len_13)
+				alloc(len_13)
+				buffer.writestring(outgoing_buff, outgoing_apos, val_4["SnapToString"], len_13)
+				alloc(1)
+				buffer.writeu8(outgoing_buff, outgoing_apos, val_4["BuildingTypeEnum"])
+			end
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in List do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
+			end
+		end,
+		FireSet = function(Set: { [Player]: any }, Value: ({
+			["FolderName"]: (string),
+			["Buildings"]: ({ ({
+				["SnapToString"]: (string),
+				["BuildingTypeEnum"]: (number),
+			}) }),
+		}))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			local len_14 = #Value["FolderName"]
+			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_14)
+			alloc(len_14)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_14)
+			local len_15 = #Value["Buildings"]
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_15)
+			for i_5 = 1, len_15 do
+				local val_5 = Value["Buildings"][i_5]
+				local len_16 = #val_5["SnapToString"]
+				assert(utf8.len(val_5["SnapToString"]) ~= nil, "value is not valid utf-8")
+				alloc(2)
+				buffer.writeu16(outgoing_buff, outgoing_apos, len_16)
+				alloc(len_16)
+				buffer.writestring(outgoing_buff, outgoing_apos, val_5["SnapToString"], len_16)
+				alloc(1)
+				buffer.writeu8(outgoing_buff, outgoing_apos, val_5["BuildingTypeEnum"])
+			end
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for player in Set do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
+			end
+		end,
+	},
 	PlayersCreateBuilding = {
 		Fire = function(Player: Player, Value: ({
 			["BuildingTypeEnum"]: (number),
@@ -245,7 +448,7 @@ local returns = {
 		}))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["BuildingTypeEnum"])
 			alloc(4)
@@ -262,7 +465,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["BuildingTypeEnum"])
 			alloc(4)
@@ -286,7 +489,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["BuildingTypeEnum"])
 			alloc(4)
@@ -312,7 +515,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["BuildingTypeEnum"])
 			alloc(4)
@@ -336,7 +539,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["BuildingTypeEnum"])
 			alloc(4)
@@ -381,13 +584,13 @@ local returns = {
 		}))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
-			local len_2 = #Value["FolderName"]
+			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			local len_17 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_2)
-			alloc(len_2)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_17)
+			alloc(len_17)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_17)
 			player_map[Player] = save()
 		end,
 		FireAll = function(Value: ({
@@ -395,13 +598,13 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
-			local len_3 = #Value["FolderName"]
+			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			local len_18 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_3)
-			alloc(len_3)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_3)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_18)
+			alloc(len_18)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_18)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				load_player(player)
@@ -416,13 +619,13 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
-			local len_4 = #Value["FolderName"]
+			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			local len_19 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_4)
-			alloc(len_4)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_4)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_19)
+			alloc(len_19)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_19)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				if player ~= Except then
@@ -439,13 +642,13 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
-			local len_5 = #Value["FolderName"]
+			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			local len_20 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_5)
-			alloc(len_5)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_5)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_20)
+			alloc(len_20)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_20)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in List do
 				load_player(player)
@@ -460,13 +663,13 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
-			local len_6 = #Value["FolderName"]
+			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			local len_21 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_6)
-			alloc(len_6)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_6)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_21)
+			alloc(len_21)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_21)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for player in Set do
 				load_player(player)

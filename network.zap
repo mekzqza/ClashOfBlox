@@ -12,6 +12,21 @@ event PlayerRequestPalceBulidings = {
     }
 }
 
+type BuildingEntry = struct {
+    SnapToString: string.utf8,
+    BuildingTypeEnum: u8,
+}
+
+event SnapshotBuildings = {
+    from: Server,
+    type: Reliable,
+    call: SingleAsync,
+    data: struct {
+        FolderName: string.utf8,
+        Buildings: BuildingEntry[],
+    }
+}
+
 event PlayersCreateBuilding = {
     from: Server,
     type: Reliable,

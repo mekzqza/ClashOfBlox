@@ -13,6 +13,7 @@ local GridController = nil
 local BuildingTemplate = nil
 local CONFIG = {
 	FOOTPRINTS_TEMPLATE = "FootPrints",
+	HARD_CODE_HIGHT = 1,
 	FOOTPRINTS = {
 		[1] = "1*1Grid",
 		[4] = "2*2Grid",
@@ -53,7 +54,7 @@ function BuildingController:_createFootPrints(position: Vector3, size: number)
 
 	local haffHeight = newFootPrint.Size.Y / 2
 	newFootPrint.Parent = Workspace
-	newFootPrint.CFrame = CFrame.new(position.X, position.Y + haffHeight, position.Z)
+	newFootPrint.CFrame = CFrame.new(position.X, position.Y + haffHeight + CONFIG.HARD_CODE_HIGHT, position.Z)
 end
 
 function BuildingController:_createBuilding(buildingType: string, snapPosition: Vector3)
@@ -76,7 +77,10 @@ function BuildingController:_createBuilding(buildingType: string, snapPosition: 
 	end
 	local templateRotation = Template:GetPivot().Rotation
 	local halfHeight = primaryPart.Size.Y / 2
-	newBuilding:PivotTo(CFrame.new(snapPosition.X, snapPosition.Y + halfHeight, snapPosition.Z) * templateRotation)
+	newBuilding:PivotTo(
+		CFrame.new(snapPosition.X, snapPosition.Y + halfHeight + CONFIG.HARD_CODE_HIGHT, snapPosition.Z)
+			* templateRotation
+	)
 end
 
 function BuildingController:_requestPlaceBuilding(snapToString: string, buildingType: string, position: Vector3)
@@ -222,8 +226,14 @@ function BuildingController:Start()
 		self:_startPlacement(building)
 	end)
 
+	EventBus:On(Events.LOCAL_SNAPSHOT_BUILDING, function(data)
+		for snapPosition, buildingType in data.Buildings do
+			self:RecreateBuildings(snapPosition, buildingType)
+		end
+	end)
+
 	GridController:WaitForGridPartReady():andThen(function(GridPart)
-		-- self:RecreateBuildings("0_0", "TownHall_1")
+		-- self:RecreateBuildings("5_5", "TownHall_1")
 	end)
 end
 

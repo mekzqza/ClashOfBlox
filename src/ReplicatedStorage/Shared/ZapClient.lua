@@ -132,6 +132,9 @@ if not RunService:IsRunning() then
 	local noop = function() end
 	return table.freeze({
 		SendEvents = noop,
+		SnapshotBuildings = table.freeze({
+			SetCallback = noop
+		}),
 		PlayersCreateBuilding = table.freeze({
 			On = noop
 		}),
@@ -151,6 +154,10 @@ local remotes = ReplicatedStorage:WaitForChild("ZAP")
 local reliable = remotes:WaitForChild("ZAP_RELIABLE")
 assert(reliable:IsA("RemoteEvent"), "Expected ZAP_RELIABLE to be a RemoteEvent")
 
+export type BuildingEntry = ({
+	["SnapToString"]: (string),
+	["BuildingTypeEnum"]: (number),
+})
 
 local function SendEvents()
 	if outgoing_used ~= 0 then
@@ -168,11 +175,12 @@ end
 
 RunService.Heartbeat:Connect(SendEvents)
 
-local reliable_events = table.create(2)
-local reliable_event_queue: { [number]: { any } } = table.create(2)
-reliable_events[0] = {}
+local reliable_events = table.create(3)
+local reliable_event_queue: { [number]: { any } } = table.create(3)
 reliable_event_queue[0] = {}
+reliable_events[1] = {}
 reliable_event_queue[1] = {}
+reliable_event_queue[2] = {}
 reliable.OnClientEvent:Connect(function(buff, inst)
 	incoming_buff = buff
 	incoming_inst = inst
@@ -181,33 +189,58 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 	local len = buffer.len(buff)
 	while incoming_read < len do
 		local id = buffer.readu8(buff, read(1))
-		if id == 0 then -- PlayersCreateBuilding
-			local value
-			value = {  }
-			value["BuildingTypeEnum"] = buffer.readu8(incoming_buff, read(1))
-			value["Position"] = Vector3.new(buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)))
-			if reliable_events[0][1] then
-				for _, cb in reliable_events[0] do
-					task.spawn(cb, value)
-				end
-			else
-				table.insert(reliable_event_queue[0], value)
-				if #reliable_event_queue[0] > 64 then
-					warn(`[ZAP] {#reliable_event_queue[0]} events in queue for PlayersCreateBuilding. Did you forget to attach a listener?`)
-				end
-			end
-		elseif id == 1 then -- AssingZoneOwner
+		if id == 0 then -- SnapshotBuildings
 			local value
 			value = {  }
 			local len_1 = buffer.readu16(incoming_buff, read(2))
 			value["FolderName"] = buffer.readstring(incoming_buff, read(len_1), len_1)
 			assert(utf8.len(value["FolderName"]) ~= nil, "value is not valid utf-8")
-			if reliable_events[1] then
-				task.spawn(reliable_events[1], value)
+			local len_2 = buffer.readu16(incoming_buff, read(2))
+			value["Buildings"] = table.create(len_2)
+			for i_1 = 1, len_2 do
+				local val_1
+				val_1 = {  }
+				local len_3 = buffer.readu16(incoming_buff, read(2))
+				val_1["SnapToString"] = buffer.readstring(incoming_buff, read(len_3), len_3)
+				assert(utf8.len(val_1["SnapToString"]) ~= nil, "value is not valid utf-8")
+				val_1["BuildingTypeEnum"] = buffer.readu8(incoming_buff, read(1))
+				value["Buildings"][i_1] = val_1
+			end
+			if reliable_events[0] then
+				task.spawn(reliable_events[0], value)
+			else
+				table.insert(reliable_event_queue[0], value)
+				if #reliable_event_queue[0] > 64 then
+					warn(`[ZAP] {#reliable_event_queue[0]} events in queue for SnapshotBuildings. Did you forget to attach a listener?`)
+				end
+			end
+		elseif id == 1 then -- PlayersCreateBuilding
+			local value
+			value = {  }
+			value["BuildingTypeEnum"] = buffer.readu8(incoming_buff, read(1))
+			value["Position"] = Vector3.new(buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)))
+			if reliable_events[1][1] then
+				for _, cb in reliable_events[1] do
+					task.spawn(cb, value)
+				end
 			else
 				table.insert(reliable_event_queue[1], value)
 				if #reliable_event_queue[1] > 64 then
-					warn(`[ZAP] {#reliable_event_queue[1]} events in queue for AssingZoneOwner. Did you forget to attach a listener?`)
+					warn(`[ZAP] {#reliable_event_queue[1]} events in queue for PlayersCreateBuilding. Did you forget to attach a listener?`)
+				end
+			end
+		elseif id == 2 then -- AssingZoneOwner
+			local value
+			value = {  }
+			local len_4 = buffer.readu16(incoming_buff, read(2))
+			value["FolderName"] = buffer.readstring(incoming_buff, read(len_4), len_4)
+			assert(utf8.len(value["FolderName"]) ~= nil, "value is not valid utf-8")
+			if reliable_events[2] then
+				task.spawn(reliable_events[2], value)
+			else
+				table.insert(reliable_event_queue[2], value)
+				if #reliable_event_queue[2] > 64 then
+					warn(`[ZAP] {#reliable_event_queue[2]} events in queue for AssingZoneOwner. Did you forget to attach a listener?`)
 				end
 			end
 		else
@@ -220,18 +253,36 @@ table.freeze(polling_queues_unreliable)
 
 local returns = {
 	SendEvents = SendEvents,
-	PlayersCreateBuilding = {
-		On = function(Callback: (Value: ({
-			["BuildingTypeEnum"]: (number),
-			["Position"]: (Vector3),
-		})) -> ())
-			table.insert(reliable_events[0], Callback)
+	SnapshotBuildings = {
+		SetCallback = function(Callback: (Value: ({
+			["FolderName"]: (string),
+			["Buildings"]: ({ ({
+				["SnapToString"]: (string),
+				["BuildingTypeEnum"]: (number),
+			}) }),
+		})) -> ()): () -> ()
+			reliable_events[0] = Callback
 			for _, value in reliable_event_queue[0] do
 				task.spawn(Callback, value)
 			end
 			reliable_event_queue[0] = {}
 			return function()
-				table.remove(reliable_events[0], table.find(reliable_events[0], Callback))
+				reliable_events[0] = nil
+			end
+		end,
+	},
+	PlayersCreateBuilding = {
+		On = function(Callback: (Value: ({
+			["BuildingTypeEnum"]: (number),
+			["Position"]: (Vector3),
+		})) -> ())
+			table.insert(reliable_events[1], Callback)
+			for _, value in reliable_event_queue[1] do
+				task.spawn(Callback, value)
+			end
+			reliable_event_queue[1] = {}
+			return function()
+				table.remove(reliable_events[1], table.find(reliable_events[1], Callback))
 			end
 		end,
 	},
@@ -243,12 +294,12 @@ local returns = {
 		}))
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
-			local len_2 = #Value["SnapToString"]
+			local len_5 = #Value["SnapToString"]
 			assert(utf8.len(Value["SnapToString"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_2)
-			alloc(len_2)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["SnapToString"], len_2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_5)
+			alloc(len_5)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["SnapToString"], len_5)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["BuildingTypeEnum"])
 			alloc(4)
@@ -269,13 +320,13 @@ local returns = {
 		SetCallback = function(Callback: (Value: ({
 			["FolderName"]: (string),
 		})) -> ()): () -> ()
-			reliable_events[1] = Callback
-			for _, value in reliable_event_queue[1] do
+			reliable_events[2] = Callback
+			for _, value in reliable_event_queue[2] do
 				task.spawn(Callback, value)
 			end
-			reliable_event_queue[1] = {}
+			reliable_event_queue[2] = {}
 			return function()
-				reliable_events[1] = nil
+				reliable_events[2] = nil
 			end
 		end,
 	},

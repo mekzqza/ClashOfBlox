@@ -12,6 +12,16 @@ local function DataLayer()
 	EventBus:On(Events.C2S_CLIENT_READY, function()
 		ZapClient.ClientReady.Fire()
 	end)
+
+	ZapClient.SnapshotBuildings.SetCallback(function(data)
+		local buildingsMap = {}
+		for _, entry in data.Buildings do
+			buildingsMap[entry.SnapToString] = GameEnum:GetBuildingTypeById(entry.BuildingTypeEnum)
+		end
+		EventBus:Emit(Events.LOCAL_SNAPSHOT_BUILDING, {
+			Buildings = buildingsMap,
+		})
+	end)
 end
 
 local function BuildingSystem()
