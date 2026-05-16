@@ -132,20 +132,25 @@ function GridService:Start()
 		return
 	end
 
-	Players.PlayerAdded:Connect(function(player: Player)
-		for folderName, data in pairs(self._GridStore) do
-			if not data.owner then
-				self:_AssignOwner(folderName, player)
-				break
-			end
-		end
-	end)
+	-- Players.PlayerAdded:Connect(function(player: Player) end)
 
 	Players.PlayerRemoving:Connect(function(player: Player)
 		local folderName = self._PlayerStore[player]
 		if folderName then
 			self._GridStore[folderName].owner = nil
 			self._PlayerStore[player] = nil
+		end
+	end)
+
+	--[[
+	    Inproduction User SnapShotService
+	]]
+	EventBus:On(Events.LOCAL_CLIENT_READY, function(player: Player)
+		for folderName, data in pairs(self._GridStore) do
+			if not data.owner then
+				self:_AssignOwner(folderName, player)
+				break
+			end
 		end
 	end)
 end

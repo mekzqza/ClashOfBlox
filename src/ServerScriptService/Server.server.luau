@@ -13,8 +13,14 @@ local Core = Services:FindFirstChild("Core")
 local Data = Services:FindFirstChild("Data")
 local Gameplay = Services:FindFirstChild("GamePlay")
 
+--Data Layer
+local PlayerDataService = require(Data.PlayerDataService).new()
+
+--Core Layer
 local CmdrService = require(Core.CmdrService)
 local ServerNetWorkHandler = require(Core.ServerNetWorkHandler)
+
+--Gameplay Layer
 local Defrens = Gameplay:FindFirstChild("Defrens")
 local GridService = require(Defrens.GridService).new()
 local BuildingService = require(Defrens.BuildingService).new()
@@ -86,6 +92,8 @@ Promise
 		ServiceLocator:Register("CmdrService", CmdrService)
 		ServiceLocator:Register("ServerNetWorkHandler", ServerNetWorkHandler)
 
+		ServiceLocator:Register("PlayerDataService", PlayerDataService)
+
 		ServiceLocator:Register("GridService", GridService)
 		ServiceLocator:Register("BuildingService", BuildingService)
 	end)
@@ -104,7 +112,9 @@ Promise
 	:andThen(function()
 		--DataLayer
 		print("[Init] DataLayer initialized")
-		return Promise.all({}):timeout(TIMEOUTS.LayerInit)
+		return Promise.all({
+			initService(PlayerDataService, "PlayerDataService"),
+		}):timeout(TIMEOUTS.LayerInit)
 	end)
 	:andThen(function()
 		print("[Init] GameplayLayer initialized")
@@ -123,7 +133,9 @@ Promise
 	end)
 	:andThen(function()
 		print("[Init] DataLayer started")
-		return Promise.all({}):timeout(TIMEOUTS.LayerStart)
+		return Promise.all({
+			startService(PlayerDataService, "PlayerDataService"),
+		}):timeout(TIMEOUTS.LayerStart)
 	end)
 	:andThen(function()
 		print("[Init] GameplayLayer started")

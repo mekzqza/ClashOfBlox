@@ -6,6 +6,7 @@ event PlayerRequestPalceBulidings = {
     type: Reliable,
     call: SingleAsync,
     data: struct {
+        SnapToString: string.utf8,
         BuildingTypeEnum: u8,
         Position: Vector3
     }
@@ -28,4 +29,10 @@ event AssingZoneOwner = {
     data: struct {
         FolderName:string.utf8 ,
     }
+}
+
+event ClientReady = {
+    from: Client,
+    type: Reliable,
+    call: SingleAsync,
 }
