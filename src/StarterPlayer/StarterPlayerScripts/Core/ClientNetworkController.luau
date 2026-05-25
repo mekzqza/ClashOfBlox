@@ -18,8 +18,12 @@ local function DataLayer()
 		for _, entry in data.Buildings do
 			buildingsMap[entry.SnapToString] = GameEnum:GetBuildingTypeById(entry.BuildingTypeEnum)
 		end
-		EventBus:Emit(Events.LOCAL_SNAPSHOT_BUILDING, {
-			Buildings = buildingsMap,
+		EventBus:Emit(Events.LOCAL_PLAYER_DATA_UPDATE, {
+			--[[
+			@Bug Hard Code Key Name
+			--]]
+			key = "Buildings",
+			value = buildingsMap,
 		})
 	end)
 end

@@ -17,7 +17,11 @@ local function DataLayer()
 	end)
 
 	EventBus:On(Events.S2C_SEND_BUILDING_SNAP_PLAYER, function(player, Arraybuildings)
-		ZapServer.SnapshotBuildings.Fire(player, { FolderName = "asdasd", Buildings = Arraybuildings })
+		--[=[
+		@BUG
+		Hard Code Folder Name
+	]=]
+		ZapServer.SnapshotBuildings.Fire(player, { FolderName = "IN TEST ", Buildings = Arraybuildings })
 	end)
 end
 

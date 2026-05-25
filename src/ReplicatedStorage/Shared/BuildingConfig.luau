@@ -1,4 +1,4 @@
--- !strict
+--!strict
 
 --[[
     @ Building Config Eack Level
@@ -6,18 +6,22 @@
     - UpgradeTime: Time in seconds to upgrade to the next level
     - MaxHp: Maximum health points of the building at this level
 ]]
-local BuildingConfig = {}
 
-export type BuildingData = { [string]: { Width: number, Length: number, [number]: BuildingLevelData } }
+local BuildingConfig = {}
+export type Category = |"Army" |"Resources"| "Defrens"| "Trap"
 
 export type BuildingLevelData = {
 	UpgradeCost: number,
 	UpgradeTime: number,
 	MaxHp: number,
+	Category: Category,
 
 	FireRange: number?,
 	Damage: number?,
+	Description: string?,
 }
+
+export type BuildingData = { [string]: { Width: number, Length: number, [number]: BuildingLevelData } }
 
 local Buildings: BuildingData = {
 	["TownHall_1"] = {

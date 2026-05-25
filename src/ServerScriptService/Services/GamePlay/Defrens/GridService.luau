@@ -132,8 +132,6 @@ function GridService:Start()
 		return
 	end
 
-	-- Players.PlayerAdded:Connect(function(player: Player) end)
-
 	Players.PlayerRemoving:Connect(function(player: Player)
 		local folderName = self._PlayerStore[player]
 		if folderName then

@@ -9,11 +9,9 @@ local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
 local BuildingConfig = require(ReplicatedStorage.Shared.BuildingConfig)
 local Player = Players.LocalPlayer
 
-local GridController = nil
-local BuildingTemplate = nil
 local CONFIG = {
 	FOOTPRINTS_TEMPLATE = "FootPrints",
-	HARD_CODE_HIGHT = 1,
+	HARD_CODE_HIGHT = 0.5,
 	FOOTPRINTS = {
 		[1] = "1*1Grid",
 		[4] = "2*2Grid",
@@ -32,15 +30,20 @@ function BuildingController.new()
 	self._indicatorModel = nil
 	self._mouseConnettion = nil
 	self._footPrintindicator = nil
+	self._BuildingTemplate = nil
+	self._GridController = nil
+	self._PlayerDataController = nil
+
 	return self
 end
 
 function BuildingController:SetDependencies(locator)
-	GridController = locator:Get("GridController")
+	self._PlayerDataController = locator:Get("PlayerDataController")
+	self._GridController = locator:Get("GridController")
 end
 
 function BuildingController:_createFootPrints(position: Vector3, size: number)
-	local template = BuildingTemplate:FindFirstChild(CONFIG.FOOTPRINTS_TEMPLATE, true)
+	local template = self._BuildingTemplate:FindFirstChild(CONFIG.FOOTPRINTS_TEMPLATE, true)
 	if not template then
 		warn(`[BuildingController] Footprints template not found in BuildingTemplate`)
 		return
@@ -58,7 +61,7 @@ function BuildingController:_createFootPrints(position: Vector3, size: number)
 end
 
 function BuildingController:_createBuilding(buildingType: string, snapPosition: Vector3)
-	local Template = BuildingTemplate:FindFirstChild(buildingType, true)
+	local Template = self._BuildingTemplate:FindFirstChild(buildingType, true)
 	if not Template then
 		warn(`[BuildingController] Building model with id {buildingType} not found in BuildingTemplate`)
 		return
@@ -92,7 +95,7 @@ function BuildingController:_requestPlaceBuilding(snapToString: string, building
 end
 
 function BuildingController:_startPlacement(buildType: string)
-	local Template = BuildingTemplate:FindFirstChild(buildType, true)
+	local Template = self._BuildingTemplate:FindFirstChild(buildType, true)
 	if not Template then
 		warn(`[BuildingController] Building model with id {buildType} not found in BuildingTemplate`)
 		return
@@ -108,7 +111,8 @@ function BuildingController:_startPlacement(buildType: string)
 		return
 	end
 	self._indicatorModel = Template:Clone()
-	self._footPrintindicator = BuildingTemplate:FindFirstChild(CONFIG.FOOTPRINTS_TEMPLATE, true)
+	self._footPrintindicator = self._BuildingTemplate
+		:FindFirstChild(CONFIG.FOOTPRINTS_TEMPLATE, true)
 		:FindFirstChild(CONFIG.FOOTPRINTS[dimention.Length * dimention.Width], true)
 		:Clone()
 	self._footPrintindicator.Parent = self._indicatorModel
@@ -136,9 +140,10 @@ function BuildingController:_startPlacement(buildType: string)
 			return
 		end
 
-		local snapPos = GridController:SnapToGrid(mouse.Hit.Position, dimention.Length, dimention.Width) :: Vector3
+		local snapPos =
+			self._GridController:SnapToGrid(mouse.Hit.Position, dimention.Length, dimention.Width) :: Vector3
 
-		local canPlace = GridController:Canplace(snapPos, dimention.Length, dimention.Width)
+		local canPlace = self._GridController:Canplace(snapPos, dimention.Length, dimention.Width)
 		local color = if canPlace then Color3.new(0, 1, 0) else Color3.new(1, 0, 0)
 		for _, child in ipairs(self._indicatorModel:GetDescendants()) do
 			if child:IsA("BasePart") then
@@ -156,13 +161,14 @@ function BuildingController:_startPlacement(buildType: string)
 
 	local mouse = Player:GetMouse()
 	self._mouseConnettion = mouse.Button1Down:Connect(function()
-		local snapPos = GridController:SnapToGrid(mouse.Hit.Position, dimention.Length, dimention.Width) :: Vector3
-		if GridController:Canplace(snapPos, dimention.Length, dimention.Width) then
-			local startX, startZ = GridController:GetFootPrintStart(snapPos, dimention.Length, dimention.Width)
+		local snapPos =
+			self._GridController:SnapToGrid(mouse.Hit.Position, dimention.Length, dimention.Width) :: Vector3
+		if self._GridController:Canplace(snapPos, dimention.Length, dimention.Width) then
+			local startX, startZ = self._GridController:GetFootPrintStart(snapPos, dimention.Length, dimention.Width)
 			self:_requestPlaceBuilding(`{startX}_{startZ}`, buildType, snapPos)
 			self:_createBuilding(buildType, snapPos)
 			self:_createFootPrints(snapPos, dimention.Length * dimention.Width)
-			GridController:occupyCell(snapPos, dimention.Length, dimention.Width)
+			self._GridController:occupyCell(snapPos, dimention.Length, dimention.Width)
 
 			self._buildings[`{startX}_{startZ}`] = buildType
 		end
@@ -178,11 +184,11 @@ function BuildingController:RecreateBuildings(snapPosition: string, buildingType
 	end
 
 	local worldPos =
-		GridController:GridCoordsToWorld(tonumber(startX), tonumber(startZ), dimention.Length, dimention.Width)
+		self._GridController:GridCoordsToWorld(tonumber(startX), tonumber(startZ), dimention.Length, dimention.Width)
 
 	self:_createBuilding(buildingType, worldPos)
 	self:_createFootPrints(worldPos, dimention.Length * dimention.Width)
-	GridController:occupyCell(worldPos, dimention.Length, dimention.Width)
+	self._GridController:occupyCell(worldPos, dimention.Length, dimention.Width)
 end
 
 function BuildingController:_stopPlacement()
@@ -209,31 +215,33 @@ function BuildingController:_stopPlacement()
 end
 
 function BuildingController:Init()
-	BuildingTemplate = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("Structure")
-	if not BuildingTemplate then
+	self._BuildingTemplate = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("Structure")
+	if not self._BuildingTemplate then
 		warn("[BuildingController] Building template folder not found in ReplicatedStorage.Assets")
 		return
 	end
 end
 
 function BuildingController:Start()
-	-- EventBus:On(Events.LOCAL_CREATE_BUILDING, function(data)
-	-- end)
-
 	EventBus:On(Events.LOCAL_TEST_BUILDING, function(building: string)
 		warn(`[BuildingController] Test building: {building}`)
 		self:_stopPlacement()
 		self:_startPlacement(building)
 	end)
 
-	EventBus:On(Events.LOCAL_SNAPSHOT_BUILDING, function(data)
-		for snapPosition, buildingType in data.Buildings do
+	self._PlayerDataController:WaitForDataReady():andThen(function(data)
+		if not data then
+			warn("[BuildingController] No player data received (timeout)")
+			return
+		end
+		local buildings = data.Buildings
+		if not buildings then
+			warn("[BuildingController] No building data found for player")
+			return
+		end
+		for snapPosition, buildingType in buildings do
 			self:RecreateBuildings(snapPosition, buildingType)
 		end
-	end)
-
-	GridController:WaitForGridPartReady():andThen(function(GridPart)
-		-- self:RecreateBuildings("5_5", "TownHall_1")
 	end)
 end
 

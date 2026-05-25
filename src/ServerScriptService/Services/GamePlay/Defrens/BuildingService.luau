@@ -70,6 +70,10 @@ function BuildingService:SendSnapshotBuildings(player: Player)
 		return
 	end
 
+	--[=[
+	    @BUG
+	    ตอนนี้เป็นการส่งให้ Player นั้นๆคนเดี่ยวยังไม่ braodcast ไปยังผู้เล่นอื่นๆ เพื่อใช้ในการrender building
+	]=]
 	local ArrayBuilding = MapTOArray(PlayerData.PlayerBuildings)
 	EventBus:Emit(Events.S2C_SEND_BUILDING_SNAP_PLAYER, player, ArrayBuilding)
 end
@@ -96,6 +100,10 @@ end
 
 function BuildingService:Start()
 	EventBus:On(Events.LOCAL_PLAYER_REQUIRE_PLACE, function(data)
+		--[=[
+		    @Bug
+		    ตอนนี้ยังไม่มี การเช็ค cell ว่าถูกใช้ไปไหม ทำให้สามารถว่า วางทับกันได้ แต่ในอนาคตจะมีการเช็ค cell ก่อนที่จะวาง
+		--]=]
 		self:_PlaceBuilding(data.Player, data.SnapToString, data.BuildingTypeEnum, data.Position)
 	end)
 
