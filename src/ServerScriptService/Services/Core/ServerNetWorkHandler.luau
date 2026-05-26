@@ -29,6 +29,8 @@ local function DataLayer()
 			Coins = data.Coins,
 			Elixirs = data.Elixirs,
 			Gems = data.Gems,
+			Level = data.Level,
+			Experience = data.Experience,
 		})
 	end)
 end

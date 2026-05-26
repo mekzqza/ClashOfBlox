@@ -60,5 +60,7 @@ event LoadSnapshot = {
         Coins: u32,
         Elixirs: u32,
         Gems: u32,
+        Level: u32,
+        Experience: u32,
     }
 }

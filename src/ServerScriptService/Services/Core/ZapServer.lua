@@ -582,6 +582,8 @@ local returns = {
 			["Coins"]: (number),
 			["Elixirs"]: (number),
 			["Gems"]: (number),
+			["Level"]: (number),
+			["Experience"]: (number),
 		}))
 			load_player(Player)
 			alloc(1)
@@ -592,12 +594,18 @@ local returns = {
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Elixirs"])
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Gems"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Level"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Experience"])
 			player_map[Player] = save()
 		end,
 		FireAll = function(Value: ({
 			["Coins"]: (number),
 			["Elixirs"]: (number),
 			["Gems"]: (number),
+			["Level"]: (number),
+			["Experience"]: (number),
 		}))
 			load_empty()
 			alloc(1)
@@ -608,6 +616,10 @@ local returns = {
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Elixirs"])
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Gems"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Level"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Experience"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				load_player(player)
@@ -621,6 +633,8 @@ local returns = {
 			["Coins"]: (number),
 			["Elixirs"]: (number),
 			["Gems"]: (number),
+			["Level"]: (number),
+			["Experience"]: (number),
 		}))
 			load_empty()
 			alloc(1)
@@ -631,6 +645,10 @@ local returns = {
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Elixirs"])
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Gems"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Level"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Experience"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				if player ~= Except then
@@ -646,6 +664,8 @@ local returns = {
 			["Coins"]: (number),
 			["Elixirs"]: (number),
 			["Gems"]: (number),
+			["Level"]: (number),
+			["Experience"]: (number),
 		}))
 			load_empty()
 			alloc(1)
@@ -656,6 +676,10 @@ local returns = {
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Elixirs"])
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Gems"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Level"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Experience"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in List do
 				load_player(player)
@@ -669,6 +693,8 @@ local returns = {
 			["Coins"]: (number),
 			["Elixirs"]: (number),
 			["Gems"]: (number),
+			["Level"]: (number),
+			["Experience"]: (number),
 		}))
 			load_empty()
 			alloc(1)
@@ -679,6 +705,10 @@ local returns = {
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Elixirs"])
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Gems"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Level"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Experience"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for player in Set do
 				load_player(player)

@@ -239,6 +239,8 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 			value["Coins"] = buffer.readu32(incoming_buff, read(4))
 			value["Elixirs"] = buffer.readu32(incoming_buff, read(4))
 			value["Gems"] = buffer.readu32(incoming_buff, read(4))
+			value["Level"] = buffer.readu32(incoming_buff, read(4))
+			value["Experience"] = buffer.readu32(incoming_buff, read(4))
 			if reliable_events[3] then
 				task.spawn(reliable_events[3], value)
 			else
@@ -333,6 +335,8 @@ local returns = {
 			["Coins"]: (number),
 			["Elixirs"]: (number),
 			["Gems"]: (number),
+			["Level"]: (number),
+			["Experience"]: (number),
 		})) -> ()): () -> ()
 			reliable_events[3] = Callback
 			for _, value in reliable_event_queue[3] do

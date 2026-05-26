@@ -19,6 +19,8 @@ export type PlayerData = {
 	Coins: number,
 	Elixirs: number,
 	Gems: number,
+	Level: number,
+	Experience: number,
 }
 
 local PlayerDataService = {}
@@ -46,6 +48,8 @@ function PlayerDataService.new()
 		Coins = 0,
 		Elixirs = 0,
 		Gems = 0,
+		Level = 1,
+		Experience = 0,
 	} :: PlayerData
 	self._ProfileStore = nil
 	self._Profiles = {} :: { [number]: any }
@@ -55,6 +59,8 @@ function PlayerDataService.new()
 		Coins = { type = "number", min = 0, max = 999999999 },
 		Elixirs = { type = "number", min = 0, max = 999999999 },
 		Gems = { type = "number", min = 0, max = 999999999 },
+		Level = { type = "number", min = 1, max = 100 },
+		Experience = { type = "number", min = 0, max = 999999999 },
 	} :: { [string]: { type: string, min: number?, max: number? } }
 	return self
 end
@@ -338,6 +344,8 @@ function PlayerDataService:Start()
 					Coins = playerData and playerData.Coins or 0,
 					Elixirs = playerData and playerData.Elixirs or 0,
 					Gems = playerData and playerData.Gems or 0,
+					Level = playerData and playerData.Level or 1,
+					Experience = playerData and playerData.Experience or 0,
 				}
 				EventBus:Emit(Events.S2C_PLAYER_DATA_FIRST_LOAD, playload)
 			end)
