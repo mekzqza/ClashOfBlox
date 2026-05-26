@@ -19,9 +19,17 @@ local function DataLayer()
 	EventBus:On(Events.S2C_SEND_BUILDING_SNAP_PLAYER, function(player, Arraybuildings)
 		--[=[
 		@BUG
-		Hard Code Folder Name
+		Hard Code Folder Name ,will fix in mutiplae folder now have noly 1
 	]=]
 		ZapServer.SnapshotBuildings.Fire(player, { FolderName = "IN TEST ", Buildings = Arraybuildings })
+	end)
+
+	EventBus:On(Events.S2C_PLAYER_DATA_FIRST_LOAD, function(data)
+		ZapServer.LoadSnapshot.Fire(data.Player, {
+			Coins = data.Coins,
+			Elixirs = data.Elixirs,
+			Gems = data.Gems,
+		})
 	end)
 end
 

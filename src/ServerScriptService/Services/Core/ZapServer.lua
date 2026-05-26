@@ -151,6 +151,13 @@ if not RunService:IsRunning() then
 		PlayerRequestPalceBulidings = table.freeze({
 			SetCallback = noop
 		}),
+		LoadSnapshot = table.freeze({
+			Fire = noop,
+			FireAll = noop,
+			FireExcept = noop,
+			FireList = noop,
+			FireSet = noop
+		}),
 		ClientReady = table.freeze({
 			SetCallback = noop
 		}),
@@ -567,6 +574,118 @@ local returns = {
 			reliable_events[0] = Callback
 			return function()
 				reliable_events[0] = nil
+			end
+		end,
+	},
+	LoadSnapshot = {
+		Fire = function(Player: Player, Value: ({
+			["Coins"]: (number),
+			["Elixirs"]: (number),
+			["Gems"]: (number),
+		}))
+			load_player(Player)
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Coins"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Elixirs"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Gems"])
+			player_map[Player] = save()
+		end,
+		FireAll = function(Value: ({
+			["Coins"]: (number),
+			["Elixirs"]: (number),
+			["Gems"]: (number),
+		}))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Coins"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Elixirs"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Gems"])
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in Players:GetPlayers() do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
+			end
+		end,
+		FireExcept = function(Except: Player, Value: ({
+			["Coins"]: (number),
+			["Elixirs"]: (number),
+			["Gems"]: (number),
+		}))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Coins"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Elixirs"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Gems"])
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in Players:GetPlayers() do
+				if player ~= Except then
+					load_player(player)
+					alloc(used)
+					buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+					table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+					player_map[player] = save()
+				end
+			end
+		end,
+		FireList = function(List: { [unknown]: Player }, Value: ({
+			["Coins"]: (number),
+			["Elixirs"]: (number),
+			["Gems"]: (number),
+		}))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Coins"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Elixirs"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Gems"])
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in List do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
+			end
+		end,
+		FireSet = function(Set: { [Player]: any }, Value: ({
+			["Coins"]: (number),
+			["Elixirs"]: (number),
+			["Gems"]: (number),
+		}))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Coins"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Elixirs"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Gems"])
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for player in Set do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
 			end
 		end,
 	},

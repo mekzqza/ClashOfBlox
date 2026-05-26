@@ -91,9 +91,28 @@ function PlayerDataController:Set(key: string, value: any)
 		end
 	end
 end
+function PlayerDataController:_setData(data)
+	self._cachedData = data
+	self._isReady = true
 
-function PlayerDataController:Init() end
+	for _, callback in self._readyCallbacks do
+		task.spawn(callback)
+	end
+	table.clear(self._readyCallbacks)
+end
+
+function PlayerDataController:Init()
+	-- Receive first snapshot Frome Server
+	EventBus:On(Events.LOCAL_PLAYER_DATA_FIRST_LOAD, function(data)
+		self:_setData(data)
+		warn("[PlayerDataController] ✅ Initial player data loaded:", data)
+	end)
+end
 function PlayerDataController:Start()
+	-- [[
+	-- @Bug - การอัพเดตข้อมูลแบบ real-time ยังไม่ทำงาน เนื่องจากไม่มีการอัพเดตข้อมูลจาก Server หลังจากได้รับข้อมูลครั้งแรก
+	-- ทดสอบใช้ก่อนโปรดักชัน
+	--]]
 	EventBus:On(Events.LOCAL_PLAYER_DATA_UPDATE, function(data)
 		self:Set(data.key, data.value)
 		if not self._isReady then
@@ -104,6 +123,41 @@ function PlayerDataController:Start()
 			table.clear(self._readyCallbacks)
 		end
 	end)
+
+	-- EventBus:On(Events.S2C_UPDATED_SEND_CLIENT, function(data)
+	-- 	if type(data) ~= "table" then
+	-- 		warn("[PlayerDataController] ⚠️ Invalid data type for update:", typeof(data))
+	-- 		return
+	-- 	end
+
+	-- 	if not self._cachedData then
+	-- 		warn("[PlayerDataController] ⚠️ Cannot update - cachedData is nil!")
+	-- 		return
+	-- 	end
+
+	-- 	if data.key and data.newValue ~= nil then
+	-- 		local keys = string.split(data.key, ".")
+
+	-- 		if #keys == 1 then
+	-- 			(self._cachedData :: any)[data.key] = data.newValue
+	-- 		else
+	-- 			local target: any = self._cachedData
+
+	-- 			for i = 1, #keys - 1 do
+	-- 				if type(target[keys[i]]) ~= "table" then
+	-- 					target[keys[i]] = {}
+	-- 				end
+	-- 				target = target[keys[i]]
+	-- 			end
+
+	-- 			target[keys[#keys]] = data.newValue
+	-- 		end
+
+	-- 		EventBus:Emit(Events.LOCAL_DATA_UPDATE, data)
+	-- 	else
+	-- 		warn("[PlayerDataController] ⚠️ Missing key or newValue in update data:", data)
+	-- 	end
+	-- end)
 end
 
 return PlayerDataController.new()

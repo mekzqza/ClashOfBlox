@@ -51,3 +51,14 @@ event ClientReady = {
     type: Reliable,
     call: SingleAsync,
 }
+
+event LoadSnapshot = {
+    from: Server,
+    type: Reliable,
+    call: SingleAsync,
+    data: struct {
+        Coins: u32,
+        Elixirs: u32,
+        Gems: u32,
+    }
+}

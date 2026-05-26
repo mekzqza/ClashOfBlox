@@ -12,7 +12,7 @@ function BuildingService.new()
 	local self = setmetatable({}, BuildingService)
 	self._BuildingTemplate = nil
 	self._GridService = nil
-	self.PlayerDataService = nil
+	self._PlayerDataService = nil
 	return self
 end
 
@@ -54,28 +54,29 @@ function BuildingService:_PlaceBuilding(
 
 	self:_BroadCastBuilding(player, buildingType, position)
 
-	self.PlayerDataService:Set(player, `PlayerBuildings.{snapTostring}`, { buildingTypeEnum })
+	self._PlayerDataService:Set(player, `PlayerBuildings.{snapTostring}`, { buildingTypeEnum })
 end
 
 function BuildingService:SendSnapshotBuildings(player: Player)
-	local loaded = self.PlayerDataService:WaitForData(player, 10)
-	if not loaded then
-		warn(`[BuildingService] Timeout waiting for data: {player.Name}`)
-		return
-	end
+	self._PlayerDataService
+		:WaitForData(player, 10)
+		:andThen(function()
+			local PlayerData = self._PlayerDataService:GetAll(player)
+			if not PlayerData then
+				warn(`[BuildingService] No player data found for player {player.Name} (ID: {player.UserId})`)
+				return
+			end
 
-	local PlayerData = self.PlayerDataService:GetAll(player)
-	if not PlayerData then
-		warn(`[BuildingService] No player data found for player {player.Name} (ID: {player.UserId})`)
-		return
-	end
-
-	--[=[
-	    @BUG
-	    ตอนนี้เป็นการส่งให้ Player นั้นๆคนเดี่ยวยังไม่ braodcast ไปยังผู้เล่นอื่นๆ เพื่อใช้ในการrender building
-	]=]
-	local ArrayBuilding = MapTOArray(PlayerData.PlayerBuildings)
-	EventBus:Emit(Events.S2C_SEND_BUILDING_SNAP_PLAYER, player, ArrayBuilding)
+			--[=[
+		    @BUG
+		    ตอนนี้เป็นการส่งให้ Player นั้นๆคนเดี่ยวยังไม่ braodcast ไปยังผู้เล่นอื่นๆ เพื่อใช้ในการrender building
+			]=]
+			local ArrayBuilding = MapTOArray(PlayerData.PlayerBuildings)
+			EventBus:Emit(Events.S2C_SEND_BUILDING_SNAP_PLAYER, player, ArrayBuilding)
+		end)
+		:catch(function()
+			warn(`[PlayerDataService] ⏱️ Timed out waiting for profile: {player.Name}`)
+		end)
 end
 
 function BuildingService:Init()
@@ -85,8 +86,8 @@ function BuildingService:Init()
 		return
 	end
 
-	self.PlayerDataService = ServiceLocaltor:Get("PlayerDataService")
-	if not self.PlayerDataService then
+	self._PlayerDataService = ServiceLocaltor:Get("PlayerDataService")
+	if not self._PlayerDataService then
 		warn("[BuildingService] ❌ ERROR: PlayerDataService not found in ServiceLocator")
 		return
 	end

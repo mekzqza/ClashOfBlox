@@ -26,6 +26,15 @@ local function DataLayer()
 			value = buildingsMap,
 		})
 	end)
+
+	ZapClient.LoadSnapshot.SetCallback(function(data)
+		local playload = {
+			Coins = data.Coins,
+			Elixirs = data.Elixirs,
+			Gems = data.Gems,
+		}
+		EventBus:Emit(Events.LOCAL_PLAYER_DATA_FIRST_LOAD, playload)
+	end)
 end
 
 local function BuildingSystem()

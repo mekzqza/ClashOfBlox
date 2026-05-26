@@ -141,6 +141,9 @@ if not RunService:IsRunning() then
 		PlayerRequestPalceBulidings = table.freeze({
 			Fire = noop
 		}),
+		LoadSnapshot = table.freeze({
+			SetCallback = noop
+		}),
 		ClientReady = table.freeze({
 			Fire = noop
 		}),
@@ -175,11 +178,12 @@ end
 
 RunService.Heartbeat:Connect(SendEvents)
 
-local reliable_events = table.create(3)
-local reliable_event_queue: { [number]: { any } } = table.create(3)
+local reliable_events = table.create(4)
+local reliable_event_queue: { [number]: { any } } = table.create(4)
 reliable_event_queue[0] = {}
 reliable_events[1] = {}
 reliable_event_queue[1] = {}
+reliable_event_queue[3] = {}
 reliable_event_queue[2] = {}
 reliable.OnClientEvent:Connect(function(buff, inst)
 	incoming_buff = buff
@@ -227,6 +231,20 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 				table.insert(reliable_event_queue[1], value)
 				if #reliable_event_queue[1] > 64 then
 					warn(`[ZAP] {#reliable_event_queue[1]} events in queue for PlayersCreateBuilding. Did you forget to attach a listener?`)
+				end
+			end
+		elseif id == 3 then -- LoadSnapshot
+			local value
+			value = {  }
+			value["Coins"] = buffer.readu32(incoming_buff, read(4))
+			value["Elixirs"] = buffer.readu32(incoming_buff, read(4))
+			value["Gems"] = buffer.readu32(incoming_buff, read(4))
+			if reliable_events[3] then
+				task.spawn(reliable_events[3], value)
+			else
+				table.insert(reliable_event_queue[3], value)
+				if #reliable_event_queue[3] > 64 then
+					warn(`[ZAP] {#reliable_event_queue[3]} events in queue for LoadSnapshot. Did you forget to attach a listener?`)
 				end
 			end
 		elseif id == 2 then -- AssingZoneOwner
@@ -308,6 +326,22 @@ local returns = {
 			buffer.writef32(outgoing_buff, outgoing_apos, Value["Position"].Y)
 			alloc(4)
 			buffer.writef32(outgoing_buff, outgoing_apos, Value["Position"].Z)
+		end,
+	},
+	LoadSnapshot = {
+		SetCallback = function(Callback: (Value: ({
+			["Coins"]: (number),
+			["Elixirs"]: (number),
+			["Gems"]: (number),
+		})) -> ()): () -> ()
+			reliable_events[3] = Callback
+			for _, value in reliable_event_queue[3] do
+				task.spawn(Callback, value)
+			end
+			reliable_event_queue[3] = {}
+			return function()
+				reliable_events[3] = nil
+			end
 		end,
 	},
 	ClientReady = {
