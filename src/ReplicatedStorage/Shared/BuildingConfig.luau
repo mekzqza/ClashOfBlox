@@ -14,46 +14,53 @@ export type ResourceType = "Golds" | "Elixirs"
 export type BuildingLevelData = {
 	UpgradeCost: number,
 	UpgradeTime: number,
+	UpgradeResourceType: ResourceType?,
 	MaxHp: number,
-	Category: Category,
 
 	FireRange: number?,
 	Damage: number?,
 	Description: string?,
 	ProductionRate: number?,
 	MaxStorage: number?,
-	ResourceType: ResourceType?,
 }
 
-export type BuildingData = { [string]: { Width: number, Length: number, [number]: BuildingLevelData } }
+export type BuildingData = { [string]: { Width: number, Length: number, Category: Category?,ResourceType:string?,
+    CollectorType:string?,
+    [number]: BuildingLevelData } }
 
 local Buildings: BuildingData = {
 	["TownHall"] = {
 		Width = 4,
 		Length = 4,
+		UpgradeResourceType = "Golds",
+
 	},
 
 	["Cannon"] = {
 		Width = 3,
 		Length = 3,
+		UpgradeResourceType = "Golds",
+
 	},
 
 	["ElixirStorage"] = {
 		Width = 3,
 		Length = 3,
+		UpgradeResourceType = "Golds",
+
 	},
 	["ElixirCollector"] = {
 		Width = 3,
 		Length = 3,
+		UpgradeResourceType = "Golds",
+		CollectorType = "ElixirCollector",
 		[1] = {
 			UpgradeCost = 150,
 			UpgradeTime = 60,
 			MaxHp = 400,
 
-			Category = "Resources",
 			ProductionRate = 200,
 			Capacity = 2000,
-			ResourceType = "Elixirs",
 
 		},
 	},
@@ -61,20 +68,21 @@ local Buildings: BuildingData = {
 	["GoldMine"] = {
 		Width = 3,
 		Length = 3,
+		UpgradeResourceType = "Elixirs",
+		CollectorType = "GoldCollector",
 		[1] = {
 			UpgradeCost = 150,
 			UpgradeTime = 60,
 			MaxHp = 400,
 
-			Category = "Resources",
 			ProductionRate = 200,
 			Capacity = 2000,
-			ResourceType = "Golds",
 		},
 	},
 	["GoldStorage"] = {
 		Width = 3,
 		Length = 3,
+		UpgradeResourceType = "Elixirs",
 	},
 
 	["Tree"] = {
@@ -92,10 +100,15 @@ local Buildings: BuildingData = {
 	["Barrack"] = {
 		Width = 3,
 		Length = 3,
+		UpgradeResourceType = "Elixirs",
+
 	},
 	["Campfire"] = {
 		Width = 4,
 		Length = 4,
+		UpgradeResourceType = "Elixirs",
+
+
 	},
 	["Builinghall"] = {
 		Width = 2,
@@ -121,6 +134,14 @@ function BuildingConfig:GetBuildingData(buildingType: string, level: number): Bu
 		return nil
 	end
 	return building[level] or nil
+end
+
+function BuildingConfig:GetCollectorType(buildingType: string): string?
+    local building = Buildings[buildingType]
+    if not building then
+        return nil
+    end
+    return building.CollectorType or nil
 end
 
 return BuildingConfig

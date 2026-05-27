@@ -61,6 +61,8 @@ function BuildingService:_PlaceBuilding(
 	self._PlayerDataService:Set(player, `PlayerBuildings.{snapTostring}`, { buildingTypeEnum, CONFIG.STARTER_LEVEL })
 end
 
+function BuildingService:_UpdateBuilding() end
+
 function BuildingService:SendSnapshotBuildings(player: Player)
 	self._PlayerDataService
 		:WaitForData(player, 10)
