@@ -31,7 +31,30 @@ local function DataLayer()
 			Gems = data.Gems,
 			Level = data.Level,
 			Experience = data.Experience,
+			Buildings = data.Buildings,
 		})
+	end)
+
+	EventBus:On(Events.S2C_PLAYER_DATA_UPDATE, function(player, data)
+		local keyMap = {
+			["Coins"] = "Coins",
+			["Elixirs"] = "Elixirs",
+			["Gems"] = "Gems",
+			["Level"] = "Level",
+			["Experience"] = "Experience",
+		}
+
+		local zapkey = keyMap[data.Key]
+		if not zapkey then
+			warn(`[ServerNetWorkHandler] ⚠️ Unrecognized data key: {data.Key}`)
+			return
+		end
+
+		ZapServer.PlayerDataUpdate.Fire(player, {
+			Key = zapkey,
+			Value = data.newValue,
+		})
+		warn(`[ServerNetWorkHandler] PlayerDataUpdate: {player.Name} - {zapkey} = {data.newValue}`)
 	end)
 end
 

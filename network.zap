@@ -62,5 +62,25 @@ event LoadSnapshot = {
         Gems: u32,
         Level: u32,
         Experience: u32,
+        Buildings: BuildingEntry[]
+    }
+}
+
+
+type DataKey = enum {
+    Coins,
+    Elixirs,
+    Gems,
+    Level,
+    Experience,
+}
+
+event PlayerDataUpdate = {
+    from: Server,
+    type: Reliable,
+    call: ManyAsync,
+    data: struct {
+        Key: DataKey,
+        Value: unknown
     }
 }

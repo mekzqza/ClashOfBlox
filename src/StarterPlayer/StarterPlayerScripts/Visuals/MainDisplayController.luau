@@ -21,12 +21,34 @@ function MainDisplayController.new()
 
 	self._ElixirContainer = nil
 	self._GemContainer = nil
-	self._GoldContainer = nil
+	self._CoinContainer = nil
 	return self
 end
 
 function MainDisplayController:SetDependencies(locator)
 	self._PlayerDataController = locator:Get("PlayerDataController")
+end
+
+function MainDisplayController:_updateResourceDisplay(key: string, value: number)
+	local traget = self._ResourceFrame:FindFirstChild(key, true)
+	if not traget then
+		warn(`[MainDisplayController] Cannot find resource container with name ${key}`)
+		return
+	end
+
+	local frameValue: TextLabel = traget:FindFirstChild("Value", true)
+	if not frameValue then
+		warn(`[MainDisplayContrcoller] Cannot find Value label in ${key} container`)
+		return
+	end
+
+	local fillFrame = traget:FindFirstChild("Fill", true)
+	if fillFrame and fillFrame:IsA("Frame") then
+		local fillAmount = math.clamp(value / 1000, 0, 1)
+		fillFrame.Size = UDim2.new(fillAmount, 0, 1, 0)
+	end
+
+	frameValue.Text = tostring(value)
 end
 
 function MainDisplayController:_setPlayerName(player: Player)
@@ -58,28 +80,6 @@ function MainDisplayController:_updateExperience(experience: number)
 	fillExperience.Size = UDim2.new(fillAmount, 0, 1, 0)
 end
 
-function MainDisplayController:_updateResourceDisplay(key: string, value: number)
-	local traget = self._ResourceFrame:FindFirstChild(key, true)
-	if not traget then
-		warn(`[MainDisplayController] Cannot find resource container with name ${key}`)
-		return
-	end
-
-	local frameValue: TextLabel = traget:FindFirstChild("Value", true)
-	if not frameValue then
-		warn(`[MainDisplayContrcoller] Cannot find Value label in ${key} container`)
-		return
-	end
-
-	local fillFrame = traget:FindFirstChild("Fill", true)
-	if fillFrame and fillFrame:IsA("Frame") then
-		local fillAmount = math.clamp(value / 1000, 0, 1)
-		fillFrame.Size = UDim2.new(fillAmount, 0, 1, 0)
-	end
-
-	frameValue.Text = tostring(value)
-end
-
 function MainDisplayController:Init()
 	self._PlayerGui = Player:WaitForChild("PlayerGui")
 	self._MainDisPlay = self._PlayerGui:WaitForChild("MainDisPlay")
@@ -90,19 +90,19 @@ function MainDisplayController:Init()
 	self._LevelCount = self._ProfileContainer:WaitForChild("LevelCount")
 	self._LevelFillBar = self._ProfileContainer:WaitForChild("LevelFillBar")
 
-	self._GoldContainer = self._ResourceFrame:WaitForChild("Gold")
-	self._ElixirContainer = self._ResourceFrame:WaitForChild("Elixir")
-	self._GemContainer = self._ResourceFrame:WaitForChild("Gem")
+	self._CoinContainer = self._ResourceFrame:WaitForChild("Coins")
+	self._ElixirContainer = self._ResourceFrame:WaitForChild("Elixirs")
+	self._GemContainer = self._ResourceFrame:WaitForChild("Gems")
 end
 
 function MainDisplayController:Start()
-	EventBus:On(Events.LOCAL_PLAYER_DATA_CHANGED, function(data)
-		if data.key == "Gold" then
-			self:_updateResourceDisplay("Gold", data.Value)
-		elseif data.key == "Elixir" then
-			self:_updateResourceDisplay("Elixir", data.Value)
-		elseif data.key == "Gem" then
-			self:_updateResourceDisplay("Gem", data.Value)
+	EventBus:On(Events.LOCAL_PLAYER_DATA_UPDATE, function(data)
+		if data.key == "Coins" then
+			self:_updateResourceDisplay("Coins", data.Value)
+		elseif data.key == "Elixirs" then
+			self:_updateResourceDisplay("Elixirs", data.Value)
+		elseif data.key == "Gems" then
+			self:_updateResourceDisplay("Gems", data.Value)
 		elseif data.key == "Level" then
 			self:_updateLevelDisplay(data.Value)
 		elseif data.key == "Experience" then
@@ -110,16 +110,16 @@ function MainDisplayController:Start()
 		end
 	end)
 
-	self._PlayerDataController:WaitForDataReady():andThen(function()
-		local gold = self._PlayerDataController:Get("Gold") or 0
-		local elixir = self._PlayerDataController:Get("Elixir") or 0
-		local gem = self._PlayerDataController:Get("Gem") or 0
-		local level = self._PlayerDataController:Get("Level") or 1
-		local experience = self._PlayerDataController:Get("Experience") or 0
+	self._PlayerDataController:WaitForDataReady():andThen(function(data)
+		local Coins = data.Coins or 0
+		local elixir = data.Elixirs or 0
+		local gem = data.Gems or 0
+		local level = data.Level or 1
+		local experience = data.Experience or 0
 
-		self:_updateResourceDisplay("Gold", gold)
-		self:_updateResourceDisplay("Elixir", elixir)
-		self:_updateResourceDisplay("Gem", gem)
+		self:_updateResourceDisplay("Coins", Coins)
+		self:_updateResourceDisplay("Elixirs", elixir)
+		self:_updateResourceDisplay("Gems", gem)
 		self:_setPlayerName(Player)
 		self:_updateLevelDisplay(level)
 		self:_updateExperience(experience)

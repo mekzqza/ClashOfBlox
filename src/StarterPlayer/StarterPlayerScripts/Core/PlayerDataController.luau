@@ -91,6 +91,11 @@ function PlayerDataController:Set(key: string, value: any)
 		end
 	end
 end
+
+function PlayerDataController:GetAll()
+	return self._cachedData
+end
+
 function PlayerDataController:_setData(data)
 	self._cachedData = data
 	self._isReady = true
@@ -105,7 +110,6 @@ function PlayerDataController:Init()
 	-- Receive first snapshot Frome Server
 	EventBus:On(Events.LOCAL_PLAYER_DATA_FIRST_LOAD, function(data)
 		self:_setData(data)
-		warn("[PlayerDataController] ✅ Initial player data loaded:", data)
 	end)
 end
 function PlayerDataController:Start()
@@ -114,14 +118,7 @@ function PlayerDataController:Start()
 	-- ทดสอบใช้ก่อนโปรดักชัน
 	--]]
 	EventBus:On(Events.LOCAL_PLAYER_DATA_UPDATE, function(data)
-		self:Set(data.key, data.value)
-		if not self._isReady then
-			self._isReady = true
-			for _, cb in ipairs(self._readyCallbacks) do
-				cb()
-			end
-			table.clear(self._readyCallbacks)
-		end
+		self:Set(tostring(data.Key), data.Value)
 	end)
 
 	-- EventBus:On(Events.S2C_UPDATED_SEND_CLIENT, function(data)

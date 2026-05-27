@@ -151,6 +151,13 @@ if not RunService:IsRunning() then
 		PlayerRequestPalceBulidings = table.freeze({
 			SetCallback = noop
 		}),
+		PlayerDataUpdate = table.freeze({
+			Fire = noop,
+			FireAll = noop,
+			FireExcept = noop,
+			FireList = noop,
+			FireSet = noop
+		}),
 		LoadSnapshot = table.freeze({
 			Fire = noop,
 			FireAll = noop,
@@ -198,6 +205,7 @@ end
 Players.PlayerRemoving:Connect(function(player)
 	player_map[player] = nil
 end)
+export type DataKey = ("Coins" | "Elixirs" | "Gems" | "Level" | "Experience")
 export type BuildingEntry = ({
 	["SnapToString"]: (string),
 	["BuildingTypeEnum"]: (number),
@@ -577,6 +585,183 @@ local returns = {
 			end
 		end,
 	},
+	PlayerDataUpdate = {
+		Fire = function(Player: Player, Value: ({
+			["Key"]: ("Coins" | "Elixirs" | "Gems" | "Level" | "Experience"),
+			["Value"]: ((unknown)),
+		}))
+			load_player(Player)
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
+			local bool_1 = 0
+			local bool_1_pos_1 = alloc(1)
+			if Value["Key"] == "Coins" then
+				bool_1 = bit32.bor(bool_1, 0b0000000000000001)
+			elseif Value["Key"] == "Elixirs" then
+				bool_1 = bit32.bor(bool_1, 0b0000000000000010)
+			elseif Value["Key"] == "Gems" then
+				bool_1 = bit32.bor(bool_1, 0b0000000000000100)
+			elseif Value["Key"] == "Level" then
+				bool_1 = bit32.bor(bool_1, 0b0000000000001000)
+			elseif Value["Key"] == "Experience" then
+				bool_1 = bit32.bor(bool_1, 0b0000000000010000)
+			else
+				error("Invalid enumerator")
+			end
+			if Value["Value"] ~= nil then
+				bool_1 = bit32.bor(bool_1, 0b0000000000100000)
+				table.insert(outgoing_inst, Value["Value"])
+			end
+			buffer.writeu8(outgoing_buff, bool_1_pos_1, bool_1)
+			player_map[Player] = save()
+		end,
+		FireAll = function(Value: ({
+			["Key"]: ("Coins" | "Elixirs" | "Gems" | "Level" | "Experience"),
+			["Value"]: ((unknown)),
+		}))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
+			local bool_2 = 0
+			local bool_2_pos_1 = alloc(1)
+			if Value["Key"] == "Coins" then
+				bool_2 = bit32.bor(bool_2, 0b0000000000000001)
+			elseif Value["Key"] == "Elixirs" then
+				bool_2 = bit32.bor(bool_2, 0b0000000000000010)
+			elseif Value["Key"] == "Gems" then
+				bool_2 = bit32.bor(bool_2, 0b0000000000000100)
+			elseif Value["Key"] == "Level" then
+				bool_2 = bit32.bor(bool_2, 0b0000000000001000)
+			elseif Value["Key"] == "Experience" then
+				bool_2 = bit32.bor(bool_2, 0b0000000000010000)
+			else
+				error("Invalid enumerator")
+			end
+			if Value["Value"] ~= nil then
+				bool_2 = bit32.bor(bool_2, 0b0000000000100000)
+				table.insert(outgoing_inst, Value["Value"])
+			end
+			buffer.writeu8(outgoing_buff, bool_2_pos_1, bool_2)
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in Players:GetPlayers() do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
+			end
+		end,
+		FireExcept = function(Except: Player, Value: ({
+			["Key"]: ("Coins" | "Elixirs" | "Gems" | "Level" | "Experience"),
+			["Value"]: ((unknown)),
+		}))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
+			local bool_3 = 0
+			local bool_3_pos_1 = alloc(1)
+			if Value["Key"] == "Coins" then
+				bool_3 = bit32.bor(bool_3, 0b0000000000000001)
+			elseif Value["Key"] == "Elixirs" then
+				bool_3 = bit32.bor(bool_3, 0b0000000000000010)
+			elseif Value["Key"] == "Gems" then
+				bool_3 = bit32.bor(bool_3, 0b0000000000000100)
+			elseif Value["Key"] == "Level" then
+				bool_3 = bit32.bor(bool_3, 0b0000000000001000)
+			elseif Value["Key"] == "Experience" then
+				bool_3 = bit32.bor(bool_3, 0b0000000000010000)
+			else
+				error("Invalid enumerator")
+			end
+			if Value["Value"] ~= nil then
+				bool_3 = bit32.bor(bool_3, 0b0000000000100000)
+				table.insert(outgoing_inst, Value["Value"])
+			end
+			buffer.writeu8(outgoing_buff, bool_3_pos_1, bool_3)
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in Players:GetPlayers() do
+				if player ~= Except then
+					load_player(player)
+					alloc(used)
+					buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+					table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+					player_map[player] = save()
+				end
+			end
+		end,
+		FireList = function(List: { [unknown]: Player }, Value: ({
+			["Key"]: ("Coins" | "Elixirs" | "Gems" | "Level" | "Experience"),
+			["Value"]: ((unknown)),
+		}))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
+			local bool_4 = 0
+			local bool_4_pos_1 = alloc(1)
+			if Value["Key"] == "Coins" then
+				bool_4 = bit32.bor(bool_4, 0b0000000000000001)
+			elseif Value["Key"] == "Elixirs" then
+				bool_4 = bit32.bor(bool_4, 0b0000000000000010)
+			elseif Value["Key"] == "Gems" then
+				bool_4 = bit32.bor(bool_4, 0b0000000000000100)
+			elseif Value["Key"] == "Level" then
+				bool_4 = bit32.bor(bool_4, 0b0000000000001000)
+			elseif Value["Key"] == "Experience" then
+				bool_4 = bit32.bor(bool_4, 0b0000000000010000)
+			else
+				error("Invalid enumerator")
+			end
+			if Value["Value"] ~= nil then
+				bool_4 = bit32.bor(bool_4, 0b0000000000100000)
+				table.insert(outgoing_inst, Value["Value"])
+			end
+			buffer.writeu8(outgoing_buff, bool_4_pos_1, bool_4)
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for _, player in List do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
+			end
+		end,
+		FireSet = function(Set: { [Player]: any }, Value: ({
+			["Key"]: ("Coins" | "Elixirs" | "Gems" | "Level" | "Experience"),
+			["Value"]: ((unknown)),
+		}))
+			load_empty()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
+			local bool_5 = 0
+			local bool_5_pos_1 = alloc(1)
+			if Value["Key"] == "Coins" then
+				bool_5 = bit32.bor(bool_5, 0b0000000000000001)
+			elseif Value["Key"] == "Elixirs" then
+				bool_5 = bit32.bor(bool_5, 0b0000000000000010)
+			elseif Value["Key"] == "Gems" then
+				bool_5 = bit32.bor(bool_5, 0b0000000000000100)
+			elseif Value["Key"] == "Level" then
+				bool_5 = bit32.bor(bool_5, 0b0000000000001000)
+			elseif Value["Key"] == "Experience" then
+				bool_5 = bit32.bor(bool_5, 0b0000000000010000)
+			else
+				error("Invalid enumerator")
+			end
+			if Value["Value"] ~= nil then
+				bool_5 = bit32.bor(bool_5, 0b0000000000100000)
+				table.insert(outgoing_inst, Value["Value"])
+			end
+			buffer.writeu8(outgoing_buff, bool_5_pos_1, bool_5)
+			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
+			for player in Set do
+				load_player(player)
+				alloc(used)
+				buffer.copy(outgoing_buff, outgoing_apos, buff, 0, used)
+				table.move(inst, 1, #inst, #outgoing_inst + 1, outgoing_inst)
+				player_map[player] = save()
+			end
+		end,
+	},
 	LoadSnapshot = {
 		Fire = function(Player: Player, Value: ({
 			["Coins"]: (number),
@@ -584,6 +769,10 @@ local returns = {
 			["Gems"]: (number),
 			["Level"]: (number),
 			["Experience"]: (number),
+			["Buildings"]: ({ ({
+				["SnapToString"]: (string),
+				["BuildingTypeEnum"]: (number),
+			}) }),
 		}))
 			load_player(Player)
 			alloc(1)
@@ -598,6 +787,20 @@ local returns = {
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Level"])
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Experience"])
+			local len_17 = #Value["Buildings"]
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_17)
+			for i_6 = 1, len_17 do
+				local val_6 = Value["Buildings"][i_6]
+				local len_18 = #val_6["SnapToString"]
+				assert(utf8.len(val_6["SnapToString"]) ~= nil, "value is not valid utf-8")
+				alloc(2)
+				buffer.writeu16(outgoing_buff, outgoing_apos, len_18)
+				alloc(len_18)
+				buffer.writestring(outgoing_buff, outgoing_apos, val_6["SnapToString"], len_18)
+				alloc(1)
+				buffer.writeu8(outgoing_buff, outgoing_apos, val_6["BuildingTypeEnum"])
+			end
 			player_map[Player] = save()
 		end,
 		FireAll = function(Value: ({
@@ -606,6 +809,10 @@ local returns = {
 			["Gems"]: (number),
 			["Level"]: (number),
 			["Experience"]: (number),
+			["Buildings"]: ({ ({
+				["SnapToString"]: (string),
+				["BuildingTypeEnum"]: (number),
+			}) }),
 		}))
 			load_empty()
 			alloc(1)
@@ -620,6 +827,20 @@ local returns = {
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Level"])
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Experience"])
+			local len_19 = #Value["Buildings"]
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_19)
+			for i_7 = 1, len_19 do
+				local val_7 = Value["Buildings"][i_7]
+				local len_20 = #val_7["SnapToString"]
+				assert(utf8.len(val_7["SnapToString"]) ~= nil, "value is not valid utf-8")
+				alloc(2)
+				buffer.writeu16(outgoing_buff, outgoing_apos, len_20)
+				alloc(len_20)
+				buffer.writestring(outgoing_buff, outgoing_apos, val_7["SnapToString"], len_20)
+				alloc(1)
+				buffer.writeu8(outgoing_buff, outgoing_apos, val_7["BuildingTypeEnum"])
+			end
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				load_player(player)
@@ -635,6 +856,10 @@ local returns = {
 			["Gems"]: (number),
 			["Level"]: (number),
 			["Experience"]: (number),
+			["Buildings"]: ({ ({
+				["SnapToString"]: (string),
+				["BuildingTypeEnum"]: (number),
+			}) }),
 		}))
 			load_empty()
 			alloc(1)
@@ -649,6 +874,20 @@ local returns = {
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Level"])
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Experience"])
+			local len_21 = #Value["Buildings"]
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_21)
+			for i_8 = 1, len_21 do
+				local val_8 = Value["Buildings"][i_8]
+				local len_22 = #val_8["SnapToString"]
+				assert(utf8.len(val_8["SnapToString"]) ~= nil, "value is not valid utf-8")
+				alloc(2)
+				buffer.writeu16(outgoing_buff, outgoing_apos, len_22)
+				alloc(len_22)
+				buffer.writestring(outgoing_buff, outgoing_apos, val_8["SnapToString"], len_22)
+				alloc(1)
+				buffer.writeu8(outgoing_buff, outgoing_apos, val_8["BuildingTypeEnum"])
+			end
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				if player ~= Except then
@@ -666,6 +905,10 @@ local returns = {
 			["Gems"]: (number),
 			["Level"]: (number),
 			["Experience"]: (number),
+			["Buildings"]: ({ ({
+				["SnapToString"]: (string),
+				["BuildingTypeEnum"]: (number),
+			}) }),
 		}))
 			load_empty()
 			alloc(1)
@@ -680,6 +923,20 @@ local returns = {
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Level"])
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Experience"])
+			local len_23 = #Value["Buildings"]
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_23)
+			for i_9 = 1, len_23 do
+				local val_9 = Value["Buildings"][i_9]
+				local len_24 = #val_9["SnapToString"]
+				assert(utf8.len(val_9["SnapToString"]) ~= nil, "value is not valid utf-8")
+				alloc(2)
+				buffer.writeu16(outgoing_buff, outgoing_apos, len_24)
+				alloc(len_24)
+				buffer.writestring(outgoing_buff, outgoing_apos, val_9["SnapToString"], len_24)
+				alloc(1)
+				buffer.writeu8(outgoing_buff, outgoing_apos, val_9["BuildingTypeEnum"])
+			end
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in List do
 				load_player(player)
@@ -695,6 +952,10 @@ local returns = {
 			["Gems"]: (number),
 			["Level"]: (number),
 			["Experience"]: (number),
+			["Buildings"]: ({ ({
+				["SnapToString"]: (string),
+				["BuildingTypeEnum"]: (number),
+			}) }),
 		}))
 			load_empty()
 			alloc(1)
@@ -709,6 +970,20 @@ local returns = {
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Level"])
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Experience"])
+			local len_25 = #Value["Buildings"]
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_25)
+			for i_10 = 1, len_25 do
+				local val_10 = Value["Buildings"][i_10]
+				local len_26 = #val_10["SnapToString"]
+				assert(utf8.len(val_10["SnapToString"]) ~= nil, "value is not valid utf-8")
+				alloc(2)
+				buffer.writeu16(outgoing_buff, outgoing_apos, len_26)
+				alloc(len_26)
+				buffer.writestring(outgoing_buff, outgoing_apos, val_10["SnapToString"], len_26)
+				alloc(1)
+				buffer.writeu8(outgoing_buff, outgoing_apos, val_10["BuildingTypeEnum"])
+			end
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for player in Set do
 				load_player(player)
@@ -734,12 +1009,12 @@ local returns = {
 			load_player(Player)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
-			local len_17 = #Value["FolderName"]
+			local len_27 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_17)
-			alloc(len_17)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_17)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_27)
+			alloc(len_27)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_27)
 			player_map[Player] = save()
 		end,
 		FireAll = function(Value: ({
@@ -748,12 +1023,12 @@ local returns = {
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
-			local len_18 = #Value["FolderName"]
+			local len_28 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_18)
-			alloc(len_18)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_18)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_28)
+			alloc(len_28)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_28)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				load_player(player)
@@ -769,12 +1044,12 @@ local returns = {
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
-			local len_19 = #Value["FolderName"]
+			local len_29 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_19)
-			alloc(len_19)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_19)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_29)
+			alloc(len_29)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_29)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				if player ~= Except then
@@ -792,12 +1067,12 @@ local returns = {
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
-			local len_20 = #Value["FolderName"]
+			local len_30 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_20)
-			alloc(len_20)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_20)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_30)
+			alloc(len_30)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_30)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in List do
 				load_player(player)
@@ -813,12 +1088,12 @@ local returns = {
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
-			local len_21 = #Value["FolderName"]
+			local len_31 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_21)
-			alloc(len_21)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_21)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_31)
+			alloc(len_31)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["FolderName"], len_31)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for player in Set do
 				load_player(player)

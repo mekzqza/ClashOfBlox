@@ -108,9 +108,12 @@ function BuildingService:Start()
 		self:_PlaceBuilding(data.Player, data.SnapToString, data.BuildingTypeEnum, data.Position)
 	end)
 
-	EventBus:On(Events.LOCAL_CLIENT_READY, function(player)
-		self:SendSnapshotBuildings(player)
-	end)
+	--[[
+	@ BUG use ohter event to trigger send snapshot building to player when player join the game because if use LOCAL_CLIENT_READY it will cause problem when player teleport to other place and back to home it will resend snapshot building again
+	]]
+	-- EventBus:On(Events.LOCAL_CLIENT_READY, function(player)
+	-- self:SendSnapshotBuildings(player)
+	-- end)
 end
 
 return BuildingService

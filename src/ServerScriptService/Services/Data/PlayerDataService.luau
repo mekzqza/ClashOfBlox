@@ -5,7 +5,6 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Events = require(ReplicatedStorage.Shared.Events)
 local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
 local IdempotentGuard = require(ServerScriptService.Utils.IdempotentGuard)
-
 local Packages = ReplicatedStorage:WaitForChild("Packages")
 local Promise = require(Packages.Promise)
 
@@ -68,7 +67,10 @@ end
 local function MapTOArray(tbl: { [string]: any }): { [number]: any }
 	local arr = {}
 	for key, value in pairs(tbl) do
-		table.insert(arr, { key, value })
+		table.insert(arr, {
+			SnapToString = key,
+			BuildingTypeEnum = value[1],
+		})
 	end
 	return arr
 end
@@ -261,7 +263,8 @@ function PlayerDataService:Set(player: Player, key: string, value: any): boolean
 		target[keys[#keys]] = finalValue
 	end
 
-	EventBus:Emit(Events.LOCAL_PLAYER_DATA_CHANGED, player, { key = key, newValue = finalValue })
+	warn(`[PlayerDataService] Data updated for {player.Name}: {key} = {finalValue}`)
+	EventBus:Emit(Events.S2C_PLAYER_DATA_UPDATE, player, { Key = key, newValue = finalValue })
 
 	return true
 end
@@ -339,6 +342,8 @@ function PlayerDataService:Start()
 					return
 				end
 				local playerData = self:GetAll(player)
+
+				local ArrayBuilding = MapTOArray(playerData.PlayerBuildings)
 				local playload = {
 					Player = player,
 					Coins = playerData and playerData.Coins or 0,
@@ -346,6 +351,7 @@ function PlayerDataService:Start()
 					Gems = playerData and playerData.Gems or 0,
 					Level = playerData and playerData.Level or 1,
 					Experience = playerData and playerData.Experience or 0,
+					Buildings = playerData and ArrayBuilding or {},
 				}
 				EventBus:Emit(Events.S2C_PLAYER_DATA_FIRST_LOAD, playload)
 			end)

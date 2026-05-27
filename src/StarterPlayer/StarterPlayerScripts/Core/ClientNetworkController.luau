@@ -22,20 +22,34 @@ local function DataLayer()
 			--[[
 			@Bug Hard Code Key Name
 			--]]
-			key = "Buildings",
-			value = buildingsMap,
+			Key = "Buildings",
+			Value = buildingsMap,
 		})
 	end)
 
 	ZapClient.LoadSnapshot.SetCallback(function(data)
+		local buildingsMap = {}
+		for _, entry in data.Buildings do
+			buildingsMap[entry.SnapToString] = GameEnum:GetBuildingTypeById(entry.BuildingTypeEnum)
+		end
+
 		local playload = {
 			Coins = data.Coins,
 			Elixirs = data.Elixirs,
 			Gems = data.Gems,
 			Level = data.Level,
 			Experience = data.Experience,
+			Buildings = buildingsMap,
 		}
 		EventBus:Emit(Events.LOCAL_PLAYER_DATA_FIRST_LOAD, playload)
+	end)
+
+	ZapClient.PlayerDataUpdate.On(function(data)
+		EventBus:Emit(Events.LOCAL_PLAYER_DATA_UPDATE, {
+			Key = data.Key,
+			Value = data.Value,
+		})
+		warn(`[ClientNetworkController] PlayerDataUpdate: {data.Key} = {data.Value}`)
 	end)
 end
 
