@@ -12,7 +12,7 @@ return {
         {
             Type = "string",
             Name = "Fields",
-            Description = "Comma-separated field names (e.g., Inventory,Coins,Gems) REST_ALL_FIELD to Reset all fields",
+            Description = "Comma-separated field names (e.g., Inventory,Golds,Gems) REST_ALL_FIELD to Reset all fields",
         },
     }
 }

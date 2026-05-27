@@ -1,6 +1,45 @@
 opt server_output = "src/ServerScriptService/Services/Core/ZapServer.lua"
 opt client_output = "src/ReplicatedStorage/Shared/ZapClient.lua"
 
+type BuildingEntry = struct {
+    SnapToString: string.utf8,
+    BuildingTypeEnum: u8,
+}
+
+type DataKey = enum {
+    Golds,
+    Elixirs,
+    Gems,
+    Level,
+    Experience,
+}
+
+type CollectorData = struct {
+   Timestamp: u32,
+    ProductionRate: u32,
+    Capacity: u32,
+}
+
+type Collector = struct {
+    GoldCollector: CollectorData,
+    ElixirCollector: CollectorData,
+}
+
+event LoadSnapshot = {
+    from: Server,
+    type: Reliable,
+    call: SingleAsync,
+    data: struct {
+        Golds: u32,
+        Elixirs: u32,
+        Gems: u32,
+        Level: u32,
+        Experience: u32,
+        Buildings: BuildingEntry[],
+        Collectors: Collector,
+    }
+}
+
 event PlayerRequestPalceBulidings = {
     from: Client,
     type: Reliable,
@@ -10,11 +49,6 @@ event PlayerRequestPalceBulidings = {
         BuildingTypeEnum: u8,
         Position: Vector3
     }
-}
-
-type BuildingEntry = struct {
-    SnapToString: string.utf8,
-    BuildingTypeEnum: u8,
 }
 
 event SnapshotBuildings = {
@@ -50,29 +84,6 @@ event ClientReady = {
     from: Client,
     type: Reliable,
     call: SingleAsync,
-}
-
-event LoadSnapshot = {
-    from: Server,
-    type: Reliable,
-    call: SingleAsync,
-    data: struct {
-        Coins: u32,
-        Elixirs: u32,
-        Gems: u32,
-        Level: u32,
-        Experience: u32,
-        Buildings: BuildingEntry[]
-    }
-}
-
-
-type DataKey = enum {
-    Coins,
-    Elixirs,
-    Gems,
-    Level,
-    Experience,
 }
 
 event PlayerDataUpdate = {

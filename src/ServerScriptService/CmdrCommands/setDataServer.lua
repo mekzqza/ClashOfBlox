@@ -7,7 +7,7 @@ local ServiceLocator = require(ServerScriptService.Utils.ServiceLocator)
 
 -- ✅ Valid keys (ใช้ชื่อที่ตรงกับ Types.luau)
 local VALID_KEYS = {
-    "Coins",
+    "Golds",
     "Gems",
     "Level",
     "Elixirs",

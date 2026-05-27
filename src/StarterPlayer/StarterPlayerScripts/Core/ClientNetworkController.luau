@@ -34,12 +34,13 @@ local function DataLayer()
 		end
 
 		local playload = {
-			Coins = data.Coins,
+			Golds = data.Golds,
 			Elixirs = data.Elixirs,
 			Gems = data.Gems,
 			Level = data.Level,
 			Experience = data.Experience,
 			Buildings = buildingsMap,
+			Collectors = data.Collectors,
 		}
 		EventBus:Emit(Events.LOCAL_PLAYER_DATA_FIRST_LOAD, playload)
 	end)

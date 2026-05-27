@@ -1,7 +1,7 @@
 return {
     Name = "setdata",
     Aliases = { "setstats", "give" },
-    Description = "ตั้งค่าข้อมูลผู้เล่น (Coins, Gems, Level, Attributes.Endurance)",
+    Description = "ตั้งค่าข้อมูลผู้เล่น (Golds, Gems, Level, Attributes.Endurance)",
     Group = "Admin",
     Args = {
         {
@@ -12,7 +12,7 @@ return {
         {
             Type = "string",
             Name = "ฟิลด์",
-            Description = "ฟิลด์ข้อมูล: Coins, Elixirs, Gems, Level, ",
+            Description = "ฟิลด์ข้อมูล: Golds, Elixirs, Gems, Level, ",
         },
         {
             Type = "number", -- ✅ เปลี่ยนจาก string เป็น number

@@ -9,6 +9,7 @@
 
 local BuildingConfig = {}
 export type Category = |"Army" |"Resources"| "Defrens"| "Trap"
+export type ResourceType = "Gold" | "Elixir"
 
 export type BuildingLevelData = {
 	UpgradeCost: number,
@@ -19,6 +20,9 @@ export type BuildingLevelData = {
 	FireRange: number?,
 	Damage: number?,
 	Description: string?,
+	ProductionRate: number?,
+	MaxStorage: number?,
+	ResourceType: ResourceType?,
 }
 
 export type BuildingData = { [string]: { Width: number, Length: number, [number]: BuildingLevelData } }
@@ -41,11 +45,29 @@ local Buildings: BuildingData = {
 	["ElixirCollector_1"] = {
 		Width = 3,
 		Length = 3,
+		[1] = {
+			UpgradeCost = 150,
+			UpgradeTime = 60,
+			MaxHp = 400,
+			Category = "Resources",
+			ProductionRate = 200,
+			MaxStorage = 2000,
+			ResourceType = "Elixir",
+		},
 	},
 
 	["GoldMine_1"] = {
 		Width = 3,
 		Length = 3,
+		[1] = {
+			UpgradeCost = 150,
+			UpgradeTime = 60,
+			MaxHp = 400,
+			Category = "Resources",
+			ProductionRate = 200,
+			MaxStorage = 2000,
+			ResourceType = "Gold",
+		},
 	},
 	["GoldStorage_1"] = {
 		Width = 3,
@@ -83,7 +105,11 @@ function BuildingConfig:GetBuildingDimensions(buildingType: string): { Width: nu
 end
 
 function BuildingConfig:GetBuildingData(buildingType: string, level: number): BuildingLevelData?
-	return Buildings[buildingType][level] or nil
+	local building = Buildings[buildingType]
+	if not building then
+		return nil
+	end
+	return building[level] or nil
 end
 
 return BuildingConfig

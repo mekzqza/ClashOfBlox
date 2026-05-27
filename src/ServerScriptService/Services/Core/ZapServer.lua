@@ -205,7 +205,24 @@ end
 Players.PlayerRemoving:Connect(function(player)
 	player_map[player] = nil
 end)
-export type DataKey = ("Coins" | "Elixirs" | "Gems" | "Level" | "Experience")
+export type CollectorData = ({
+	["Timestamp"]: (number),
+	["ProductionRate"]: (number),
+	["Capacity"]: (number),
+})
+export type Collector = ({
+	["GoldCollector"]: ({
+		["Timestamp"]: (number),
+		["ProductionRate"]: (number),
+		["Capacity"]: (number),
+	}),
+	["ElixirCollector"]: ({
+		["Timestamp"]: (number),
+		["ProductionRate"]: (number),
+		["Capacity"]: (number),
+	}),
+})
+export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience")
 export type BuildingEntry = ({
 	["SnapToString"]: (string),
 	["BuildingTypeEnum"]: (number),
@@ -274,7 +291,7 @@ local returns = {
 		}))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
 			local len_2 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
@@ -306,7 +323,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
 			local len_5 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
@@ -345,7 +362,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
 			local len_8 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
@@ -386,7 +403,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
 			local len_11 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
@@ -425,7 +442,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
 			local len_14 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
@@ -463,7 +480,7 @@ local returns = {
 		}))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["BuildingTypeEnum"])
 			alloc(4)
@@ -480,7 +497,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["BuildingTypeEnum"])
 			alloc(4)
@@ -504,7 +521,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["BuildingTypeEnum"])
 			alloc(4)
@@ -530,7 +547,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["BuildingTypeEnum"])
 			alloc(4)
@@ -554,7 +571,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["BuildingTypeEnum"])
 			alloc(4)
@@ -587,7 +604,7 @@ local returns = {
 	},
 	PlayerDataUpdate = {
 		Fire = function(Player: Player, Value: ({
-			["Key"]: ("Coins" | "Elixirs" | "Gems" | "Level" | "Experience"),
+			["Key"]: ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience"),
 			["Value"]: ((unknown)),
 		}))
 			load_player(Player)
@@ -595,7 +612,7 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_1 = 0
 			local bool_1_pos_1 = alloc(1)
-			if Value["Key"] == "Coins" then
+			if Value["Key"] == "Golds" then
 				bool_1 = bit32.bor(bool_1, 0b0000000000000001)
 			elseif Value["Key"] == "Elixirs" then
 				bool_1 = bit32.bor(bool_1, 0b0000000000000010)
@@ -616,7 +633,7 @@ local returns = {
 			player_map[Player] = save()
 		end,
 		FireAll = function(Value: ({
-			["Key"]: ("Coins" | "Elixirs" | "Gems" | "Level" | "Experience"),
+			["Key"]: ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience"),
 			["Value"]: ((unknown)),
 		}))
 			load_empty()
@@ -624,7 +641,7 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_2 = 0
 			local bool_2_pos_1 = alloc(1)
-			if Value["Key"] == "Coins" then
+			if Value["Key"] == "Golds" then
 				bool_2 = bit32.bor(bool_2, 0b0000000000000001)
 			elseif Value["Key"] == "Elixirs" then
 				bool_2 = bit32.bor(bool_2, 0b0000000000000010)
@@ -652,7 +669,7 @@ local returns = {
 			end
 		end,
 		FireExcept = function(Except: Player, Value: ({
-			["Key"]: ("Coins" | "Elixirs" | "Gems" | "Level" | "Experience"),
+			["Key"]: ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience"),
 			["Value"]: ((unknown)),
 		}))
 			load_empty()
@@ -660,7 +677,7 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_3 = 0
 			local bool_3_pos_1 = alloc(1)
-			if Value["Key"] == "Coins" then
+			if Value["Key"] == "Golds" then
 				bool_3 = bit32.bor(bool_3, 0b0000000000000001)
 			elseif Value["Key"] == "Elixirs" then
 				bool_3 = bit32.bor(bool_3, 0b0000000000000010)
@@ -690,7 +707,7 @@ local returns = {
 			end
 		end,
 		FireList = function(List: { [unknown]: Player }, Value: ({
-			["Key"]: ("Coins" | "Elixirs" | "Gems" | "Level" | "Experience"),
+			["Key"]: ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience"),
 			["Value"]: ((unknown)),
 		}))
 			load_empty()
@@ -698,7 +715,7 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_4 = 0
 			local bool_4_pos_1 = alloc(1)
-			if Value["Key"] == "Coins" then
+			if Value["Key"] == "Golds" then
 				bool_4 = bit32.bor(bool_4, 0b0000000000000001)
 			elseif Value["Key"] == "Elixirs" then
 				bool_4 = bit32.bor(bool_4, 0b0000000000000010)
@@ -726,7 +743,7 @@ local returns = {
 			end
 		end,
 		FireSet = function(Set: { [Player]: any }, Value: ({
-			["Key"]: ("Coins" | "Elixirs" | "Gems" | "Level" | "Experience"),
+			["Key"]: ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience"),
 			["Value"]: ((unknown)),
 		}))
 			load_empty()
@@ -734,7 +751,7 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_5 = 0
 			local bool_5_pos_1 = alloc(1)
-			if Value["Key"] == "Coins" then
+			if Value["Key"] == "Golds" then
 				bool_5 = bit32.bor(bool_5, 0b0000000000000001)
 			elseif Value["Key"] == "Elixirs" then
 				bool_5 = bit32.bor(bool_5, 0b0000000000000010)
@@ -764,7 +781,7 @@ local returns = {
 	},
 	LoadSnapshot = {
 		Fire = function(Player: Player, Value: ({
-			["Coins"]: (number),
+			["Golds"]: (number),
 			["Elixirs"]: (number),
 			["Gems"]: (number),
 			["Level"]: (number),
@@ -773,12 +790,24 @@ local returns = {
 				["SnapToString"]: (string),
 				["BuildingTypeEnum"]: (number),
 			}) }),
+			["Collectors"]: ({
+				["GoldCollector"]: ({
+					["Timestamp"]: (number),
+					["ProductionRate"]: (number),
+					["Capacity"]: (number),
+				}),
+				["ElixirCollector"]: ({
+					["Timestamp"]: (number),
+					["ProductionRate"]: (number),
+					["Capacity"]: (number),
+				}),
+			}),
 		}))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
 			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Coins"])
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Golds"])
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Elixirs"])
 			alloc(4)
@@ -801,10 +830,22 @@ local returns = {
 				alloc(1)
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_6["BuildingTypeEnum"])
 			end
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Timestamp"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["ProductionRate"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Capacity"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["Timestamp"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["ProductionRate"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["Capacity"])
 			player_map[Player] = save()
 		end,
 		FireAll = function(Value: ({
-			["Coins"]: (number),
+			["Golds"]: (number),
 			["Elixirs"]: (number),
 			["Gems"]: (number),
 			["Level"]: (number),
@@ -813,12 +854,24 @@ local returns = {
 				["SnapToString"]: (string),
 				["BuildingTypeEnum"]: (number),
 			}) }),
+			["Collectors"]: ({
+				["GoldCollector"]: ({
+					["Timestamp"]: (number),
+					["ProductionRate"]: (number),
+					["Capacity"]: (number),
+				}),
+				["ElixirCollector"]: ({
+					["Timestamp"]: (number),
+					["ProductionRate"]: (number),
+					["Capacity"]: (number),
+				}),
+			}),
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
 			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Coins"])
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Golds"])
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Elixirs"])
 			alloc(4)
@@ -841,6 +894,18 @@ local returns = {
 				alloc(1)
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_7["BuildingTypeEnum"])
 			end
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Timestamp"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["ProductionRate"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Capacity"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["Timestamp"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["ProductionRate"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["Capacity"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				load_player(player)
@@ -851,7 +916,7 @@ local returns = {
 			end
 		end,
 		FireExcept = function(Except: Player, Value: ({
-			["Coins"]: (number),
+			["Golds"]: (number),
 			["Elixirs"]: (number),
 			["Gems"]: (number),
 			["Level"]: (number),
@@ -860,12 +925,24 @@ local returns = {
 				["SnapToString"]: (string),
 				["BuildingTypeEnum"]: (number),
 			}) }),
+			["Collectors"]: ({
+				["GoldCollector"]: ({
+					["Timestamp"]: (number),
+					["ProductionRate"]: (number),
+					["Capacity"]: (number),
+				}),
+				["ElixirCollector"]: ({
+					["Timestamp"]: (number),
+					["ProductionRate"]: (number),
+					["Capacity"]: (number),
+				}),
+			}),
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
 			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Coins"])
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Golds"])
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Elixirs"])
 			alloc(4)
@@ -888,6 +965,18 @@ local returns = {
 				alloc(1)
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_8["BuildingTypeEnum"])
 			end
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Timestamp"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["ProductionRate"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Capacity"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["Timestamp"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["ProductionRate"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["Capacity"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				if player ~= Except then
@@ -900,7 +989,7 @@ local returns = {
 			end
 		end,
 		FireList = function(List: { [unknown]: Player }, Value: ({
-			["Coins"]: (number),
+			["Golds"]: (number),
 			["Elixirs"]: (number),
 			["Gems"]: (number),
 			["Level"]: (number),
@@ -909,12 +998,24 @@ local returns = {
 				["SnapToString"]: (string),
 				["BuildingTypeEnum"]: (number),
 			}) }),
+			["Collectors"]: ({
+				["GoldCollector"]: ({
+					["Timestamp"]: (number),
+					["ProductionRate"]: (number),
+					["Capacity"]: (number),
+				}),
+				["ElixirCollector"]: ({
+					["Timestamp"]: (number),
+					["ProductionRate"]: (number),
+					["Capacity"]: (number),
+				}),
+			}),
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
 			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Coins"])
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Golds"])
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Elixirs"])
 			alloc(4)
@@ -937,6 +1038,18 @@ local returns = {
 				alloc(1)
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_9["BuildingTypeEnum"])
 			end
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Timestamp"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["ProductionRate"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Capacity"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["Timestamp"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["ProductionRate"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["Capacity"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in List do
 				load_player(player)
@@ -947,7 +1060,7 @@ local returns = {
 			end
 		end,
 		FireSet = function(Set: { [Player]: any }, Value: ({
-			["Coins"]: (number),
+			["Golds"]: (number),
 			["Elixirs"]: (number),
 			["Gems"]: (number),
 			["Level"]: (number),
@@ -956,12 +1069,24 @@ local returns = {
 				["SnapToString"]: (string),
 				["BuildingTypeEnum"]: (number),
 			}) }),
+			["Collectors"]: ({
+				["GoldCollector"]: ({
+					["Timestamp"]: (number),
+					["ProductionRate"]: (number),
+					["Capacity"]: (number),
+				}),
+				["ElixirCollector"]: ({
+					["Timestamp"]: (number),
+					["ProductionRate"]: (number),
+					["Capacity"]: (number),
+				}),
+			}),
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
 			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Coins"])
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Golds"])
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Elixirs"])
 			alloc(4)
@@ -984,6 +1109,18 @@ local returns = {
 				alloc(1)
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_10["BuildingTypeEnum"])
 			end
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Timestamp"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["ProductionRate"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Capacity"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["Timestamp"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["ProductionRate"])
+			alloc(4)
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["Capacity"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for player in Set do
 				load_player(player)
@@ -1008,7 +1145,7 @@ local returns = {
 		}))
 			load_player(Player)
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
 			local len_27 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
@@ -1022,7 +1159,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
 			local len_28 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
@@ -1043,7 +1180,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
 			local len_29 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
@@ -1066,7 +1203,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
 			local len_30 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
@@ -1087,7 +1224,7 @@ local returns = {
 		}))
 			load_empty()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
 			local len_31 = #Value["FolderName"]
 			assert(utf8.len(Value["FolderName"]) ~= nil, "value is not valid utf-8")
 			alloc(2)

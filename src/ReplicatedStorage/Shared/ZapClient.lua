@@ -160,7 +160,24 @@ local remotes = ReplicatedStorage:WaitForChild("ZAP")
 local reliable = remotes:WaitForChild("ZAP_RELIABLE")
 assert(reliable:IsA("RemoteEvent"), "Expected ZAP_RELIABLE to be a RemoteEvent")
 
-export type DataKey = ("Coins" | "Elixirs" | "Gems" | "Level" | "Experience")
+export type CollectorData = ({
+	["Timestamp"]: (number),
+	["ProductionRate"]: (number),
+	["Capacity"]: (number),
+})
+export type Collector = ({
+	["GoldCollector"]: ({
+		["Timestamp"]: (number),
+		["ProductionRate"]: (number),
+		["Capacity"]: (number),
+	}),
+	["ElixirCollector"]: ({
+		["Timestamp"]: (number),
+		["ProductionRate"]: (number),
+		["Capacity"]: (number),
+	}),
+})
+export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience")
 export type BuildingEntry = ({
 	["SnapToString"]: (string),
 	["BuildingTypeEnum"]: (number),
@@ -184,13 +201,13 @@ RunService.Heartbeat:Connect(SendEvents)
 
 local reliable_events = table.create(5)
 local reliable_event_queue: { [number]: { any } } = table.create(5)
-reliable_event_queue[0] = {}
-reliable_events[1] = {}
 reliable_event_queue[1] = {}
+reliable_events[2] = {}
+reliable_event_queue[2] = {}
 reliable_events[4] = {}
 reliable_event_queue[4] = {}
+reliable_event_queue[0] = {}
 reliable_event_queue[3] = {}
-reliable_event_queue[2] = {}
 reliable.OnClientEvent:Connect(function(buff, inst)
 	incoming_buff = buff
 	incoming_inst = inst
@@ -199,7 +216,7 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 	local len = buffer.len(buff)
 	while incoming_read < len do
 		local id = buffer.readu8(buff, read(1))
-		if id == 0 then -- SnapshotBuildings
+		if id == 1 then -- SnapshotBuildings
 			local value
 			value = {  }
 			local len_1 = buffer.readu16(incoming_buff, read(2))
@@ -216,27 +233,27 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 				val_1["BuildingTypeEnum"] = buffer.readu8(incoming_buff, read(1))
 				value["Buildings"][i_1] = val_1
 			end
-			if reliable_events[0] then
-				task.spawn(reliable_events[0], value)
+			if reliable_events[1] then
+				task.spawn(reliable_events[1], value)
 			else
-				table.insert(reliable_event_queue[0], value)
-				if #reliable_event_queue[0] > 64 then
-					warn(`[ZAP] {#reliable_event_queue[0]} events in queue for SnapshotBuildings. Did you forget to attach a listener?`)
+				table.insert(reliable_event_queue[1], value)
+				if #reliable_event_queue[1] > 64 then
+					warn(`[ZAP] {#reliable_event_queue[1]} events in queue for SnapshotBuildings. Did you forget to attach a listener?`)
 				end
 			end
-		elseif id == 1 then -- PlayersCreateBuilding
+		elseif id == 2 then -- PlayersCreateBuilding
 			local value
 			value = {  }
 			value["BuildingTypeEnum"] = buffer.readu8(incoming_buff, read(1))
 			value["Position"] = Vector3.new(buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)))
-			if reliable_events[1][1] then
-				for _, cb in reliable_events[1] do
+			if reliable_events[2][1] then
+				for _, cb in reliable_events[2] do
 					task.spawn(cb, value)
 				end
 			else
-				table.insert(reliable_event_queue[1], value)
-				if #reliable_event_queue[1] > 64 then
-					warn(`[ZAP] {#reliable_event_queue[1]} events in queue for PlayersCreateBuilding. Did you forget to attach a listener?`)
+				table.insert(reliable_event_queue[2], value)
+				if #reliable_event_queue[2] > 64 then
+					warn(`[ZAP] {#reliable_event_queue[2]} events in queue for PlayersCreateBuilding. Did you forget to attach a listener?`)
 				end
 			end
 		elseif id == 4 then -- PlayerDataUpdate
@@ -244,7 +261,7 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 			local bool_1 = buffer.readu8(incoming_buff, read(1))
 			value = {  }
 			if bit32.btest(bool_1, 0b0000000000000001) then
-				value["Key"] = "Coins"
+				value["Key"] = "Golds"
 			elseif bit32.btest(bool_1, 0b0000000000000010) then
 				value["Key"] = "Elixirs"
 			elseif bit32.btest(bool_1, 0b0000000000000100) then
@@ -270,10 +287,10 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 					warn(`[ZAP] {#reliable_event_queue[4]} events in queue for PlayerDataUpdate. Did you forget to attach a listener?`)
 				end
 			end
-		elseif id == 3 then -- LoadSnapshot
+		elseif id == 0 then -- LoadSnapshot
 			local value
 			value = {  }
-			value["Coins"] = buffer.readu32(incoming_buff, read(4))
+			value["Golds"] = buffer.readu32(incoming_buff, read(4))
 			value["Elixirs"] = buffer.readu32(incoming_buff, read(4))
 			value["Gems"] = buffer.readu32(incoming_buff, read(4))
 			value["Level"] = buffer.readu32(incoming_buff, read(4))
@@ -289,26 +306,35 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 				val_2["BuildingTypeEnum"] = buffer.readu8(incoming_buff, read(1))
 				value["Buildings"][i_2] = val_2
 			end
-			if reliable_events[3] then
-				task.spawn(reliable_events[3], value)
+			value["Collectors"] = {  }
+			value["Collectors"]["GoldCollector"] = {  }
+			value["Collectors"]["GoldCollector"]["Timestamp"] = buffer.readu32(incoming_buff, read(4))
+			value["Collectors"]["GoldCollector"]["ProductionRate"] = buffer.readu32(incoming_buff, read(4))
+			value["Collectors"]["GoldCollector"]["Capacity"] = buffer.readu32(incoming_buff, read(4))
+			value["Collectors"]["ElixirCollector"] = {  }
+			value["Collectors"]["ElixirCollector"]["Timestamp"] = buffer.readu32(incoming_buff, read(4))
+			value["Collectors"]["ElixirCollector"]["ProductionRate"] = buffer.readu32(incoming_buff, read(4))
+			value["Collectors"]["ElixirCollector"]["Capacity"] = buffer.readu32(incoming_buff, read(4))
+			if reliable_events[0] then
+				task.spawn(reliable_events[0], value)
 			else
-				table.insert(reliable_event_queue[3], value)
-				if #reliable_event_queue[3] > 64 then
-					warn(`[ZAP] {#reliable_event_queue[3]} events in queue for LoadSnapshot. Did you forget to attach a listener?`)
+				table.insert(reliable_event_queue[0], value)
+				if #reliable_event_queue[0] > 64 then
+					warn(`[ZAP] {#reliable_event_queue[0]} events in queue for LoadSnapshot. Did you forget to attach a listener?`)
 				end
 			end
-		elseif id == 2 then -- AssingZoneOwner
+		elseif id == 3 then -- AssingZoneOwner
 			local value
 			value = {  }
 			local len_6 = buffer.readu16(incoming_buff, read(2))
 			value["FolderName"] = buffer.readstring(incoming_buff, read(len_6), len_6)
 			assert(utf8.len(value["FolderName"]) ~= nil, "value is not valid utf-8")
-			if reliable_events[2] then
-				task.spawn(reliable_events[2], value)
+			if reliable_events[3] then
+				task.spawn(reliable_events[3], value)
 			else
-				table.insert(reliable_event_queue[2], value)
-				if #reliable_event_queue[2] > 64 then
-					warn(`[ZAP] {#reliable_event_queue[2]} events in queue for AssingZoneOwner. Did you forget to attach a listener?`)
+				table.insert(reliable_event_queue[3], value)
+				if #reliable_event_queue[3] > 64 then
+					warn(`[ZAP] {#reliable_event_queue[3]} events in queue for AssingZoneOwner. Did you forget to attach a listener?`)
 				end
 			end
 		else
@@ -329,13 +355,13 @@ local returns = {
 				["BuildingTypeEnum"]: (number),
 			}) }),
 		})) -> ()): () -> ()
-			reliable_events[0] = Callback
-			for _, value in reliable_event_queue[0] do
+			reliable_events[1] = Callback
+			for _, value in reliable_event_queue[1] do
 				task.spawn(Callback, value)
 			end
-			reliable_event_queue[0] = {}
+			reliable_event_queue[1] = {}
 			return function()
-				reliable_events[0] = nil
+				reliable_events[1] = nil
 			end
 		end,
 	},
@@ -344,13 +370,13 @@ local returns = {
 			["BuildingTypeEnum"]: (number),
 			["Position"]: (Vector3),
 		})) -> ())
-			table.insert(reliable_events[1], Callback)
-			for _, value in reliable_event_queue[1] do
+			table.insert(reliable_events[2], Callback)
+			for _, value in reliable_event_queue[2] do
 				task.spawn(Callback, value)
 			end
-			reliable_event_queue[1] = {}
+			reliable_event_queue[2] = {}
 			return function()
-				table.remove(reliable_events[1], table.find(reliable_events[1], Callback))
+				table.remove(reliable_events[2], table.find(reliable_events[2], Callback))
 			end
 		end,
 	},
@@ -380,7 +406,7 @@ local returns = {
 	},
 	PlayerDataUpdate = {
 		On = function(Callback: (Value: ({
-			["Key"]: ("Coins" | "Elixirs" | "Gems" | "Level" | "Experience"),
+			["Key"]: ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience"),
 			["Value"]: ((unknown)),
 		})) -> ())
 			table.insert(reliable_events[4], Callback)
@@ -395,7 +421,7 @@ local returns = {
 	},
 	LoadSnapshot = {
 		SetCallback = function(Callback: (Value: ({
-			["Coins"]: (number),
+			["Golds"]: (number),
 			["Elixirs"]: (number),
 			["Gems"]: (number),
 			["Level"]: (number),
@@ -404,14 +430,26 @@ local returns = {
 				["SnapToString"]: (string),
 				["BuildingTypeEnum"]: (number),
 			}) }),
+			["Collectors"]: ({
+				["GoldCollector"]: ({
+					["Timestamp"]: (number),
+					["ProductionRate"]: (number),
+					["Capacity"]: (number),
+				}),
+				["ElixirCollector"]: ({
+					["Timestamp"]: (number),
+					["ProductionRate"]: (number),
+					["Capacity"]: (number),
+				}),
+			}),
 		})) -> ()): () -> ()
-			reliable_events[3] = Callback
-			for _, value in reliable_event_queue[3] do
+			reliable_events[0] = Callback
+			for _, value in reliable_event_queue[0] do
 				task.spawn(Callback, value)
 			end
-			reliable_event_queue[3] = {}
+			reliable_event_queue[0] = {}
 			return function()
-				reliable_events[3] = nil
+				reliable_events[0] = nil
 			end
 		end,
 	},
@@ -425,13 +463,13 @@ local returns = {
 		SetCallback = function(Callback: (Value: ({
 			["FolderName"]: (string),
 		})) -> ()): () -> ()
-			reliable_events[2] = Callback
-			for _, value in reliable_event_queue[2] do
+			reliable_events[3] = Callback
+			for _, value in reliable_event_queue[3] do
 				task.spawn(Callback, value)
 			end
-			reliable_event_queue[2] = {}
+			reliable_event_queue[3] = {}
 			return function()
-				reliable_events[2] = nil
+				reliable_events[3] = nil
 			end
 		end,
 	},

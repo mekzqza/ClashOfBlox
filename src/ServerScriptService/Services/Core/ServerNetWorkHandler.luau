@@ -26,18 +26,19 @@ local function DataLayer()
 
 	EventBus:On(Events.S2C_PLAYER_DATA_FIRST_LOAD, function(data)
 		ZapServer.LoadSnapshot.Fire(data.Player, {
-			Coins = data.Coins,
+			Golds = data.Golds,
 			Elixirs = data.Elixirs,
 			Gems = data.Gems,
 			Level = data.Level,
 			Experience = data.Experience,
 			Buildings = data.Buildings,
+			Collectors = data.Collectors,
 		})
 	end)
 
 	EventBus:On(Events.S2C_PLAYER_DATA_UPDATE, function(player, data)
 		local keyMap = {
-			["Coins"] = "Coins",
+			["Golds"] = "Golds",
 			["Elixirs"] = "Elixirs",
 			["Gems"] = "Gems",
 			["Level"] = "Level",
