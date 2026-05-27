@@ -45,6 +45,8 @@ function MainDisplayController:_updateResourceDisplay(key: string, value: number
 	local fillFrame = traget:FindFirstChild("Fill", true)
 	if fillFrame and fillFrame:IsA("Frame") then
 		local fillAmount = math.clamp(value / 1000, 0, 1)
+		fillFrame.AnchorPoint = Vector2.new(1, 0)
+		fillFrame.Position = UDim2.new(1, 0, 0, 0)
 		fillFrame.Size = UDim2.new(fillAmount, 0, 1, 0)
 	end
 
@@ -77,6 +79,8 @@ function MainDisplayController:_updateExperience(experience: number)
 		return
 	end
 	local fillAmount = math.clamp(experience / 1000, 0, 1)
+	fillExperience.AnchorPoint = Vector2.new(1, 0)
+	fillExperience.Position = UDim2.new(1, 0, 0, 0)
 	fillExperience.Size = UDim2.new(fillAmount, 0, 1, 0)
 end
 
@@ -96,16 +100,16 @@ function MainDisplayController:Init()
 end
 
 function MainDisplayController:Start()
-	EventBus:On(Events.LOCAL_PLAYER_DATA_UPDATE, function(data)
-		if data.key == "Coins" then
+	EventBus:On(Events.LOCAL_DATA_CHANGED, function(data)
+		if data.Key == "Coins" then
 			self:_updateResourceDisplay("Coins", data.Value)
-		elseif data.key == "Elixirs" then
+		elseif data.Key == "Elixirs" then
 			self:_updateResourceDisplay("Elixirs", data.Value)
-		elseif data.key == "Gems" then
+		elseif data.Key == "Gems" then
 			self:_updateResourceDisplay("Gems", data.Value)
-		elseif data.key == "Level" then
+		elseif data.Key == "Level" then
 			self:_updateLevelDisplay(data.Value)
-		elseif data.key == "Experience" then
+		elseif data.Key == "Experience" then
 			self:_updateExperience(data.Value)
 		end
 	end)

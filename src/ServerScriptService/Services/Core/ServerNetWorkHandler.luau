@@ -54,7 +54,6 @@ local function DataLayer()
 			Key = zapkey,
 			Value = data.newValue,
 		})
-		warn(`[ServerNetWorkHandler] PlayerDataUpdate: {player.Name} - {zapkey} = {data.newValue}`)
 	end)
 end
 

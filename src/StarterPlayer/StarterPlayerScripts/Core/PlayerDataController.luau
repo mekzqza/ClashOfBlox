@@ -90,6 +90,11 @@ function PlayerDataController:Set(key: string, value: any)
 			target = target[k]
 		end
 	end
+
+	EventBus:Emit(Events.LOCAL_DATA_CHANGED, {
+		Key = key,
+		Value = value,
+	})
 end
 
 function PlayerDataController:GetAll()

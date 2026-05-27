@@ -49,7 +49,6 @@ local function DataLayer()
 			Key = data.Key,
 			Value = data.Value,
 		})
-		warn(`[ClientNetworkController] PlayerDataUpdate: {data.Key} = {data.Value}`)
 	end)
 end
 

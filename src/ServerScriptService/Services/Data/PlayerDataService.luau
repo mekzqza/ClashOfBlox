@@ -263,9 +263,7 @@ function PlayerDataService:Set(player: Player, key: string, value: any): boolean
 		target[keys[#keys]] = finalValue
 	end
 
-	warn(`[PlayerDataService] Data updated for {player.Name}: {key} = {finalValue}`)
 	EventBus:Emit(Events.S2C_PLAYER_DATA_UPDATE, player, { Key = key, newValue = finalValue })
-
 	return true
 end
 
