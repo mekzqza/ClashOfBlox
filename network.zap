@@ -4,6 +4,7 @@ opt client_output = "src/ReplicatedStorage/Shared/ZapClient.lua"
 type BuildingEntry = struct {
     SnapToString: string.utf8,
     BuildingTypeEnum: u8,
+    BuildingLevel: u8,
 }
 
 type DataKey = enum {
@@ -93,5 +94,14 @@ event PlayerDataUpdate = {
     data: struct {
         Key: DataKey,
         Value: unknown
+    }
+}
+
+event PlayerClickCollector = {
+    from: Client,
+    type: Reliable,
+    call: SingleAsync,
+    data: struct {
+        CollectorType: string.utf8,
     }
 }

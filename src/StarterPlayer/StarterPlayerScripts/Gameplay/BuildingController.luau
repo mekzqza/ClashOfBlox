@@ -12,6 +12,7 @@ local Player = Players.LocalPlayer
 local CONFIG = {
 	FOOTPRINTS_TEMPLATE = "FootPrints",
 	HARD_CODE_HIGHT = 0.5,
+	STARTER_LEVEL = 1,
 	FOOTPRINTS = {
 		[1] = "1*1Grid",
 		[4] = "2*2Grid",
@@ -61,9 +62,15 @@ function BuildingController:_createFootPrints(position: Vector3, size: number)
 end
 
 function BuildingController:_createBuilding(buildingType: string, snapPosition: Vector3)
-	local Template = self._BuildingTemplate:FindFirstChild(buildingType, true)
+	local buildingFolder = self._BuildingTemplate:FindFirstChild(buildingType, true)
+	if not buildingFolder then
+		warn(`Building {buildingType} not found`)
+		return
+	end
+
+	local Template = buildingFolder:FindFirstChild(CONFIG.STARTER_LEVEL)
 	if not Template then
-		warn(`[BuildingController] Building model with id {buildingType} not found in BuildingTemplate`)
+		warn(`Level {CONFIG.STARTER_LEVEL} not found in {buildingType}`)
 		return
 	end
 
@@ -95,9 +102,15 @@ function BuildingController:_requestPlaceBuilding(snapToString: string, building
 end
 
 function BuildingController:_startPlacement(buildType: string)
-	local Template = self._BuildingTemplate:FindFirstChild(buildType, true)
+	local buildingFolder = self._BuildingTemplate:FindFirstChild(buildType, true)
+	if not buildingFolder then
+		warn(`[BuildingController] Building {buildType} not found`)
+		return
+	end
+
+	local Template = buildingFolder:FindFirstChild(CONFIG.STARTER_LEVEL)
 	if not Template then
-		warn(`[BuildingController] Building model with id {buildType} not found in BuildingTemplate`)
+		warn(`[BuildingController] Level {CONFIG.STARTER_LEVEL} not found in {buildType}`)
 		return
 	end
 
@@ -240,7 +253,7 @@ function BuildingController:Start()
 			return
 		end
 		for snapPosition, buildingType in buildings do
-			self:RecreateBuildings(snapPosition, buildingType)
+			self:RecreateBuildings(snapPosition, buildingType[1])
 		end
 	end)
 end

@@ -9,7 +9,7 @@
 
 local BuildingConfig = {}
 export type Category = |"Army" |"Resources"| "Defrens"| "Trap"
-export type ResourceType = "Gold" | "Elixir"
+export type ResourceType = "Golds" | "Elixirs"
 
 export type BuildingLevelData = {
 	UpgradeCost: number,
@@ -28,65 +28,76 @@ export type BuildingLevelData = {
 export type BuildingData = { [string]: { Width: number, Length: number, [number]: BuildingLevelData } }
 
 local Buildings: BuildingData = {
-	["TownHall_1"] = {
+	["TownHall"] = {
 		Width = 4,
 		Length = 4,
 	},
 
-	["Cannon_1"] = {
+	["Cannon"] = {
 		Width = 3,
 		Length = 3,
 	},
 
-	["ElixirStorage_1"] = {
+	["ElixirStorage"] = {
 		Width = 3,
 		Length = 3,
 	},
-	["ElixirCollector_1"] = {
+	["ElixirCollector"] = {
 		Width = 3,
 		Length = 3,
 		[1] = {
 			UpgradeCost = 150,
 			UpgradeTime = 60,
 			MaxHp = 400,
+
 			Category = "Resources",
 			ProductionRate = 200,
-			MaxStorage = 2000,
-			ResourceType = "Elixir",
+			Capacity = 2000,
+			ResourceType = "Elixirs",
+
 		},
 	},
 
-	["GoldMine_1"] = {
+	["GoldMine"] = {
 		Width = 3,
 		Length = 3,
 		[1] = {
 			UpgradeCost = 150,
 			UpgradeTime = 60,
 			MaxHp = 400,
+
 			Category = "Resources",
 			ProductionRate = 200,
-			MaxStorage = 2000,
-			ResourceType = "Gold",
+			Capacity = 2000,
+			ResourceType = "Golds",
 		},
 	},
-	["GoldStorage_1"] = {
+	["GoldStorage"] = {
 		Width = 3,
 		Length = 3,
 	},
 
-	["Tree_1"] = {
+	["Tree"] = {
 		Width = 2,
 		Length = 2,
+		[1] = {
+		    UpgradeCost = 0,
+            UpgradeTime = 0,
+            MaxHp = 100,
+
+            Category = "Defrens",
+            Description = "A tree that can be cut down for resources.",
+		}
 	},
-	["Barrack_1"] = {
+	["Barrack"] = {
 		Width = 3,
 		Length = 3,
 	},
-	["Campfire_1"] = {
+	["Campfire"] = {
 		Width = 4,
 		Length = 4,
 	},
-	["Builinghall_1"] = {
+	["Builinghall"] = {
 		Width = 2,
 		Length = 2,
 	},

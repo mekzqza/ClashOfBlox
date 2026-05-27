@@ -6,6 +6,10 @@ local ServiceLocaltor = require(ServerScriptService.Utils.ServiceLocator)
 local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
 local GameEnum = require(ReplicatedStorage.Shared.GameEnum)
 
+local CONFIG = {
+	STARTER_LEVEL = 1,
+}
+
 local BuildingService = {}
 BuildingService.__index = BuildingService
 function BuildingService.new()
@@ -20,12 +24,13 @@ end
 -- Update
 -- Deleted
 
-local function MapTOArray(tbl: { [string]: any }): { [number]: any }
+local function BuildingTOArray(tbl: { [string]: any }): { [number]: any }
 	local arr = {}
 	for key, value in pairs(tbl) do
 		table.insert(arr, {
 			SnapToString = key,
 			BuildingTypeEnum = value[1], -- value = { buildingTypeEnum }
+			BuildingLevel = value[2],
 		})
 	end
 	return arr
@@ -53,8 +58,7 @@ function BuildingService:_PlaceBuilding(
 	end
 
 	self:_BroadCastBuilding(player, buildingType, position)
-
-	self._PlayerDataService:Set(player, `PlayerBuildings.{snapTostring}`, { buildingTypeEnum })
+	self._PlayerDataService:Set(player, `PlayerBuildings.{snapTostring}`, { buildingTypeEnum, CONFIG.STARTER_LEVEL })
 end
 
 function BuildingService:SendSnapshotBuildings(player: Player)
@@ -71,7 +75,7 @@ function BuildingService:SendSnapshotBuildings(player: Player)
 		    @BUG
 		    ตอนนี้เป็นการส่งให้ Player นั้นๆคนเดี่ยวยังไม่ braodcast ไปยังผู้เล่นอื่นๆ เพื่อใช้ในการrender building
 			]=]
-			local ArrayBuilding = MapTOArray(PlayerData.PlayerBuildings)
+			local ArrayBuilding = BuildingTOArray(PlayerData.PlayerBuildings)
 			EventBus:Emit(Events.S2C_SEND_BUILDING_SNAP_PLAYER, player, ArrayBuilding)
 		end)
 		:catch(function()

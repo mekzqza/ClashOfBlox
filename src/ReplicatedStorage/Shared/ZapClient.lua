@@ -144,6 +144,9 @@ if not RunService:IsRunning() then
 		PlayerDataUpdate = table.freeze({
 			On = noop
 		}),
+		PlayerClickCollector = table.freeze({
+			Fire = noop
+		}),
 		LoadSnapshot = table.freeze({
 			SetCallback = noop
 		}),
@@ -160,6 +163,12 @@ local remotes = ReplicatedStorage:WaitForChild("ZAP")
 local reliable = remotes:WaitForChild("ZAP_RELIABLE")
 assert(reliable:IsA("RemoteEvent"), "Expected ZAP_RELIABLE to be a RemoteEvent")
 
+export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience")
+export type BuildingEntry = ({
+	["SnapToString"]: (string),
+	["BuildingTypeEnum"]: (number),
+	["BuildingLevel"]: (number),
+})
 export type CollectorData = ({
 	["Timestamp"]: (number),
 	["ProductionRate"]: (number),
@@ -176,11 +185,6 @@ export type Collector = ({
 		["ProductionRate"]: (number),
 		["Capacity"]: (number),
 	}),
-})
-export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience")
-export type BuildingEntry = ({
-	["SnapToString"]: (string),
-	["BuildingTypeEnum"]: (number),
 })
 
 local function SendEvents()
@@ -231,6 +235,7 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 				val_1["SnapToString"] = buffer.readstring(incoming_buff, read(len_3), len_3)
 				assert(utf8.len(val_1["SnapToString"]) ~= nil, "value is not valid utf-8")
 				val_1["BuildingTypeEnum"] = buffer.readu8(incoming_buff, read(1))
+				val_1["BuildingLevel"] = buffer.readu8(incoming_buff, read(1))
 				value["Buildings"][i_1] = val_1
 			end
 			if reliable_events[1] then
@@ -304,6 +309,7 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 				val_2["SnapToString"] = buffer.readstring(incoming_buff, read(len_5), len_5)
 				assert(utf8.len(val_2["SnapToString"]) ~= nil, "value is not valid utf-8")
 				val_2["BuildingTypeEnum"] = buffer.readu8(incoming_buff, read(1))
+				val_2["BuildingLevel"] = buffer.readu8(incoming_buff, read(1))
 				value["Buildings"][i_2] = val_2
 			end
 			value["Collectors"] = {  }
@@ -353,6 +359,7 @@ local returns = {
 			["Buildings"]: ({ ({
 				["SnapToString"]: (string),
 				["BuildingTypeEnum"]: (number),
+				["BuildingLevel"]: (number),
 			}) }),
 		})) -> ()): () -> ()
 			reliable_events[1] = Callback
@@ -419,6 +426,20 @@ local returns = {
 			end
 		end,
 	},
+	PlayerClickCollector = {
+		Fire = function(Value: ({
+			["CollectorType"]: (string),
+		}))
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
+			local len_8 = #Value["CollectorType"]
+			assert(utf8.len(Value["CollectorType"]) ~= nil, "value is not valid utf-8")
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_8)
+			alloc(len_8)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["CollectorType"], len_8)
+		end,
+	},
 	LoadSnapshot = {
 		SetCallback = function(Callback: (Value: ({
 			["Golds"]: (number),
@@ -429,6 +450,7 @@ local returns = {
 			["Buildings"]: ({ ({
 				["SnapToString"]: (string),
 				["BuildingTypeEnum"]: (number),
+				["BuildingLevel"]: (number),
 			}) }),
 			["Collectors"]: ({
 				["GoldCollector"]: ({

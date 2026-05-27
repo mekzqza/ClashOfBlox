@@ -13,24 +13,33 @@ local function DataLayer()
 		ZapClient.ClientReady.Fire()
 	end)
 
-	ZapClient.SnapshotBuildings.SetCallback(function(data)
-		local buildingsMap = {}
-		for _, entry in data.Buildings do
-			buildingsMap[entry.SnapToString] = GameEnum:GetBuildingTypeById(entry.BuildingTypeEnum)
-		end
-		EventBus:Emit(Events.LOCAL_PLAYER_DATA_UPDATE, {
-			--[[
-			@Bug Hard Code Key Name
-			--]]
-			Key = "Buildings",
-			Value = buildingsMap,
+	EventBus:On(Events.C2S_PLAYER_CLICK_COLLECTOR, function(data)
+		ZapClient.PlayerClickCollector.Fire({
+			CollectorType = data.CollectorType,
 		})
 	end)
+
+	-- ZapClient.SnapshotBuildings.SetCallback(function(data)
+	-- 	local buildingsMap = {}
+	-- 	for _, entry in data.Buildings do
+	-- 		buildingsMap[entry.SnapToString] = GameEnum:GetBuildingTypeById(entry.BuildingTypeEnum)
+	-- 	end
+	-- 	EventBus:Emit(Events.LOCAL_PLAYER_DATA_UPDATE, {
+	-- 		--[[
+	-- 		@Bug Hard Code Key Name
+	-- 		--]]
+	-- 		Key = "Buildings",
+	-- 		Value = buildingsMap,
+	-- 	})
+	-- end)
 
 	ZapClient.LoadSnapshot.SetCallback(function(data)
 		local buildingsMap = {}
 		for _, entry in data.Buildings do
-			buildingsMap[entry.SnapToString] = GameEnum:GetBuildingTypeById(entry.BuildingTypeEnum)
+			buildingsMap[entry.SnapToString] = {
+				GameEnum:GetBuildingTypeById(entry.BuildingTypeEnum),
+				entry.BuildingLevel,
+			} :: { any }
 		end
 
 		local playload = {

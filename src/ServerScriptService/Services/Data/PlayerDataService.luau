@@ -42,27 +42,31 @@ function PlayerDataService.new()
 		PlayerBuildings = {
 			["18_24"] = {
 				7,
+				1,
 			},
 			["23_20"] = {
+				1,
 				1,
 			},
 			["29_23"] = {
 				5,
+				1,
 			},
 			["26_26"] = {
 				10,
+				1,
 			},
 		},
 		Collectors = {
 			GoldCollector = {
 				Timestamp = 0,
 				Capacity = 2500,
-				ProductionRate = 0,
+				ProductionRate = 10,
 			},
 			ElixirCollector = {
 				Timestamp = 0,
 				Capacity = 2500,
-				ProductionRate = 0,
+				ProductionRate = 10,
 			},
 		},
 		Golds = 0,
@@ -76,11 +80,11 @@ function PlayerDataService.new()
 	self._LoadingPlayers = {} :: { [number]: boolean }
 	self._profileReadyCallbacks = {} :: { [number]: { (boolean) -> () } }
 	self._VALIDATION_RULES = {
-		Golds = { type = "number", min = 0, max = 999999999 },
-		Elixirs = { type = "number", min = 0, max = 999999999 },
-		Gems = { type = "number", min = 0, max = 999999999 },
+		Golds = { type = "number", min = 0, max = 99999999 },
+		Elixirs = { type = "number", min = 0, max = 99999999 },
+		Gems = { type = "number", min = 0, max = 99999999 },
 		Level = { type = "number", min = 1, max = 100 },
-		Experience = { type = "number", min = 0, max = 999999999 },
+		Experience = { type = "number", min = 0, max = 99999999 },
 	} :: { [string]: { type: string, min: number?, max: number? } }
 	return self
 end
@@ -91,6 +95,7 @@ local function MapTOArray(tbl: { [string]: any }): { [number]: any }
 		table.insert(arr, {
 			SnapToString = key,
 			BuildingTypeEnum = value[1],
+			BuildingLevel = value[2],
 		})
 	end
 	return arr
@@ -284,7 +289,10 @@ function PlayerDataService:Set(player: Player, key: string, value: any): boolean
 		target[keys[#keys]] = finalValue
 	end
 
-	EventBus:Emit(Events.S2C_PLAYER_DATA_UPDATE, player, { Key = key, newValue = finalValue })
+	-- emit เฉพาะ root key ที่อยู่ใน DataKey enum เท่านั้น
+	if #keys == 1 then
+		EventBus:Emit(Events.S2C_PLAYER_DATA_UPDATE, player, { Key = key, newValue = finalValue })
+	end
 	return true
 end
 

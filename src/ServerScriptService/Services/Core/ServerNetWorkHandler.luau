@@ -56,6 +56,13 @@ local function DataLayer()
 			Value = data.newValue,
 		})
 	end)
+
+	ZapServer.PlayerClickCollector.SetCallback(function(Player: Player, Value: { CollectorType: string })
+		EventBus:Emit(Events.LOCAL_PLAYER_CLICK_COLLECTOR, {
+			Player = Player,
+			CollectorType = Value.CollectorType,
+		})
+	end)
 end
 
 local function BuildingSytem()
