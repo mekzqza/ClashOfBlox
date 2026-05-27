@@ -404,5 +404,4 @@ Promise
 			print("  • _G.Promise (for testing)")
 		end
 		EventBus:Emit(Events.C2S_CLIENT_READY)
-		warn("[Init.client] this Emit Is waiting for production now is For testing !")
 	end)

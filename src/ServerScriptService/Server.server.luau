@@ -6,7 +6,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Promise = require(ReplicatedStorage.Packages.Promise)
 local ServiceLocator = require(ServerScriptService.Utils.ServiceLocator)
 
-local CmdrCommand = ServerScriptService:WaitForChild("CmdrCommands")
 local Services = ServerScriptService:WaitForChild("Services")
 
 local Core = Services:FindFirstChild("Core")

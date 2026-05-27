@@ -12,6 +12,44 @@ local function DataLayer()
 	EventBus:On(Events.C2S_CLIENT_READY, function()
 		ZapClient.ClientReady.Fire()
 	end)
+
+	ZapClient.SnapshotBuildings.SetCallback(function(data)
+		local buildingsMap = {}
+		for _, entry in data.Buildings do
+			buildingsMap[entry.SnapToString] = GameEnum:GetBuildingTypeById(entry.BuildingTypeEnum)
+		end
+		EventBus:Emit(Events.LOCAL_PLAYER_DATA_UPDATE, {
+			--[[
+			@Bug Hard Code Key Name
+			--]]
+			Key = "Buildings",
+			Value = buildingsMap,
+		})
+	end)
+
+	ZapClient.LoadSnapshot.SetCallback(function(data)
+		local buildingsMap = {}
+		for _, entry in data.Buildings do
+			buildingsMap[entry.SnapToString] = GameEnum:GetBuildingTypeById(entry.BuildingTypeEnum)
+		end
+
+		local playload = {
+			Coins = data.Coins,
+			Elixirs = data.Elixirs,
+			Gems = data.Gems,
+			Level = data.Level,
+			Experience = data.Experience,
+			Buildings = buildingsMap,
+		}
+		EventBus:Emit(Events.LOCAL_PLAYER_DATA_FIRST_LOAD, playload)
+	end)
+
+	ZapClient.PlayerDataUpdate.On(function(data)
+		EventBus:Emit(Events.LOCAL_PLAYER_DATA_UPDATE, {
+			Key = data.Key,
+			Value = data.Value,
+		})
+	end)
 end
 
 local function BuildingSystem()

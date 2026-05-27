@@ -5,6 +5,8 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Events = require(ReplicatedStorage.Shared.Events)
 local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
 local IdempotentGuard = require(ServerScriptService.Utils.IdempotentGuard)
+local Packages = ReplicatedStorage:WaitForChild("Packages")
+local Promise = require(Packages.Promise)
 
 local Libs = ServerScriptService:FindFirstChild("Libs")
 local guard = IdempotentGuard.new("PlayerDataService", true)
@@ -12,8 +14,12 @@ local ProfileService: any = nil
 
 export type PlayerData = {
 	_version: number,
-	PLayerBuildings: { [string]: number },
+	PlayerBuildings: { [string]: { number } },
 	Coins: number,
+	Elixirs: number,
+	Gems: number,
+	Level: number,
+	Experience: number,
 }
 
 local PlayerDataService = {}
@@ -24,17 +30,49 @@ function PlayerDataService.new()
 	self._PROFILE_STORE_NAME = "COB_PlayerData_v1"
 	self._DEFAULT_DATA = {
 		_version = self._DATA_VERSION,
-
-		PLayerBuildings = {},
+		PlayerBuildings = {
+			["18_24"] = {
+				7,
+			},
+			["23_20"] = {
+				1,
+			},
+			["29_23"] = {
+				5,
+			},
+			["26_26"] = {
+				10,
+			},
+		},
 		Coins = 0,
+		Elixirs = 0,
+		Gems = 0,
+		Level = 1,
+		Experience = 0,
 	} :: PlayerData
 	self._ProfileStore = nil
 	self._Profiles = {} :: { [number]: any }
 	self._LoadingPlayers = {} :: { [number]: boolean }
+	self._profileReadyCallbacks = {} :: { [number]: { (boolean) -> () } }
 	self._VALIDATION_RULES = {
 		Coins = { type = "number", min = 0, max = 999999999 },
+		Elixirs = { type = "number", min = 0, max = 999999999 },
+		Gems = { type = "number", min = 0, max = 999999999 },
+		Level = { type = "number", min = 1, max = 100 },
+		Experience = { type = "number", min = 0, max = 999999999 },
 	} :: { [string]: { type: string, min: number?, max: number? } }
 	return self
+end
+
+local function MapTOArray(tbl: { [string]: any }): { [number]: any }
+	local arr = {}
+	for key, value in pairs(tbl) do
+		table.insert(arr, {
+			SnapToString = key,
+			BuildingTypeEnum = value[1],
+		})
+	end
+	return arr
 end
 
 function PlayerDataService:_validateValue(
@@ -128,6 +166,14 @@ function PlayerDataService:_loadPlayerProfile(player: Player)
 	self._Profiles[userId] = profile
 	self._LoadingPlayers[userId] = nil
 
+	local callbacks = self._profileReadyCallbacks[userId]
+	if callbacks then
+		self._profileReadyCallbacks[userId] = nil
+		for _, cb in callbacks do
+			task.spawn(cb, true)
+		end
+	end
+
 	print(`[PlayerDataService] ✅ Profile loaded for {player.Name}`)
 end
 
@@ -150,17 +196,19 @@ function PlayerDataService:IsDataLoaded(player: Player): boolean
 	return self._Profiles[player.UserId] ~= nil
 end
 
-function PlayerDataService:WaitForData(player: Player, timeout: number, interval: number?): boolean
-	timeout = timeout or 10
-	interval = interval or 0.1
-	local startTime = os.clock()
-	while not self:IsDataLoaded(player) do
-		if (os.clock() - startTime) > timeout or not player or not player.Parent then
-			return false
-		end
-		task.wait(interval)
+function PlayerDataService:WaitForData(player: Player, timeout: number?): any
+	if self:IsDataLoaded(player) then
+		return Promise.resolve(true)
 	end
-	return true
+
+	local userId = player.UserId
+	if not self._profileReadyCallbacks[userId] then
+		self._profileReadyCallbacks[userId] = {}
+	end
+
+	return Promise.new(function(resolve)
+		table.insert(self._profileReadyCallbacks[userId], resolve)
+	end):timeout(timeout or 15)
 end
 
 function PlayerDataService:Get(player: Player, key: string): any?
@@ -180,7 +228,7 @@ function PlayerDataService:Get(player: Player, key: string): any?
 	return value
 end
 
-function PlayerDataService:GetAll(player: Player)
+function PlayerDataService:GetAll(player: Player): PlayerData?
 	local profile = self._Profiles[player.UserId]
 	if not profile then
 		return nil
@@ -215,8 +263,7 @@ function PlayerDataService:Set(player: Player, key: string, value: any): boolean
 		target[keys[#keys]] = finalValue
 	end
 
-	EventBus:Emit(Events.LOCAL_PLAYER_DATA_CHANGED, player, { key = key, newValue = finalValue })
-
+	EventBus:Emit(Events.S2C_PLAYER_DATA_UPDATE, player, { Key = key, newValue = finalValue })
 	return true
 end
 
@@ -277,12 +324,39 @@ function PlayerDataService:Start()
 
 	Players.PlayerAdded:Connect(function(player: Player)
 		self:_loadPlayerProfile(player)
-		warn(`[PlayerDataService] Player {player.Name} has {self:Get(player, "Coins")} coins`)
 	end)
+
 	Players.PlayerRemoving:Connect(function(player: Player)
 		self:_releasePlayerProfile(player)
 	end)
-	print("[PlayerDataService] 🚀 Started")
+	-- [[
+	-- @Feta Emit first time when player data is loaded
+	--]]
+	EventBus:On(Events.LOCAL_CLIENT_READY, function(player)
+		self:WaitForData(player, 15)
+			:andThen(function()
+				local profile = self._Profiles[player.UserId]
+				if not profile or not profile:IsActive() then
+					return
+				end
+				local playerData = self:GetAll(player)
+
+				local ArrayBuilding = MapTOArray(playerData.PlayerBuildings)
+				local playload = {
+					Player = player,
+					Coins = playerData and playerData.Coins or 0,
+					Elixirs = playerData and playerData.Elixirs or 0,
+					Gems = playerData and playerData.Gems or 0,
+					Level = playerData and playerData.Level or 1,
+					Experience = playerData and playerData.Experience or 0,
+					Buildings = playerData and ArrayBuilding or {},
+				}
+				EventBus:Emit(Events.S2C_PLAYER_DATA_FIRST_LOAD, playload)
+			end)
+			:catch(function()
+				warn(`[PlayerDataService] ⏱️ Timed out waiting for profile: {player.Name}`)
+			end)
+	end)
 end
 
 return PlayerDataService

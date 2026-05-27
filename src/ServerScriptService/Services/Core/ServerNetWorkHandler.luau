@@ -15,6 +15,46 @@ local function DataLayer()
 	ZapServer.ClientReady.SetCallback(function(player: Player)
 		EventBus:Emit(Events.LOCAL_CLIENT_READY, player)
 	end)
+
+	EventBus:On(Events.S2C_SEND_BUILDING_SNAP_PLAYER, function(player, Arraybuildings)
+		--[=[
+		@BUG
+		Hard Code Folder Name ,will fix in mutiplae folder now have noly 1
+	]=]
+		ZapServer.SnapshotBuildings.Fire(player, { FolderName = "IN TEST ", Buildings = Arraybuildings })
+	end)
+
+	EventBus:On(Events.S2C_PLAYER_DATA_FIRST_LOAD, function(data)
+		ZapServer.LoadSnapshot.Fire(data.Player, {
+			Coins = data.Coins,
+			Elixirs = data.Elixirs,
+			Gems = data.Gems,
+			Level = data.Level,
+			Experience = data.Experience,
+			Buildings = data.Buildings,
+		})
+	end)
+
+	EventBus:On(Events.S2C_PLAYER_DATA_UPDATE, function(player, data)
+		local keyMap = {
+			["Coins"] = "Coins",
+			["Elixirs"] = "Elixirs",
+			["Gems"] = "Gems",
+			["Level"] = "Level",
+			["Experience"] = "Experience",
+		}
+
+		local zapkey = keyMap[data.Key]
+		if not zapkey then
+			warn(`[ServerNetWorkHandler] ⚠️ Unrecognized data key: {data.Key}`)
+			return
+		end
+
+		ZapServer.PlayerDataUpdate.Fire(player, {
+			Key = zapkey,
+			Value = data.newValue,
+		})
+	end)
 end
 
 local function BuildingSytem()
