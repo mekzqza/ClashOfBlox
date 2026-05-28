@@ -14,7 +14,7 @@ export type ResourceType = "Golds" | "Elixirs"
 export type BuildingLevelData = {
 	UpgradeCost: number,
 	UpgradeTime: number,
-	UpgradeResourceType: ResourceType?,
+	UpgradeResourceType: number?,
 	MaxHp: number,
 
 	FireRange: number?,
@@ -28,31 +28,43 @@ export type BuildingData = { [string]: { Width: number, Length: number, Category
     CollectorType:string?,
     [number]: BuildingLevelData } }
 
+local Category = {
+    Army      = 1,
+    Resources = 2,
+    Defense   = 3,
+    Trap      = 4,
+}
+
+local UpgradeResourceType = {
+    Golds = 1,
+    Elixirs = 2,
+}
+
 local Buildings: BuildingData = {
 	["TownHall"] = {
 		Width = 4,
 		Length = 4,
-		UpgradeResourceType = "Golds",
+		UpgradeResourceType = UpgradeResourceType.Golds,
 
 	},
 
 	["Cannon"] = {
 		Width = 3,
 		Length = 3,
-		UpgradeResourceType = "Golds",
+		UpgradeResourceType = UpgradeResourceType.Golds,
 
 	},
 
 	["ElixirStorage"] = {
 		Width = 3,
 		Length = 3,
-		UpgradeResourceType = "Golds",
+		UpgradeResourceType = UpgradeResourceType.Golds,
 
 	},
 	["ElixirCollector"] = {
 		Width = 3,
 		Length = 3,
-		UpgradeResourceType = "Golds",
+		UpgradeResourceType = UpgradeResourceType.Golds,
 		CollectorType = "ElixirCollector",
 		[1] = {
 			UpgradeCost = 150,
@@ -68,7 +80,7 @@ local Buildings: BuildingData = {
 	["GoldMine"] = {
 		Width = 3,
 		Length = 3,
-		UpgradeResourceType = "Elixirs",
+		UpgradeResourceType = UpgradeResourceType.Elixirs,
 		CollectorType = "GoldCollector",
 		[1] = {
 			UpgradeCost = 150,
@@ -82,31 +94,31 @@ local Buildings: BuildingData = {
 	["GoldStorage"] = {
 		Width = 3,
 		Length = 3,
-		UpgradeResourceType = "Elixirs",
+		UpgradeResourceType = UpgradeResourceType.Elixirs,
 	},
 
 	["Tree"] = {
 		Width = 2,
 		Length = 2,
+
 		[1] = {
 		    UpgradeCost = 0,
             UpgradeTime = 0,
             MaxHp = 100,
 
-            Category = "Defrens",
             Description = "A tree that can be cut down for resources.",
 		}
 	},
 	["Barrack"] = {
 		Width = 3,
 		Length = 3,
-		UpgradeResourceType = "Elixirs",
+		UpgradeResourceType = UpgradeResourceType.Elixirs,
 
 	},
 	["Campfire"] = {
 		Width = 4,
 		Length = 4,
-		UpgradeResourceType = "Elixirs",
+		UpgradeResourceType = UpgradeResourceType.Elixirs,
 
 
 	},
@@ -115,6 +127,8 @@ local Buildings: BuildingData = {
 		Length = 2,
 	},
 }
+
+
 
 function BuildingConfig:GetBuildingDimensions(buildingType: string): { Width: number, Length: number }?
 	local building = Buildings[buildingType]
@@ -126,6 +140,13 @@ function BuildingConfig:GetBuildingDimensions(buildingType: string): { Width: nu
 		Width = building.Width,
 		Length = building.Length,
 	}
+end
+
+function BuildingConfig:IsSameCategory(buildingType1: number, buildingType2: number): boolean?
+    if buildingType1 == buildingType2 then
+        return true
+    end
+    return
 end
 
 function BuildingConfig:GetBuildingData(buildingType: string, level: number): BuildingLevelData?
