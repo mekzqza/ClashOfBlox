@@ -2,21 +2,26 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
 
 local Events = require(ReplicatedStorage.Shared.Events)
 local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
 local BuildingConfig = require(ReplicatedStorage.Shared.BuildingConfig)
 local Player = Players.LocalPlayer
-
 local CONFIG = {
 	FOOTPRINTS_TEMPLATE = "FootPrints",
 	HARD_CODE_HIGHT = 0.5,
+	STARTER_LEVEL = 1,
 	FOOTPRINTS = {
 		[1] = "1*1Grid",
 		[4] = "2*2Grid",
 		[9] = "3*3Grid",
 		[16] = "4*4Grid",
+	},
+	Category = {
+		Army = 1,
+		Resources = 2,
+		Defense = 3,
+		Trap = 4,
 	},
 }
 
@@ -29,17 +34,27 @@ function BuildingController.new()
 	self._renderConnection = nil
 	self._indicatorModel = nil
 	self._mouseConnettion = nil
+	self._PlayerFolder = nil
+
 	self._footPrintindicator = nil
 	self._BuildingTemplate = nil
 	self._GridController = nil
 	self._PlayerDataController = nil
-
+	self._ResourceController = nil
 	return self
 end
 
 function BuildingController:SetDependencies(locator)
 	self._PlayerDataController = locator:Get("PlayerDataController")
+	self._ResourceController = locator:Get("ResourceController")
 	self._GridController = locator:Get("GridController")
+end
+
+function BuildingController:SetPlayerFolder(folder: Folder)
+	self._PlayerFolder = folder
+	if not self._PlayerFolder then
+		warn(`[BuildingController] Player folder {folder} not found in workspace`)
+	end
 end
 
 function BuildingController:_createFootPrints(position: Vector3, size: number)
@@ -56,14 +71,20 @@ function BuildingController:_createFootPrints(position: Vector3, size: number)
 	end
 
 	local haffHeight = newFootPrint.Size.Y / 2
-	newFootPrint.Parent = Workspace
+	newFootPrint.Parent = self._PlayerFolder
 	newFootPrint.CFrame = CFrame.new(position.X, position.Y + haffHeight + CONFIG.HARD_CODE_HIGHT, position.Z)
 end
 
-function BuildingController:_createBuilding(buildingType: string, snapPosition: Vector3)
-	local Template = self._BuildingTemplate:FindFirstChild(buildingType, true)
+function BuildingController:_createBuilding(buildingType: string, snapPosition: Vector3, buildingLevel: number?): Model?
+	local buildingFolder = self._BuildingTemplate:FindFirstChild(buildingType, true)
+	if not buildingFolder then
+		warn(`Building {buildingType} not found`)
+		return
+	end
+
+	local Template = buildingFolder:FindFirstChild(buildingLevel or CONFIG.STARTER_LEVEL)
 	if not Template then
-		warn(`[BuildingController] Building model with id {buildingType} not found in BuildingTemplate`)
+		warn(`Level {CONFIG.STARTER_LEVEL} not found in {buildingType}`)
 		return
 	end
 
@@ -72,7 +93,8 @@ function BuildingController:_createBuilding(buildingType: string, snapPosition: 
 	end
 
 	local newBuilding = Template:Clone()
-	newBuilding.Parent = Workspace
+	newBuilding.Parent = self._PlayerFolder
+
 	local primaryPart: BasePart? = newBuilding.PrimaryPart
 	if not primaryPart then
 		warn(`[BuildingController] Building model with id {buildingType} does not have a PrimaryPart`)
@@ -84,6 +106,7 @@ function BuildingController:_createBuilding(buildingType: string, snapPosition: 
 		CFrame.new(snapPosition.X, snapPosition.Y + halfHeight + CONFIG.HARD_CODE_HIGHT, snapPosition.Z)
 			* templateRotation
 	)
+	return newBuilding
 end
 
 function BuildingController:_requestPlaceBuilding(snapToString: string, buildingType: string, position: Vector3)
@@ -95,9 +118,15 @@ function BuildingController:_requestPlaceBuilding(snapToString: string, building
 end
 
 function BuildingController:_startPlacement(buildType: string)
-	local Template = self._BuildingTemplate:FindFirstChild(buildType, true)
+	local buildingFolder = self._BuildingTemplate:FindFirstChild(buildType, true)
+	if not buildingFolder then
+		warn(`[BuildingController] Building {buildType} not found`)
+		return
+	end
+
+	local Template = buildingFolder:FindFirstChild(CONFIG.STARTER_LEVEL)
 	if not Template then
-		warn(`[BuildingController] Building model with id {buildType} not found in BuildingTemplate`)
+		warn(`[BuildingController] Level {CONFIG.STARTER_LEVEL} not found in {buildType}`)
 		return
 	end
 
@@ -118,7 +147,7 @@ function BuildingController:_startPlacement(buildType: string)
 	self._footPrintindicator.Parent = self._indicatorModel
 	local templateRotation = Template:GetPivot().Rotation
 
-	self._indicatorModel.Parent = Workspace
+	self._indicatorModel.Parent = self._PlayerFolder
 	self._isPlacing = true
 
 	local primaryPart: BasePart? = self._indicatorModel.PrimaryPart
@@ -175,7 +204,7 @@ function BuildingController:_startPlacement(buildType: string)
 	end)
 end
 
-function BuildingController:RecreateBuildings(snapPosition: string, buildingType: string)
+function BuildingController:RecreateBuildings(snapPosition: string, buildingType: string, buildingLevel: number)
 	local startX, startZ = string.match(snapPosition, "(-?%d+)_(-?%d+)")
 	local dimention = BuildingConfig:GetBuildingDimensions(buildingType)
 	if not dimention then
@@ -186,9 +215,14 @@ function BuildingController:RecreateBuildings(snapPosition: string, buildingType
 	local worldPos =
 		self._GridController:GridCoordsToWorld(tonumber(startX), tonumber(startZ), dimention.Length, dimention.Width)
 
-	self:_createBuilding(buildingType, worldPos)
+	local model = self:_createBuilding(buildingType, worldPos, buildingLevel)
 	self:_createFootPrints(worldPos, dimention.Length * dimention.Width)
 	self._GridController:occupyCell(worldPos, dimention.Length, dimention.Width)
+
+	local collectorType = BuildingConfig:GetCollectorType(buildingType)
+	if collectorType then
+		self._ResourceController:RegisterCollectors(collectorType, model)
+	end
 end
 
 function BuildingController:_stopPlacement()
@@ -224,6 +258,10 @@ end
 
 function BuildingController:Start()
 	EventBus:On(Events.LOCAL_TEST_BUILDING, function(building: string)
+		if building == nil or building == "" then
+			self:_stopPlacement()
+			return
+		end
 		warn(`[BuildingController] Test building: {building}`)
 		self:_stopPlacement()
 		self:_startPlacement(building)
@@ -240,7 +278,7 @@ function BuildingController:Start()
 			return
 		end
 		for snapPosition, buildingType in buildings do
-			self:RecreateBuildings(snapPosition, buildingType)
+			self:RecreateBuildings(snapPosition, buildingType[1], buildingType[2] or 1)
 		end
 	end)
 end

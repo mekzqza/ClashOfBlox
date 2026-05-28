@@ -12,14 +12,23 @@ local Libs = ServerScriptService:FindFirstChild("Libs")
 local guard = IdempotentGuard.new("PlayerDataService", true)
 local ProfileService: any = nil
 
+export type ResourceType = "Golds" | "Elixirs" | "Gems"
+
+export type Collectors = {
+	Timestamp: number,
+	Capacity: number,
+	ProductionRate: number,
+}
+
 export type PlayerData = {
 	_version: number,
 	PlayerBuildings: { [string]: { number } },
-	Coins: number,
+	Golds: number,
 	Elixirs: number,
 	Gems: number,
 	Level: number,
 	Experience: number,
+	Collectors: { [ResourceType]: Collectors },
 }
 
 local PlayerDataService = {}
@@ -32,19 +41,43 @@ function PlayerDataService.new()
 		_version = self._DATA_VERSION,
 		PlayerBuildings = {
 			["18_24"] = {
-				7,
+				7, -- BuildingTypeEnum
+				1, -- BuildingLevel
+				0, -- endTime
+				0, -- lastCollectedTime
 			},
 			["23_20"] = {
 				1,
+				1,
+				0,
+				0,
 			},
 			["29_23"] = {
 				5,
+				1,
+				0,
+				0,
 			},
 			["26_26"] = {
 				10,
+				1,
+				0,
+				0,
 			},
 		},
-		Coins = 0,
+		Collectors = {
+			GoldCollector = {
+				Timestamp = 0,
+				Capacity = 2500,
+				ProductionRate = 10,
+			},
+			ElixirCollector = {
+				Timestamp = 0,
+				Capacity = 2500,
+				ProductionRate = 10,
+			},
+		},
+		Golds = 0,
 		Elixirs = 0,
 		Gems = 0,
 		Level = 1,
@@ -55,11 +88,11 @@ function PlayerDataService.new()
 	self._LoadingPlayers = {} :: { [number]: boolean }
 	self._profileReadyCallbacks = {} :: { [number]: { (boolean) -> () } }
 	self._VALIDATION_RULES = {
-		Coins = { type = "number", min = 0, max = 999999999 },
-		Elixirs = { type = "number", min = 0, max = 999999999 },
-		Gems = { type = "number", min = 0, max = 999999999 },
+		Golds = { type = "number", min = 0, max = 99999999 },
+		Elixirs = { type = "number", min = 0, max = 99999999 },
+		Gems = { type = "number", min = 0, max = 99999999 },
 		Level = { type = "number", min = 1, max = 100 },
-		Experience = { type = "number", min = 0, max = 999999999 },
+		Experience = { type = "number", min = 0, max = 99999999 },
 	} :: { [string]: { type: string, min: number?, max: number? } }
 	return self
 end
@@ -70,6 +103,9 @@ local function MapTOArray(tbl: { [string]: any }): { [number]: any }
 		table.insert(arr, {
 			SnapToString = key,
 			BuildingTypeEnum = value[1],
+			BuildingLevel = value[2],
+			EndTime = value[3],
+			LastCollectedTime = value[4],
 		})
 	end
 	return arr
@@ -236,7 +272,7 @@ function PlayerDataService:GetAll(player: Player): PlayerData?
 	return self:_deepClone(profile.Data)
 end
 
-function PlayerDataService:Set(player: Player, key: string, value: any): boolean
+function PlayerDataService:Set(player: Player, key: string, value: any, sendToclient: boolean?): boolean
 	local profile = self._Profiles[player.UserId]
 	if not profile or not profile:IsActive() then
 		return false
@@ -263,17 +299,31 @@ function PlayerDataService:Set(player: Player, key: string, value: any): boolean
 		target[keys[#keys]] = finalValue
 	end
 
-	EventBus:Emit(Events.S2C_PLAYER_DATA_UPDATE, player, { Key = key, newValue = finalValue })
+	local send = sendToclient or true
+	if not send then
+		return true
+	end
+
+	if #keys == 1 then
+		EventBus:Emit(Events.S2C_PLAYER_DATA_UPDATE, player, { Key = key, newValue = finalValue })
+	end
 	return true
 end
 
-function PlayerDataService:Increment(player: Player, key: string, amount: number): (boolean, number?)
+function PlayerDataService:Increment(
+	player: Player,
+	key: string,
+	amount: number,
+	sendToclient: boolean?
+): (boolean, number?)
 	local currentValue = self:Get(player, key)
 	if type(currentValue) ~= "number" then
 		return false, nil
 	end
 	local newValue = currentValue + amount
-	local success = self:Set(player, key, newValue)
+
+	local send = sendToclient or true
+	local success = self:Set(player, key, newValue, send)
 	return success, success and newValue or nil
 end
 
@@ -344,12 +394,13 @@ function PlayerDataService:Start()
 				local ArrayBuilding = MapTOArray(playerData.PlayerBuildings)
 				local playload = {
 					Player = player,
-					Coins = playerData and playerData.Coins or 0,
+					Golds = playerData and playerData.Golds or 0,
 					Elixirs = playerData and playerData.Elixirs or 0,
 					Gems = playerData and playerData.Gems or 0,
 					Level = playerData and playerData.Level or 1,
 					Experience = playerData and playerData.Experience or 0,
 					Buildings = playerData and ArrayBuilding or {},
+					Collectors = playerData and playerData.Collectors or {},
 				}
 				EventBus:Emit(Events.S2C_PLAYER_DATA_FIRST_LOAD, playload)
 			end)

@@ -26,7 +26,13 @@ function GridController.new()
 	self._gridOriginX = 0 :: number
 	self._gridOriginZ = 0 :: number
 	self._gridSurfaceY = 0 :: number
+
+	self._BuildingController = nil
 	return self
+end
+
+function GridController:SetDependencies(locator)
+	self._BuildingController = locator:Get("BuildingController")
 end
 
 function GridController:_gridKeyfromCoords(gridx: number, gridz: number): string
@@ -180,6 +186,7 @@ function GridController:Start()
 			warn(`[GridController] Grid part not found for folder: {data.FolderName}`)
 			return
 		end
+		self._BuildingController:SetPlayerFolder(self._PlayerFolder)
 		self:RegisterZone(self._GridPart)
 	end)
 end

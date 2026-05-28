@@ -21,7 +21,20 @@ function MainDisplayController.new()
 
 	self._ElixirContainer = nil
 	self._GemContainer = nil
-	self._CoinContainer = nil
+	self._GoldContainer = nil
+
+	self._Collectors = {
+		["Golds"] = {
+			Timestamp = 0,
+			Capacity = 0,
+			ProductionRate = 0,
+		},
+		["Elixirs"] = {
+			Timestamp = 0,
+			Capacity = 0,
+			ProductionRate = 0,
+		},
+	}
 	return self
 end
 
@@ -44,7 +57,7 @@ function MainDisplayController:_updateResourceDisplay(key: string, value: number
 
 	local fillFrame = traget:FindFirstChild("Fill", true)
 	if fillFrame and fillFrame:IsA("Frame") then
-		local fillAmount = math.clamp(value / 1000, 0, 1)
+		local fillAmount = math.clamp(value / self._Collectors[key].Capacity, 0, 1)
 		fillFrame.AnchorPoint = Vector2.new(1, 0)
 		fillFrame.Position = UDim2.new(1, 0, 0, 0)
 		fillFrame.Size = UDim2.new(fillAmount, 0, 1, 0)
@@ -94,15 +107,15 @@ function MainDisplayController:Init()
 	self._LevelCount = self._ProfileContainer:WaitForChild("LevelCount")
 	self._LevelFillBar = self._ProfileContainer:WaitForChild("LevelFillBar")
 
-	self._CoinContainer = self._ResourceFrame:WaitForChild("Coins")
+	self._GoldContainer = self._ResourceFrame:WaitForChild("Golds")
 	self._ElixirContainer = self._ResourceFrame:WaitForChild("Elixirs")
 	self._GemContainer = self._ResourceFrame:WaitForChild("Gems")
 end
 
 function MainDisplayController:Start()
 	EventBus:On(Events.LOCAL_DATA_CHANGED, function(data)
-		if data.Key == "Coins" then
-			self:_updateResourceDisplay("Coins", data.Value)
+		if data.Key == "Golds" then
+			self:_updateResourceDisplay("Golds", data.Value)
 		elseif data.Key == "Elixirs" then
 			self:_updateResourceDisplay("Elixirs", data.Value)
 		elseif data.Key == "Gems" then
@@ -115,13 +128,17 @@ function MainDisplayController:Start()
 	end)
 
 	self._PlayerDataController:WaitForDataReady():andThen(function(data)
-		local Coins = data.Coins or 0
+		local Golds = data.Golds or 0
 		local elixir = data.Elixirs or 0
 		local gem = data.Gems or 0
 		local level = data.Level or 1
 		local experience = data.Experience or 0
 
-		self:_updateResourceDisplay("Coins", Coins)
+		self._Collectors = {
+			Golds = data.Collectors and data.Collectors.GoldCollector or 0,
+			Elixirs = data.Collectors and data.Collectors.ElixirCollector or 0,
+		}
+		self:_updateResourceDisplay("Golds", Golds)
 		self:_updateResourceDisplay("Elixirs", elixir)
 		self:_updateResourceDisplay("Gems", gem)
 		self:_setPlayerName(Player)

@@ -24,6 +24,9 @@ local Defrens = Gameplay:FindFirstChild("Defrens")
 local GridService = require(Defrens.GridService).new()
 local BuildingService = require(Defrens.BuildingService).new()
 
+local Economy = Gameplay:FindFirstChild("Economy")
+local ResourceService = require(Economy.ResourceService).new()
+
 local TIMEOUTS = {
 	ServiceInit = 15,
 	ServiceStart = 15,
@@ -95,6 +98,8 @@ Promise
 
 		ServiceLocator:Register("GridService", GridService)
 		ServiceLocator:Register("BuildingService", BuildingService)
+
+		ServiceLocator:Register("ResourceService", ResourceService)
 	end)
 	:catch(function(err)
 		error(`[Server Init] Failed to initialize server: {err}`)
@@ -122,6 +127,12 @@ Promise
 			initService(BuildingService, "BuildingService"),
 		}):timeout(TIMEOUTS.LayerInit)
 	end)
+	:andThen(function()
+		print("[Init] EconomyLayer initialized")
+		return Promise.all({
+			initService(ResourceService, "ResourceService"),
+		}):timeout(TIMEOUTS.LayerInit)
+	end)
 	-- Start services
 	:andThen(function()
 		print("[Init] CoreLayer started")
@@ -141,5 +152,11 @@ Promise
 		return Promise.all({
 			startService(GridService, "GridService"),
 			startService(BuildingService, "BuildingService"),
+		}):timeout(TIMEOUTS.LayerStart)
+	end)
+	:andThen(function()
+		print("[Init] EconomyLayer started")
+		return Promise.all({
+			startService(ResourceService, "ResourceService"),
 		}):timeout(TIMEOUTS.LayerStart)
 	end)
