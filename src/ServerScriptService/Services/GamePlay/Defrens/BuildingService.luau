@@ -8,6 +8,12 @@ local GameEnum = require(ReplicatedStorage.Shared.GameEnum)
 
 local CONFIG = {
 	STARTER_LEVEL = 1,
+	Category = {
+		Army = 1,
+		Resources = 2,
+		Defense = 3,
+		Trap = 4,
+	},
 }
 
 local BuildingService = {}

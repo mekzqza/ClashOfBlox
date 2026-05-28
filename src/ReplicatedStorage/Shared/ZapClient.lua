@@ -163,12 +163,14 @@ local remotes = ReplicatedStorage:WaitForChild("ZAP")
 local reliable = remotes:WaitForChild("ZAP_RELIABLE")
 assert(reliable:IsA("RemoteEvent"), "Expected ZAP_RELIABLE to be a RemoteEvent")
 
-export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience")
 export type BuildingEntry = ({
 	["SnapToString"]: (string),
 	["BuildingTypeEnum"]: (number),
 	["BuildingLevel"]: (number),
+	["EndTime"]: (number),
+	["LastCollectedTime"]: (number),
 })
+export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience")
 export type CollectorData = ({
 	["Timestamp"]: (number),
 	["ProductionRate"]: (number),
@@ -236,6 +238,8 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 				assert(utf8.len(val_1["SnapToString"]) ~= nil, "value is not valid utf-8")
 				val_1["BuildingTypeEnum"] = buffer.readu8(incoming_buff, read(1))
 				val_1["BuildingLevel"] = buffer.readu8(incoming_buff, read(1))
+				val_1["EndTime"] = buffer.readu32(incoming_buff, read(4))
+				val_1["LastCollectedTime"] = buffer.readu32(incoming_buff, read(4))
 				value["Buildings"][i_1] = val_1
 			end
 			if reliable_events[1] then
@@ -310,6 +314,8 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 				assert(utf8.len(val_2["SnapToString"]) ~= nil, "value is not valid utf-8")
 				val_2["BuildingTypeEnum"] = buffer.readu8(incoming_buff, read(1))
 				val_2["BuildingLevel"] = buffer.readu8(incoming_buff, read(1))
+				val_2["EndTime"] = buffer.readu32(incoming_buff, read(4))
+				val_2["LastCollectedTime"] = buffer.readu32(incoming_buff, read(4))
 				value["Buildings"][i_2] = val_2
 			end
 			value["Collectors"] = {  }
@@ -360,6 +366,8 @@ local returns = {
 				["SnapToString"]: (string),
 				["BuildingTypeEnum"]: (number),
 				["BuildingLevel"]: (number),
+				["EndTime"]: (number),
+				["LastCollectedTime"]: (number),
 			}) }),
 		})) -> ()): () -> ()
 			reliable_events[1] = Callback
@@ -451,6 +459,8 @@ local returns = {
 				["SnapToString"]: (string),
 				["BuildingTypeEnum"]: (number),
 				["BuildingLevel"]: (number),
+				["EndTime"]: (number),
+				["LastCollectedTime"]: (number),
 			}) }),
 			["Collectors"]: ({
 				["GoldCollector"]: ({

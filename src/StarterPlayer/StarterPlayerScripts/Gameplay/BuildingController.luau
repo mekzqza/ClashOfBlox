@@ -7,7 +7,6 @@ local Events = require(ReplicatedStorage.Shared.Events)
 local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
 local BuildingConfig = require(ReplicatedStorage.Shared.BuildingConfig)
 local Player = Players.LocalPlayer
-
 local CONFIG = {
 	FOOTPRINTS_TEMPLATE = "FootPrints",
 	HARD_CODE_HIGHT = 0.5,
@@ -17,6 +16,12 @@ local CONFIG = {
 		[4] = "2*2Grid",
 		[9] = "3*3Grid",
 		[16] = "4*4Grid",
+	},
+	Category = {
+		Army = 1,
+		Resources = 2,
+		Defense = 3,
+		Trap = 4,
 	},
 }
 
@@ -215,7 +220,7 @@ function BuildingController:RecreateBuildings(snapPosition: string, buildingType
 	self._GridController:occupyCell(worldPos, dimention.Length, dimention.Width)
 
 	local collectorType = BuildingConfig:GetCollectorType(buildingType)
-	if collectorType and self._ResourceController then
+	if collectorType then
 		self._ResourceController:RegisterCollectors(collectorType, model)
 	end
 end

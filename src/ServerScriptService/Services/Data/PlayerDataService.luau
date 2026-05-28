@@ -41,20 +41,28 @@ function PlayerDataService.new()
 		_version = self._DATA_VERSION,
 		PlayerBuildings = {
 			["18_24"] = {
-				7,
-				1,
+				7, -- BuildingTypeEnum
+				1, -- BuildingLevel
+				0, -- endTime
+				0, -- lastCollectedTime
 			},
 			["23_20"] = {
 				1,
 				1,
+				0,
+				0,
 			},
 			["29_23"] = {
 				5,
 				1,
+				0,
+				0,
 			},
 			["26_26"] = {
 				10,
 				1,
+				0,
+				0,
 			},
 		},
 		Collectors = {
@@ -96,6 +104,8 @@ local function MapTOArray(tbl: { [string]: any }): { [number]: any }
 			SnapToString = key,
 			BuildingTypeEnum = value[1],
 			BuildingLevel = value[2],
+			EndTime = value[3],
+			LastCollectedTime = value[4],
 		})
 	end
 	return arr
@@ -262,7 +272,7 @@ function PlayerDataService:GetAll(player: Player): PlayerData?
 	return self:_deepClone(profile.Data)
 end
 
-function PlayerDataService:Set(player: Player, key: string, value: any): boolean
+function PlayerDataService:Set(player: Player, key: string, value: any, sendToclient: boolean?): boolean
 	local profile = self._Profiles[player.UserId]
 	if not profile or not profile:IsActive() then
 		return false
@@ -289,20 +299,31 @@ function PlayerDataService:Set(player: Player, key: string, value: any): boolean
 		target[keys[#keys]] = finalValue
 	end
 
-	-- emit เฉพาะ root key ที่อยู่ใน DataKey enum เท่านั้น
+	local send = sendToclient or true
+	if not send then
+		return true
+	end
+
 	if #keys == 1 then
 		EventBus:Emit(Events.S2C_PLAYER_DATA_UPDATE, player, { Key = key, newValue = finalValue })
 	end
 	return true
 end
 
-function PlayerDataService:Increment(player: Player, key: string, amount: number): (boolean, number?)
+function PlayerDataService:Increment(
+	player: Player,
+	key: string,
+	amount: number,
+	sendToclient: boolean?
+): (boolean, number?)
 	local currentValue = self:Get(player, key)
 	if type(currentValue) ~= "number" then
 		return false, nil
 	end
 	local newValue = currentValue + amount
-	local success = self:Set(player, key, newValue)
+
+	local send = sendToclient or true
+	local success = self:Set(player, key, newValue, send)
 	return success, success and newValue or nil
 end
 

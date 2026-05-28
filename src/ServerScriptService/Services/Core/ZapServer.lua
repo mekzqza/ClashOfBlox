@@ -208,12 +208,14 @@ end
 Players.PlayerRemoving:Connect(function(player)
 	player_map[player] = nil
 end)
-export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience")
 export type BuildingEntry = ({
 	["SnapToString"]: (string),
 	["BuildingTypeEnum"]: (number),
 	["BuildingLevel"]: (number),
+	["EndTime"]: (number),
+	["LastCollectedTime"]: (number),
 })
+export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience")
 export type CollectorData = ({
 	["Timestamp"]: (number),
 	["ProductionRate"]: (number),
@@ -301,6 +303,8 @@ local returns = {
 				["SnapToString"]: (string),
 				["BuildingTypeEnum"]: (number),
 				["BuildingLevel"]: (number),
+				["EndTime"]: (number),
+				["LastCollectedTime"]: (number),
 			}) }),
 		}))
 			load_player(Player)
@@ -327,6 +331,10 @@ local returns = {
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_1["BuildingTypeEnum"])
 				alloc(1)
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_1["BuildingLevel"])
+				alloc(4)
+				buffer.writeu32(outgoing_buff, outgoing_apos, val_1["EndTime"])
+				alloc(4)
+				buffer.writeu32(outgoing_buff, outgoing_apos, val_1["LastCollectedTime"])
 			end
 			player_map[Player] = save()
 		end,
@@ -336,6 +344,8 @@ local returns = {
 				["SnapToString"]: (string),
 				["BuildingTypeEnum"]: (number),
 				["BuildingLevel"]: (number),
+				["EndTime"]: (number),
+				["LastCollectedTime"]: (number),
 			}) }),
 		}))
 			load_empty()
@@ -362,6 +372,10 @@ local returns = {
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_2["BuildingTypeEnum"])
 				alloc(1)
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_2["BuildingLevel"])
+				alloc(4)
+				buffer.writeu32(outgoing_buff, outgoing_apos, val_2["EndTime"])
+				alloc(4)
+				buffer.writeu32(outgoing_buff, outgoing_apos, val_2["LastCollectedTime"])
 			end
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
@@ -378,6 +392,8 @@ local returns = {
 				["SnapToString"]: (string),
 				["BuildingTypeEnum"]: (number),
 				["BuildingLevel"]: (number),
+				["EndTime"]: (number),
+				["LastCollectedTime"]: (number),
 			}) }),
 		}))
 			load_empty()
@@ -404,6 +420,10 @@ local returns = {
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_3["BuildingTypeEnum"])
 				alloc(1)
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_3["BuildingLevel"])
+				alloc(4)
+				buffer.writeu32(outgoing_buff, outgoing_apos, val_3["EndTime"])
+				alloc(4)
+				buffer.writeu32(outgoing_buff, outgoing_apos, val_3["LastCollectedTime"])
 			end
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
@@ -422,6 +442,8 @@ local returns = {
 				["SnapToString"]: (string),
 				["BuildingTypeEnum"]: (number),
 				["BuildingLevel"]: (number),
+				["EndTime"]: (number),
+				["LastCollectedTime"]: (number),
 			}) }),
 		}))
 			load_empty()
@@ -448,6 +470,10 @@ local returns = {
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_4["BuildingTypeEnum"])
 				alloc(1)
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_4["BuildingLevel"])
+				alloc(4)
+				buffer.writeu32(outgoing_buff, outgoing_apos, val_4["EndTime"])
+				alloc(4)
+				buffer.writeu32(outgoing_buff, outgoing_apos, val_4["LastCollectedTime"])
 			end
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in List do
@@ -464,6 +490,8 @@ local returns = {
 				["SnapToString"]: (string),
 				["BuildingTypeEnum"]: (number),
 				["BuildingLevel"]: (number),
+				["EndTime"]: (number),
+				["LastCollectedTime"]: (number),
 			}) }),
 		}))
 			load_empty()
@@ -490,6 +518,10 @@ local returns = {
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_5["BuildingTypeEnum"])
 				alloc(1)
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_5["BuildingLevel"])
+				alloc(4)
+				buffer.writeu32(outgoing_buff, outgoing_apos, val_5["EndTime"])
+				alloc(4)
+				buffer.writeu32(outgoing_buff, outgoing_apos, val_5["LastCollectedTime"])
 			end
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for player in Set do
@@ -828,6 +860,8 @@ local returns = {
 				["SnapToString"]: (string),
 				["BuildingTypeEnum"]: (number),
 				["BuildingLevel"]: (number),
+				["EndTime"]: (number),
+				["LastCollectedTime"]: (number),
 			}) }),
 			["Collectors"]: ({
 				["GoldCollector"]: ({
@@ -870,6 +904,10 @@ local returns = {
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_6["BuildingTypeEnum"])
 				alloc(1)
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_6["BuildingLevel"])
+				alloc(4)
+				buffer.writeu32(outgoing_buff, outgoing_apos, val_6["EndTime"])
+				alloc(4)
+				buffer.writeu32(outgoing_buff, outgoing_apos, val_6["LastCollectedTime"])
 			end
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Timestamp"])
@@ -895,6 +933,8 @@ local returns = {
 				["SnapToString"]: (string),
 				["BuildingTypeEnum"]: (number),
 				["BuildingLevel"]: (number),
+				["EndTime"]: (number),
+				["LastCollectedTime"]: (number),
 			}) }),
 			["Collectors"]: ({
 				["GoldCollector"]: ({
@@ -937,6 +977,10 @@ local returns = {
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_7["BuildingTypeEnum"])
 				alloc(1)
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_7["BuildingLevel"])
+				alloc(4)
+				buffer.writeu32(outgoing_buff, outgoing_apos, val_7["EndTime"])
+				alloc(4)
+				buffer.writeu32(outgoing_buff, outgoing_apos, val_7["LastCollectedTime"])
 			end
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Timestamp"])
@@ -969,6 +1013,8 @@ local returns = {
 				["SnapToString"]: (string),
 				["BuildingTypeEnum"]: (number),
 				["BuildingLevel"]: (number),
+				["EndTime"]: (number),
+				["LastCollectedTime"]: (number),
 			}) }),
 			["Collectors"]: ({
 				["GoldCollector"]: ({
@@ -1011,6 +1057,10 @@ local returns = {
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_8["BuildingTypeEnum"])
 				alloc(1)
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_8["BuildingLevel"])
+				alloc(4)
+				buffer.writeu32(outgoing_buff, outgoing_apos, val_8["EndTime"])
+				alloc(4)
+				buffer.writeu32(outgoing_buff, outgoing_apos, val_8["LastCollectedTime"])
 			end
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Timestamp"])
@@ -1045,6 +1095,8 @@ local returns = {
 				["SnapToString"]: (string),
 				["BuildingTypeEnum"]: (number),
 				["BuildingLevel"]: (number),
+				["EndTime"]: (number),
+				["LastCollectedTime"]: (number),
 			}) }),
 			["Collectors"]: ({
 				["GoldCollector"]: ({
@@ -1087,6 +1139,10 @@ local returns = {
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_9["BuildingTypeEnum"])
 				alloc(1)
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_9["BuildingLevel"])
+				alloc(4)
+				buffer.writeu32(outgoing_buff, outgoing_apos, val_9["EndTime"])
+				alloc(4)
+				buffer.writeu32(outgoing_buff, outgoing_apos, val_9["LastCollectedTime"])
 			end
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Timestamp"])
@@ -1119,6 +1175,8 @@ local returns = {
 				["SnapToString"]: (string),
 				["BuildingTypeEnum"]: (number),
 				["BuildingLevel"]: (number),
+				["EndTime"]: (number),
+				["LastCollectedTime"]: (number),
 			}) }),
 			["Collectors"]: ({
 				["GoldCollector"]: ({
@@ -1161,6 +1219,10 @@ local returns = {
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_10["BuildingTypeEnum"])
 				alloc(1)
 				buffer.writeu8(outgoing_buff, outgoing_apos, val_10["BuildingLevel"])
+				alloc(4)
+				buffer.writeu32(outgoing_buff, outgoing_apos, val_10["EndTime"])
+				alloc(4)
+				buffer.writeu32(outgoing_buff, outgoing_apos, val_10["LastCollectedTime"])
 			end
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Timestamp"])

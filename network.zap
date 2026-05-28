@@ -5,6 +5,8 @@ type BuildingEntry = struct {
     SnapToString: string.utf8,
     BuildingTypeEnum: u8,
     BuildingLevel: u8,
+    EndTime: u32,
+    LastCollectedTime : u32,
 }
 
 type DataKey = enum {

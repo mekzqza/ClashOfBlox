@@ -39,6 +39,8 @@ local function DataLayer()
 			buildingsMap[entry.SnapToString] = {
 				GameEnum:GetBuildingTypeById(entry.BuildingTypeEnum),
 				entry.BuildingLevel,
+				entry.EndTime,
+				entry.LastCollectedTime,
 			} :: { any }
 		end
 
