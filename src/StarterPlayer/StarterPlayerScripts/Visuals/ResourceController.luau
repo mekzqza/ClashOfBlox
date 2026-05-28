@@ -3,6 +3,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Events = require(ReplicatedStorage.Shared.Events)
 local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
+local Async = require(ReplicatedStorage.Utils.Async)
 
 export type Collectors = {
 	Timestamp: number,
@@ -12,6 +13,7 @@ export type Collectors = {
 
 local CONFIG = {
 	ACTION_PART_NAME = "ActionPart",
+	DISAPPEAR_DELAY = 5,
 }
 
 local ResourceController = {}
@@ -88,17 +90,16 @@ end
 function ResourceController:OnClickCollector(data)
 	EventBus:Emit(Events.C2S_PLAYER_CLICK_COLLECTOR, { CollectorType = data.CollectorType })
 	self:_UiCollectorIsActive(data.CollectorType, false)
+	Async.doAfter(CONFIG.DISAPPEAR_DELAY, function()
+		self:_UiCollectorIsActive(data.CollectorType, true)
+	end)
 end
 
 function ResourceController:Init() end
 
 function ResourceController:Start()
 	self._PlayerDataController:WaitForDataReady():andThen(function(playerData)
-		local collectors = playerData.Collectors
-		if not collectors then
-			warn("Player data does not contain Collectors information.")
-			return
-		end
+		warn("[ResourceController] Player data is ready, initializing collectors")
 	end)
 end
 

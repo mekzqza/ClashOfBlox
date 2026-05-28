@@ -14,12 +14,6 @@ local ProfileService: any = nil
 
 export type ResourceType = "Golds" | "Elixirs" | "Gems"
 
-export type Collectors = {
-	Timestamp: number,
-	Capacity: number,
-	ProductionRate: number,
-}
-
 export type PlayerData = {
 	_version: number,
 	PlayerBuildings: { [string]: { number } },
@@ -28,7 +22,6 @@ export type PlayerData = {
 	Gems: number,
 	Level: number,
 	Experience: number,
-	Collectors: { [ResourceType]: Collectors },
 }
 
 local PlayerDataService = {}
@@ -43,8 +36,8 @@ function PlayerDataService.new()
 			["18_24"] = {
 				7, -- BuildingTypeEnum
 				1, -- BuildingLevel
-				0, -- endTime
-				0, -- lastCollectedTime
+				0, -- EndTime
+				0, -- LastCollectedTime
 			},
 			["23_20"] = {
 				1,
@@ -63,18 +56,6 @@ function PlayerDataService.new()
 				1,
 				0,
 				0,
-			},
-		},
-		Collectors = {
-			GoldCollector = {
-				Timestamp = 0,
-				Capacity = 2500,
-				ProductionRate = 10,
-			},
-			ElixirCollector = {
-				Timestamp = 0,
-				Capacity = 2500,
-				ProductionRate = 10,
 			},
 		},
 		Golds = 0,
@@ -400,7 +381,6 @@ function PlayerDataService:Start()
 					Level = playerData and playerData.Level or 1,
 					Experience = playerData and playerData.Experience or 0,
 					Buildings = playerData and ArrayBuilding or {},
-					Collectors = playerData and playerData.Collectors or {},
 				}
 				EventBus:Emit(Events.S2C_PLAYER_DATA_FIRST_LOAD, playload)
 			end)

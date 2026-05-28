@@ -208,19 +208,6 @@ end
 Players.PlayerRemoving:Connect(function(player)
 	player_map[player] = nil
 end)
-export type BuildingEntry = ({
-	["SnapToString"]: (string),
-	["BuildingTypeEnum"]: (number),
-	["BuildingLevel"]: (number),
-	["EndTime"]: (number),
-	["LastCollectedTime"]: (number),
-})
-export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience")
-export type CollectorData = ({
-	["Timestamp"]: (number),
-	["ProductionRate"]: (number),
-	["Capacity"]: (number),
-})
 export type Collector = ({
 	["GoldCollector"]: ({
 		["Timestamp"]: (number),
@@ -232,6 +219,19 @@ export type Collector = ({
 		["ProductionRate"]: (number),
 		["Capacity"]: (number),
 	}),
+})
+export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience")
+export type CollectorData = ({
+	["Timestamp"]: (number),
+	["ProductionRate"]: (number),
+	["Capacity"]: (number),
+})
+export type BuildingEntry = ({
+	["SnapToString"]: (string),
+	["BuildingTypeEnum"]: (number),
+	["BuildingLevel"]: (number),
+	["EndTime"]: (number),
+	["LastCollectedTime"]: (number),
 })
 
 local function SendEvents()
@@ -863,18 +863,6 @@ local returns = {
 				["EndTime"]: (number),
 				["LastCollectedTime"]: (number),
 			}) }),
-			["Collectors"]: ({
-				["GoldCollector"]: ({
-					["Timestamp"]: (number),
-					["ProductionRate"]: (number),
-					["Capacity"]: (number),
-				}),
-				["ElixirCollector"]: ({
-					["Timestamp"]: (number),
-					["ProductionRate"]: (number),
-					["Capacity"]: (number),
-				}),
-			}),
 		}))
 			load_player(Player)
 			alloc(1)
@@ -909,18 +897,6 @@ local returns = {
 				alloc(4)
 				buffer.writeu32(outgoing_buff, outgoing_apos, val_6["LastCollectedTime"])
 			end
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Timestamp"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["ProductionRate"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Capacity"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["Timestamp"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["ProductionRate"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["Capacity"])
 			player_map[Player] = save()
 		end,
 		FireAll = function(Value: ({
@@ -936,18 +912,6 @@ local returns = {
 				["EndTime"]: (number),
 				["LastCollectedTime"]: (number),
 			}) }),
-			["Collectors"]: ({
-				["GoldCollector"]: ({
-					["Timestamp"]: (number),
-					["ProductionRate"]: (number),
-					["Capacity"]: (number),
-				}),
-				["ElixirCollector"]: ({
-					["Timestamp"]: (number),
-					["ProductionRate"]: (number),
-					["Capacity"]: (number),
-				}),
-			}),
 		}))
 			load_empty()
 			alloc(1)
@@ -982,18 +946,6 @@ local returns = {
 				alloc(4)
 				buffer.writeu32(outgoing_buff, outgoing_apos, val_7["LastCollectedTime"])
 			end
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Timestamp"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["ProductionRate"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Capacity"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["Timestamp"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["ProductionRate"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["Capacity"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				load_player(player)
@@ -1016,18 +968,6 @@ local returns = {
 				["EndTime"]: (number),
 				["LastCollectedTime"]: (number),
 			}) }),
-			["Collectors"]: ({
-				["GoldCollector"]: ({
-					["Timestamp"]: (number),
-					["ProductionRate"]: (number),
-					["Capacity"]: (number),
-				}),
-				["ElixirCollector"]: ({
-					["Timestamp"]: (number),
-					["ProductionRate"]: (number),
-					["Capacity"]: (number),
-				}),
-			}),
 		}))
 			load_empty()
 			alloc(1)
@@ -1062,18 +1002,6 @@ local returns = {
 				alloc(4)
 				buffer.writeu32(outgoing_buff, outgoing_apos, val_8["LastCollectedTime"])
 			end
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Timestamp"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["ProductionRate"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Capacity"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["Timestamp"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["ProductionRate"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["Capacity"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				if player ~= Except then
@@ -1098,18 +1026,6 @@ local returns = {
 				["EndTime"]: (number),
 				["LastCollectedTime"]: (number),
 			}) }),
-			["Collectors"]: ({
-				["GoldCollector"]: ({
-					["Timestamp"]: (number),
-					["ProductionRate"]: (number),
-					["Capacity"]: (number),
-				}),
-				["ElixirCollector"]: ({
-					["Timestamp"]: (number),
-					["ProductionRate"]: (number),
-					["Capacity"]: (number),
-				}),
-			}),
 		}))
 			load_empty()
 			alloc(1)
@@ -1144,18 +1060,6 @@ local returns = {
 				alloc(4)
 				buffer.writeu32(outgoing_buff, outgoing_apos, val_9["LastCollectedTime"])
 			end
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Timestamp"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["ProductionRate"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Capacity"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["Timestamp"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["ProductionRate"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["Capacity"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in List do
 				load_player(player)
@@ -1178,18 +1082,6 @@ local returns = {
 				["EndTime"]: (number),
 				["LastCollectedTime"]: (number),
 			}) }),
-			["Collectors"]: ({
-				["GoldCollector"]: ({
-					["Timestamp"]: (number),
-					["ProductionRate"]: (number),
-					["Capacity"]: (number),
-				}),
-				["ElixirCollector"]: ({
-					["Timestamp"]: (number),
-					["ProductionRate"]: (number),
-					["Capacity"]: (number),
-				}),
-			}),
 		}))
 			load_empty()
 			alloc(1)
@@ -1224,18 +1116,6 @@ local returns = {
 				alloc(4)
 				buffer.writeu32(outgoing_buff, outgoing_apos, val_10["LastCollectedTime"])
 			end
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Timestamp"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["ProductionRate"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["GoldCollector"]["Capacity"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["Timestamp"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["ProductionRate"])
-			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Collectors"]["ElixirCollector"]["Capacity"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for player in Set do
 				load_player(player)

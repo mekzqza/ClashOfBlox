@@ -204,17 +204,21 @@ function BuildingController:_startPlacement(buildType: string)
 	end)
 end
 
-function BuildingController:RecreateBuildings(snapPosition: string, buildingType: string, buildingLevel: number)
+function BuildingController:RecreateBuildings(
+	snapPosition: string,
+	buildingType: string,
+	buildingLevel: number,
+	EndTime: number,
+	LastCollectedTime: number
+)
 	local startX, startZ = string.match(snapPosition, "(-?%d+)_(-?%d+)")
 	local dimention = BuildingConfig:GetBuildingDimensions(buildingType)
 	if not dimention then
-		warn(`[BuildingController] Building config with id {buildingType} not found in BuildingConfig`)
 		return
 	end
 
 	local worldPos =
 		self._GridController:GridCoordsToWorld(tonumber(startX), tonumber(startZ), dimention.Length, dimention.Width)
-
 	local model = self:_createBuilding(buildingType, worldPos, buildingLevel)
 	self:_createFootPrints(worldPos, dimention.Length * dimention.Width)
 	self._GridController:occupyCell(worldPos, dimention.Length, dimention.Width)
@@ -222,6 +226,22 @@ function BuildingController:RecreateBuildings(snapPosition: string, buildingType
 	local collectorType = BuildingConfig:GetCollectorType(buildingType)
 	if collectorType then
 		self._ResourceController:RegisterCollectors(collectorType, model)
+	end
+
+	if EndTime ~= 0 then
+		warn(
+			`[BuildingController] Building {buildingType} at {snapPosition} is under construction or upgrading. EndTime: {EndTime}, LastCollectedTime: {LastCollectedTime}`
+		)
+		-- You can implement logic here to handle buildings that are under construction or upgrading
+		-- For example, you might want to show a timer or a progress bar on the building model
+	end
+
+	if LastCollectedTime ~= 0 then
+		warn(
+			`[BuildingController] Building {buildingType} at {snapPosition} has resources that can be collected. EndTime: {EndTime}, LastCollectedTime: {LastCollectedTime}`
+		)
+		-- You can implement logic here to handle buildings that have resources ready for collection
+		-- For example, you might want to show a visual indicator on the building model
 	end
 end
 
@@ -278,7 +298,13 @@ function BuildingController:Start()
 			return
 		end
 		for snapPosition, buildingType in buildings do
-			self:RecreateBuildings(snapPosition, buildingType[1], buildingType[2] or 1)
+			self:RecreateBuildings(
+				snapPosition,
+				buildingType[1],
+				buildingType[2] or 1,
+				buildingType[3],
+				buildingType[4]
+			)
 		end
 	end)
 end

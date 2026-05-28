@@ -8,6 +8,8 @@ local GameEnum = require(ReplicatedStorage.Shared.GameEnum)
 
 local CONFIG = {
 	STARTER_LEVEL = 1,
+	STARTER_END_TIME = 0,
+	STARTER_LAST_COLLECTED_TIME = 0,
 	Category = {
 		Army = 1,
 		Resources = 2,
@@ -37,6 +39,8 @@ local function BuildingTOArray(tbl: { [string]: any }): { [number]: any }
 			SnapToString = key,
 			BuildingTypeEnum = value[1], -- value = { buildingTypeEnum }
 			BuildingLevel = value[2],
+			EndTime = value[3],
+			LastCollectedTime = value[4],
 		})
 	end
 	return arr
@@ -64,7 +68,11 @@ function BuildingService:_PlaceBuilding(
 	end
 
 	self:_BroadCastBuilding(player, buildingType, position)
-	self._PlayerDataService:Set(player, `PlayerBuildings.{snapTostring}`, { buildingTypeEnum, CONFIG.STARTER_LEVEL })
+	self._PlayerDataService:Set(
+		player,
+		`PlayerBuildings.{snapTostring}`,
+		{ buildingTypeEnum, CONFIG.STARTER_LEVEL, CONFIG.STARTER_END_TIME, CONFIG.STARTER_LAST_COLLECTED_TIME }
+	)
 end
 
 function BuildingService:_UpdateBuilding() end

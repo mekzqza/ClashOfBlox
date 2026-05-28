@@ -134,13 +134,13 @@ function MainDisplayController:Start()
 		local level = data.Level or 1
 		local experience = data.Experience or 0
 
-		self._Collectors = {
-			Golds = data.Collectors and data.Collectors.GoldCollector or 0,
-			Elixirs = data.Collectors and data.Collectors.ElixirCollector or 0,
-		}
-		self:_updateResourceDisplay("Golds", Golds)
-		self:_updateResourceDisplay("Elixirs", elixir)
-		self:_updateResourceDisplay("Gems", gem)
+		-- self._Collectors = {
+		-- 	Golds = data.Collectors and data.Collectors.GoldCollector or 0,
+		-- 	Elixirs = data.Collectors and data.Collectors.ElixirCollector or 0,
+		-- }
+		-- self:_updateResourceDisplay("Golds", Golds)
+		-- self:_updateResourceDisplay("Elixirs", elixir)
+		-- self:_updateResourceDisplay("Gems", gem)
 		self:_setPlayerName(Player)
 		self:_updateLevelDisplay(level)
 		self:_updateExperience(experience)
