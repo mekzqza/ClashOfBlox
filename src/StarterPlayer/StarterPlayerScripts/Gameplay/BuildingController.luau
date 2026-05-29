@@ -194,12 +194,12 @@ function BuildingController:_startPlacement(buildType: string)
 			self._GridController:SnapToGrid(mouse.Hit.Position, dimention.Length, dimention.Width) :: Vector3
 		if self._GridController:Canplace(snapPos, dimention.Length, dimention.Width) then
 			local startX, startZ = self._GridController:GetFootPrintStart(snapPos, dimention.Length, dimention.Width)
-			self:_requestPlaceBuilding(`{startX}_{startZ}`, buildType, snapPos)
+			self:_requestPlaceBuilding(`{startX},{startZ}`, buildType, snapPos)
 			self:_createBuilding(buildType, snapPos)
 			self:_createFootPrints(snapPos, dimention.Length * dimention.Width)
 			self._GridController:occupyCell(snapPos, dimention.Length, dimention.Width)
 
-			self._buildings[`{startX}_{startZ}`] = buildType
+			self._buildings[`{startX},{startZ}`] = buildType
 		end
 	end)
 end
@@ -211,7 +211,7 @@ function BuildingController:RecreateBuildings(
 	EndTime: number,
 	LastCollectedTime: number
 )
-	local startX, startZ = string.match(snapPosition, "(-?%d+)_(-?%d+)")
+	local startX, startZ = string.match(snapPosition, "(-?%d+),(-?%d+)")
 	local dimention = BuildingConfig:GetBuildingDimensions(buildingType)
 	if not dimention then
 		return
