@@ -11,6 +11,7 @@ MainDisplayController.__index = MainDisplayController
 function MainDisplayController.new()
 	local self = setmetatable({}, MainDisplayController)
 	self._PlayerDataController = nil
+	self._ResourceController = nil
 	self._PlayerGui = nil
 	self._MainDisPlay = nil
 	self._MainFrame = nil
@@ -23,23 +24,12 @@ function MainDisplayController.new()
 	self._GemContainer = nil
 	self._GoldContainer = nil
 
-	self._Collectors = {
-		["Golds"] = {
-			Timestamp = 0,
-			Capacity = 0,
-			ProductionRate = 0,
-		},
-		["Elixirs"] = {
-			Timestamp = 0,
-			Capacity = 0,
-			ProductionRate = 0,
-		},
-	}
 	return self
 end
 
 function MainDisplayController:SetDependencies(locator)
 	self._PlayerDataController = locator:Get("PlayerDataController")
+	self._ResourceController = locator:Get("ResourceController")
 end
 
 function MainDisplayController:_updateResourceDisplay(key: string, value: number)
@@ -57,7 +47,7 @@ function MainDisplayController:_updateResourceDisplay(key: string, value: number
 
 	local fillFrame = traget:FindFirstChild("Fill", true)
 	if fillFrame and fillFrame:IsA("Frame") then
-		local fillAmount = math.clamp(value / self._Collectors[key].Capacity, 0, 1)
+		local fillAmount = math.clamp(value / self._ResourceController:GetResourceStorage(key), 0, 1)
 		fillFrame.AnchorPoint = Vector2.new(1, 0)
 		fillFrame.Position = UDim2.new(1, 0, 0, 0)
 		fillFrame.Size = UDim2.new(fillAmount, 0, 1, 0)
@@ -128,19 +118,15 @@ function MainDisplayController:Start()
 	end)
 
 	self._PlayerDataController:WaitForDataReady():andThen(function(data)
-		local Golds = data.Golds or 0
+		local golds = data.Golds or 0
 		local elixir = data.Elixirs or 0
 		local gem = data.Gems or 0
 		local level = data.Level or 1
 		local experience = data.Experience or 0
 
-		-- self._Collectors = {
-		-- 	Golds = data.Collectors and data.Collectors.GoldCollector or 0,
-		-- 	Elixirs = data.Collectors and data.Collectors.ElixirCollector or 0,
-		-- }
-		-- self:_updateResourceDisplay("Golds", Golds)
-		-- self:_updateResourceDisplay("Elixirs", elixir)
-		-- self:_updateResourceDisplay("Gems", gem)
+		self:_updateResourceDisplay("Golds", golds)
+		self:_updateResourceDisplay("Elixirs", elixir)
+		self:_updateResourceDisplay("Gems", gem)
 		self:_setPlayerName(Player)
 		self:_updateLevelDisplay(level)
 		self:_updateExperience(experience)

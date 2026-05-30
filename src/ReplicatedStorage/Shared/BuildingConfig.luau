@@ -28,12 +28,6 @@ export type BuildingData = { [string]: { Width: number, Length: number, Category
     CollectorType:string?,
     [number]: BuildingLevelData } }
 
-local Category = {
-    Army      = 1,
-    Resources = 2,
-    Defense   = 3,
-    Trap      = 4,
-}
 
 local UpgradeResourceType = {
     Golds = 1,
@@ -45,7 +39,13 @@ local Buildings: BuildingData = {
 		Width = 4,
 		Length = 4,
 		UpgradeResourceType = UpgradeResourceType.Golds,
+		[1] = {
+			UpgradeCost = 150,
+			UpgradeTime = 60,
+			MaxHp = 400,
 
+			Capacity = 2000,
+		}
 	},
 
 	["Cannon"] = {
@@ -55,12 +55,6 @@ local Buildings: BuildingData = {
 
 	},
 
-	["ElixirStorage"] = {
-		Width = 3,
-		Length = 3,
-		UpgradeResourceType = UpgradeResourceType.Golds,
-
-	},
 	["ElixirCollector"] = {
 		Width = 3,
 		Length = 3,
@@ -71,8 +65,8 @@ local Buildings: BuildingData = {
 			UpgradeTime = 60,
 			MaxHp = 400,
 
-			ProductionRate = 200,
-			Capacity = 2000,
+			ProductionRate = 1,
+			Capacity = 100,
 
 		},
 	},
@@ -87,14 +81,35 @@ local Buildings: BuildingData = {
 			UpgradeTime = 60,
 			MaxHp = 400,
 
-			ProductionRate = 200,
-			Capacity = 2000,
+			ProductionRate = 1,
+			Capacity = 100,
 		},
 	},
+
+	["ElixirStorage"] = {
+		Width = 3,
+		Length = 3,
+		UpgradeResourceType = UpgradeResourceType.Golds,
+		[1] = {
+            UpgradeCost = 150,
+            UpgradeTime = 60,
+            MaxHp = 400,
+
+            Capacity = 2000,
+        }
+	},
+
 	["GoldStorage"] = {
 		Width = 3,
 		Length = 3,
 		UpgradeResourceType = UpgradeResourceType.Elixirs,
+		[1] ={
+		    UpgradeCost = 150,
+            UpgradeTime = 60,
+            MaxHp = 400,
+
+            Capacity = 2000,
+		}
 	},
 
 	["Tree"] = {

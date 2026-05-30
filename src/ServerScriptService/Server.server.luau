@@ -8,13 +8,16 @@ local ServiceLocator = require(ServerScriptService.Utils.ServiceLocator)
 
 local Services = ServerScriptService:WaitForChild("Services")
 
+local Events = require(ReplicatedStorage.Shared.Events)
+local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
+
 local Core = Services:FindFirstChild("Core")
 local Data = Services:FindFirstChild("Data")
 local Gameplay = Services:FindFirstChild("GamePlay")
 
 --Data Layer
 local PlayerDataService = require(Data.PlayerDataService).new()
-
+local FirstLoadService = require(Data.FirstLoadService).new()
 --Core Layer
 local CmdrService = require(Core.CmdrService)
 local ServerNetWorkHandler = require(Core.ServerNetWorkHandler)
@@ -91,10 +94,14 @@ end
 Promise
 	.resolve()
 	:andThen(function()
+		ServiceLocator:Register("EventBus", EventBus)
+		ServiceLocator:Register("Events", Events)
+
 		ServiceLocator:Register("CmdrService", CmdrService)
 		ServiceLocator:Register("ServerNetWorkHandler", ServerNetWorkHandler)
 
 		ServiceLocator:Register("PlayerDataService", PlayerDataService)
+		ServiceLocator:Register("FirstLoadService", FirstLoadService)
 
 		ServiceLocator:Register("GridService", GridService)
 		ServiceLocator:Register("BuildingService", BuildingService)
@@ -118,6 +125,7 @@ Promise
 		print("[Init] DataLayer initialized")
 		return Promise.all({
 			initService(PlayerDataService, "PlayerDataService"),
+			initService(FirstLoadService, "FirstLoadService"),
 		}):timeout(TIMEOUTS.LayerInit)
 	end)
 	:andThen(function()
@@ -145,6 +153,7 @@ Promise
 		print("[Init] DataLayer started")
 		return Promise.all({
 			startService(PlayerDataService, "PlayerDataService"),
+			startService(FirstLoadService, "FirstLoadService"),
 		}):timeout(TIMEOUTS.LayerStart)
 	end)
 	:andThen(function()

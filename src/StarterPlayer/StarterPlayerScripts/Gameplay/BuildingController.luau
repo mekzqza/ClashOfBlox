@@ -6,7 +6,9 @@ local Players = game:GetService("Players")
 local Events = require(ReplicatedStorage.Shared.Events)
 local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
 local BuildingConfig = require(ReplicatedStorage.Shared.BuildingConfig)
+local GameEnum = require(ReplicatedStorage.Shared.GameEnum)
 local Player = Players.LocalPlayer
+
 local CONFIG = {
 	FOOTPRINTS_TEMPLATE = "FootPrints",
 	HARD_CODE_HIGHT = 0.5,
@@ -225,23 +227,13 @@ function BuildingController:RecreateBuildings(
 
 	local collectorType = BuildingConfig:GetCollectorType(buildingType)
 	if collectorType then
-		self._ResourceController:RegisterCollectors(collectorType, model)
+		self._ResourceController:RegisterclickDetector(collectorType, model)
 	end
 
 	if EndTime ~= 0 then
-		warn(
-			`[BuildingController] Building {buildingType} at {snapPosition} is under construction or upgrading. EndTime: {EndTime}, LastCollectedTime: {LastCollectedTime}`
-		)
-		-- You can implement logic here to handle buildings that are under construction or upgrading
-		-- For example, you might want to show a timer or a progress bar on the building model
 	end
 
 	if LastCollectedTime ~= 0 then
-		warn(
-			`[BuildingController] Building {buildingType} at {snapPosition} has resources that can be collected. EndTime: {EndTime}, LastCollectedTime: {LastCollectedTime}`
-		)
-		-- You can implement logic here to handle buildings that have resources ready for collection
-		-- For example, you might want to show a visual indicator on the building model
 	end
 end
 
@@ -300,8 +292,15 @@ function BuildingController:Start()
 		for snapPosition, buildingType in buildings do
 			self:RecreateBuildings(
 				snapPosition,
+				GameEnum:GetBuildingTypeById(buildingType[1]),
+				buildingType[2],
+				buildingType[3],
+				buildingType[4]
+			)
+			self._ResourceController:RegisterColector(
+				snapPosition,
 				buildingType[1],
-				buildingType[2] or 1,
+				buildingType[2],
 				buildingType[3],
 				buildingType[4]
 			)
