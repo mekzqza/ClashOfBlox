@@ -77,6 +77,13 @@ function ResourceService:WaitForReady(player: Player, timeout: number?): any
 end
 
 function ResourceService:ReisterColector(player, buildingId, buildingEnum, buildingLevel, endtime, LastCollectedTime)
+	if endtime ~= 0 then
+		warn(
+			`[ResourceService] EndTime is not 0 Mean building is Constructing or Upgrade for player {player.Name} and building {buildingId} with endTime {endtime}`
+		)
+		return
+	end
+
 	if not self._PlayersCollectors[player] then
 		self._PlayersCollectors[player] = { ["ElixirCollector"] = {}, ["GoldCollector"] = {} }
 		self._PlayerResourceStorage[player] = { ["ElixirStorage"] = 0, ["GoldStorage"] = 0 }
