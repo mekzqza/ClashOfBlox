@@ -3,14 +3,21 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Events = require(ReplicatedStorage.Shared.Events)
 local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
-local GameEnum = require(ReplicatedStorage.Shared.GameEnum)
 local BuildingConfig = require(ReplicatedStorage.Shared.BuildingConfig)
 local Async = require(ReplicatedStorage.Utils.Async)
 
 export type Collectors = {
 	Timestamp: number,
-	Capacity: number,
 	ProductionRate: number,
+	BuildingEnum: number,
+
+	Capacity: number,
+	EndTime: number,
+}
+
+export type Storage = {
+	BuildingId: string,
+	Capacity: number,
 }
 
 local CONFIG = {
@@ -30,27 +37,14 @@ function ResourceController.new()
 	self._ResourceStorage = {
 		["Golds"] = 0,
 		["Elixirs"] = 0,
-	}
+	} :: { [string]: number }
 	self._CollectorModels = {} :: { [string]: { Model } }
 	self._Connections = {} :: { [Model]: { Connection: RBXScriptConnection, CollectorType: string } }
-	self._LookBack = {
-		[1] = "TownHall",
-		[8] = "ElixirStorage",
-		[9] = "ElixirCollector",
-		[10] = "GoldMine",
-		[11] = "GoldStorage",
-	}
 	return self
 end
 
 function ResourceController:SetDependencies(locator)
 	self._PlayerDataController = locator:Get("PlayerDataController")
-end
-
-local function getBuildingData(buildingTypeEnum: number, buildingLevel: number): any
-	local buildingType = GameEnum:GetBuildingTypeById(buildingTypeEnum)
-	local buildingData = BuildingConfig:GetBuildingData(buildingType, buildingLevel)
-	return buildingData
 end
 
 function ResourceController:_CreateclickDetector(model: Model): ClickDetector
@@ -82,7 +76,7 @@ function ResourceController:RegisterclickDetector(collectorType: string, model: 
 	local clickDetector = self:_CreateclickDetector(model)
 	self._Connections[model] = {
 		Connection = clickDetector.MouseClick:Connect(function(_player)
-			self:OnClickCollector({ CollectorType = collectorType })
+			self:_OnClickCollecResource({ CollectorType = collectorType })
 		end),
 		CollectorType = collectorType,
 	}
@@ -93,7 +87,7 @@ function ResourceController:RegisterclickDetector(collectorType: string, model: 
 	table.insert(self._CollectorModels[collectorType], model)
 end
 
-function ResourceController:OnClickCollector(data)
+function ResourceController:_OnClickCollecResource(data)
 	EventBus:Emit(Events.C2S_PLAYER_CLICK_COLLECTOR, { CollectorType = data.CollectorType })
 	self:_UiCollectorIsActive(data.CollectorType, false)
 	Async.doAfter(CONFIG.DISAPPEAR_DELAY, function()
@@ -101,26 +95,45 @@ function ResourceController:OnClickCollector(data)
 	end)
 end
 
-function ResourceController:RegisterColector(BuildingId, BuildingEnum, BuildingLevel, Endtime, LastCollectedTime)
-	if BuildingEnum == 9 then
-		self._Collectors["ElixirCollector"][BuildingId] = {
-			Timestamp = LastCollectedTime,
-			ProductionRate = getBuildingData(BuildingEnum, BuildingLevel).ProductionRate,
-			BuildingId = BuildingId,
+function ResourceController:_onPlayerClickCollector(CollectorType, buildingId: string)
+	--[[
+	    เชื่อต่อกับ MoreInfoFrame เพื่อแสดงข้อมูลของ Collector ที่ถูกคลิก
+	]]
+end
+
+function ResourceController:RegisterColector(buildingId, buildingEnum, buildingLevel, endtime, lastCollectedTime)
+	local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, buildingLevel)
+	if not buildingData then
+		warn(
+			`[ResourceController] No building data found for BuildingEnum: {buildingEnum}, BuildingLevel: {buildingLevel}`
+		)
+		return
+	end
+	if buildingEnum == 9 then
+		self._Collectors["ElixirCollector"][buildingId] = {
+			Timestamp = lastCollectedTime,
+			ProductionRate = buildingData.ProductionRate,
+			BuildingId = buildingId,
+			BuildingEnum = buildingEnum,
+			Capacity = buildingData.Capacity,
+			EndTime = endtime,
 		}
-	elseif BuildingEnum == 10 then
-		self._Collectors["GoldCollector"][BuildingId] = {
-			Timestamp = LastCollectedTime,
-			ProductionRate = getBuildingData(BuildingEnum, BuildingLevel).ProductionRate,
-			BuildingId = BuildingId,
+	elseif buildingEnum == 10 then
+		self._Collectors["GoldCollector"][buildingId] = {
+			Timestamp = lastCollectedTime,
+			ProductionRate = buildingData.ProductionRate,
+			BuildingId = buildingId,
+			BuildingEnum = buildingEnum,
+			Capacity = buildingData.Capacity,
+			EndTime = endtime,
 		}
-	elseif BuildingEnum == 8 then
-		self._ResourceStorage["Elixirs"] = getBuildingData(BuildingEnum, BuildingLevel).Capacity
-	elseif BuildingEnum == 11 then
-		self._ResourceStorage["Golds"] = getBuildingData(BuildingEnum, BuildingLevel).Capacity
-	elseif BuildingEnum == 1 then
-		self._ResourceStorage["Elixirs"] += getBuildingData(BuildingEnum, BuildingLevel).Capacity
-		self._ResourceStorage["Golds"] += getBuildingData(BuildingEnum, BuildingLevel).Capacity
+	elseif buildingEnum == 8 then
+		self._ResourceStorage["Elixirs"] = buildingData.Capacity
+	elseif buildingEnum == 11 then
+		self._ResourceStorage["Golds"] = buildingData.Capacity
+	elseif buildingEnum == 1 then
+		self._ResourceStorage["Elixirs"] += buildingData.Capacity
+		self._ResourceStorage["Golds"] += buildingData.Capacity
 	end
 end
 

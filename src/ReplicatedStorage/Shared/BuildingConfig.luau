@@ -1,4 +1,6 @@
 --!strict
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local GameEnum = require(ReplicatedStorage.Shared.GameEnum)
 
 --[[
     @ Building Config Eack Level
@@ -21,7 +23,7 @@ export type BuildingLevelData = {
 	Damage: number?,
 	Description: string?,
 	ProductionRate: number?,
-	MaxStorage: number?,
+	Capacity: number?,
 }
 
 export type BuildingData = { [string]: { Width: number, Length: number, Category: Category?,ResourceType:string?,
@@ -134,15 +136,27 @@ local Buildings: BuildingData = {
 		Width = 4,
 		Length = 4,
 		UpgradeResourceType = UpgradeResourceType.Elixirs,
+		[1] = {
+            UpgradeCost = 150,
+            UpgradeTime = 60,
+            MaxHp = 400,
 
+            Description = "A campfire that can be used to train troops.",
+        }
 
 	},
 	["Builinghall"] = {
 		Width = 2,
 		Length = 2,
+		[1] = {
+            UpgradeCost = 150,
+            UpgradeTime = 60,
+            MaxHp = 400,
+
+            Description = "A building hall that serves as the main hub for the base.",
+        }
 	},
 }
-
 
 
 function BuildingConfig:GetBuildingDimensions(buildingType: string): { Width: number, Length: number }?
@@ -178,6 +192,27 @@ function BuildingConfig:GetCollectorType(buildingType: string): string?
         return nil
     end
     return building.CollectorType or nil
+end
+
+function BuildingConfig:GetBuildingDataByEnum(buildingEnum:number,level:number):any
+    local buildingType = GameEnum:GetBuildingTypeById(buildingEnum)
+    if not buildingType then
+        return nil
+    end
+    return BuildingConfig:GetBuildingData(buildingType,level)
+end
+
+function BuildingConfig:GetBuildingMaxDataByEnum(buildingEnum:number)
+    local buildingType = GameEnum:GetBuildingTypeById(buildingEnum)
+    if not buildingType then
+        return nil
+    end
+    local building = Buildings[buildingType]
+    if not building then
+        return nil
+    end
+    local maxLevel = math.max(table.unpack(table.keys(building)))
+    return BuildingConfig:GetBuildingData(buildingType, maxLevel)
 end
 
 return BuildingConfig

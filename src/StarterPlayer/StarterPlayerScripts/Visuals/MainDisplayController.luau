@@ -10,8 +10,6 @@ local MainDisplayController = {}
 MainDisplayController.__index = MainDisplayController
 function MainDisplayController.new()
 	local self = setmetatable({}, MainDisplayController)
-	self._PlayerDataController = nil
-	self._ResourceController = nil
 	self._PlayerGui = nil
 	self._MainDisPlay = nil
 	self._MainFrame = nil
@@ -24,6 +22,8 @@ function MainDisplayController.new()
 	self._GemContainer = nil
 	self._GoldContainer = nil
 
+	self._PlayerDataController = nil
+	self._ResourceController = nil
 	return self
 end
 

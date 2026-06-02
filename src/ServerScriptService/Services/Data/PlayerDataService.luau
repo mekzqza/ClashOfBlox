@@ -289,8 +289,11 @@ function PlayerDataService:Increment(
 	end
 	local newValue = currentValue + amount
 
-	local send = sendToclient or true
-	local success = self:Set(player, key, newValue, send)
+	if sendToclient == nil then
+		sendToclient = true
+	end
+
+	local success = self:Set(player, key, newValue, sendToclient)
 	return success, success and newValue or nil
 end
 

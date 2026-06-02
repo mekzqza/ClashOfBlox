@@ -4,7 +4,6 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Events = require(ReplicatedStorage.Shared.Events)
 local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
-local GameEnum = require(ReplicatedStorage.Shared.GameEnum)
 local BuildingConfig = require(ReplicatedStorage.Shared.BuildingConfig)
 local ServiceLocator = require(ServerScriptService.Utils.ServiceLocator)
 local IdempotentGuard = require(ServerScriptService.Utils.IdempotentGuard)
@@ -15,9 +14,14 @@ local guard = IdempotentGuard.new("ResourceService", true)
 export type CollectorsType = "GoldCollector" | "ElixirCollector"
 
 export type Collectors = {
+	BuildingEnum: number,
+	BuildingLevel: number,
+	EndTime: number,
 	Timestamp: number,
+
 	ProductionRate: number, -- pull from BuildingConfig
 	BuildingId: string,
+	Capacity: number,
 }
 
 local ResourceService = {}
@@ -25,42 +29,36 @@ ResourceService.__index = ResourceService
 function ResourceService.new()
 	local self = setmetatable({}, ResourceService)
 	self._PlayerDataService = nil
-	self._PlayersCollectors = {} :: { [Player]: { [CollectorsType]: { [number]: { Collectors } } } }
+	self._PlayersCollectors = {} :: { [Player]: { [CollectorsType]: { [string]: Collectors } } }
 	self._PlayerResourceStorage = {} :: { [Player]: { [string]: number } }
 	self._registeredPlayers = {} :: { [number]: boolean }
 	self._registrationCallbacks = {} :: { [number]: { (boolean) -> () } }
 	self._LookBack = {
 		["GoldCollector"] = "Golds",
 		["ElixirCollector"] = "Elixirs",
-		[1] = "TownHall",
-		[8] = "ElixirStorage",
-		[9] = "ElixirCollector",
-		[10] = "GoldMine",
-		[11] = "GoldStorage",
+	}
+	self._LokbackV2 = {
+		["GoldCollector"] = "GoldStorage",
+		["ElixirCollector"] = "ElixirStorage",
 	}
 	return self
 end
 
-local function getBuildingData(buildingTypeEnum: number, buildingLevel: number): any
-	local buildingType = GameEnum:GetBuildingTypeById(buildingTypeEnum)
-	local buildingData = BuildingConfig:GetBuildingData(buildingType, buildingLevel)
-	return buildingData
-end
+function ResourceService:_collctorTimeremaining(
+	player: Player,
+	collectorsType: CollectorsType,
+	buildingId: string,
+	currentValue: number
+): { timeRemain: number, amount: number }
+	local collectors = self._PlayersCollectors[player][collectorsType][buildingId]
+	local storageKey = self._LokbackV2[collectorsType]
+	local storageSpace = math.max(self._PlayerResourceStorage[player][storageKey] - currentValue, 0)
 
-local function getTimeStamp(t: number): number
-	local timestamp = t
-	if timestamp == 0 then
-		timestamp = os.time()
-	end
-	return timestamp
-end
-
-function ResourceService:GetPlayerCollectors(player: Player): { [CollectorsType]: { [number]: Collectors } }?
-	return self._PlayersCollectors[player]
-end
-
-function ResourceService:GetPlayerResourceStorage(player: Player): { [string]: number }?
-	return self._PlayerResourceStorage[player]
+	local accumulated =
+		math.floor(math.min((os.time() - collectors.Timestamp) * collectors.ProductionRate, collectors.Capacity))
+	local transferred = math.min(accumulated, storageSpace)
+	local remaining = accumulated - transferred
+	return { timeRemain = remaining, amount = transferred }
 end
 
 function ResourceService:WaitForReady(player: Player, timeout: number?): any
@@ -78,31 +76,42 @@ function ResourceService:WaitForReady(player: Player, timeout: number?): any
 	end):timeout(timeout or 15)
 end
 
-function ResourceService:ReisterColector(player, BuildingId, BuildingEnum, BuildingLevel, Endtime, LastCollectedTime)
+function ResourceService:ReisterColector(player, buildingId, buildingEnum, buildingLevel, endtime, LastCollectedTime)
 	if not self._PlayersCollectors[player] then
 		self._PlayersCollectors[player] = { ["ElixirCollector"] = {}, ["GoldCollector"] = {} }
 		self._PlayerResourceStorage[player] = { ["ElixirStorage"] = 0, ["GoldStorage"] = 0 }
 	end
 
-	if BuildingEnum == 9 then
-		table.insert(self._PlayersCollectors[player]["ElixirCollector"], {
-			Timestamp = getTimeStamp(LastCollectedTime),
-			ProductionRate = getBuildingData(BuildingEnum, BuildingLevel).ProductionRate,
-			BuildingId = BuildingId,
-		})
-	elseif BuildingEnum == 10 then
-		table.insert(self._PlayersCollectors[player]["GoldCollector"], {
-			Timestamp = getTimeStamp(LastCollectedTime),
-			ProductionRate = getBuildingData(BuildingEnum, BuildingLevel).ProductionRate,
-			BuildingId = BuildingId,
-		})
-	elseif BuildingEnum == 8 then
-		self._PlayerResourceStorage[player]["ElixirStorage"] = getBuildingData(BuildingEnum, BuildingLevel).Capacity
-	elseif BuildingEnum == 11 then
-		self._PlayerResourceStorage[player]["GoldStorage"] = getBuildingData(BuildingEnum, BuildingLevel).Capacity
-	elseif BuildingEnum == 1 then
-		self._PlayerResourceStorage[player]["ElixirStorage"] += getBuildingData(BuildingEnum, BuildingLevel).Capacity
-		self._PlayerResourceStorage[player]["GoldStorage"] += getBuildingData(BuildingEnum, BuildingLevel).Capacity
+	local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, buildingLevel)
+	if buildingEnum == 9 then
+		self._PlayersCollectors[player]["ElixirCollector"][buildingId] = {
+			Timestamp = if LastCollectedTime == 0 then os.time() else LastCollectedTime,
+			ProductionRate = buildingData.ProductionRate,
+			Capacity = buildingData.Capacity,
+
+			BuildingId = buildingId,
+			BuildingEnum = buildingEnum,
+			BuildingLevel = buildingLevel,
+			EndTime = endtime,
+		}
+	elseif buildingEnum == 10 then
+		self._PlayersCollectors[player]["GoldCollector"][buildingId] = {
+			Timestamp = if LastCollectedTime == 0 then os.time() else LastCollectedTime,
+			ProductionRate = buildingData.ProductionRate,
+			Capacity = buildingData.Capacity,
+
+			BuildingId = buildingId,
+			BuildingEnum = buildingEnum,
+			BuildingLevel = buildingLevel,
+			EndTime = endtime,
+		}
+	elseif buildingEnum == 8 then
+		self._PlayerResourceStorage[player]["ElixirStorage"] = buildingData.Capacity
+	elseif buildingEnum == 11 then
+		self._PlayerResourceStorage[player]["GoldStorage"] = buildingData.Capacity
+	elseif buildingEnum == 1 then
+		self._PlayerResourceStorage[player]["ElixirStorage"] += buildingData.Capacity
+		self._PlayerResourceStorage[player]["GoldStorage"] += buildingData.Capacity
 	end
 end
 
@@ -127,29 +136,33 @@ function ResourceService:PlayerClieckCollector(player: Player, collectorType: Co
 		return
 	end
 
-	local now = os.time()
 	local totalResource = 0
+	local tragetVale = self._PlayerDataService:Get(player, self._LookBack[collectorType]) or 0
 
 	for _, entry in collectors do
-		local bd = self._PlayerDataService:Get(player, `PlayerBuildings.{entry.BuildingId}`)
+		local data = self:_collctorTimeremaining(player, collectorType, entry.BuildingId, tragetVale)
 
-		local lastCollected = if bd[4] == 0 then now else bd[4]
-		local deltaTime = now - lastCollected
-		local amount = math.floor(deltaTime * entry.ProductionRate)
-		totalResource += amount
-
+		local newTimestamp = os.time() - math.floor(data.timeRemain / entry.ProductionRate)
+		entry.Timestamp = newTimestamp
 		self._PlayerDataService:Set(player, `PlayerBuildings.{entry.BuildingId}`, {
-			bd[1],
-			bd[2],
-			bd[3] or 0,
-			now,
+			entry.BuildingEnum,
+			entry.BuildingLevel,
+			entry.EndTime or 0,
+			newTimestamp,
 		}, false)
-
-		entry.Timestamp = now
+		tragetVale += data.amount
+		totalResource += data.amount
 	end
-
 	self._PlayerDataService:Increment(player, self._LookBack[collectorType], totalResource)
 	warn(`[ResourceService] {player.Name} collected {totalResource} from {collectorType}`)
+end
+
+function ResourceService:GetPlayerCollectors(player: Player): { [CollectorsType]: { [number]: Collectors } }?
+	return self._PlayersCollectors[player]
+end
+
+function ResourceService:GetPlayerResourceStorage(player: Player): { [string]: number }?
+	return self._PlayerResourceStorage[player]
 end
 
 function ResourceService:Init()
