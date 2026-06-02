@@ -105,7 +105,7 @@ end
 function BuildingService:_BroadCastBuilding(player: Player, buildingEnum: number, position: Vector3)
 	EventBus:Emit(Events.S2C_CREATE_BUILDING, {
 		Player = player,
-		BuildingType = buildingEnum,
+		BuildingEnum = buildingEnum,
 		Position = position,
 	})
 end

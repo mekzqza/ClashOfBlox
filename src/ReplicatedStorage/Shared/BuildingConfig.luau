@@ -54,7 +54,14 @@ local Buildings: BuildingData = {
 		Width = 3,
 		Length = 3,
 		UpgradeResourceType = UpgradeResourceType.Golds,
+		[1]= {
+            UpgradeCost = 150,
+            UpgradeTime = 10,
+            MaxHp = 400,
 
+            FireRange = 5,
+            Damage = 50,
+        }
 	},
 
 	["ElixirCollector"] = {

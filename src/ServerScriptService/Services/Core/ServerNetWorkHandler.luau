@@ -77,7 +77,7 @@ local function BuildingSytem()
 
 	EventBus:On(Events.S2C_CREATE_BUILDING, function(data)
 		ZapServer.PlayersCreateBuilding.FireExcept(data.Player, {
-			BuildingTypeEnum = GameEnum:GetBuildingTypeIdByName(data.BuildingType),
+			BuildingTypeEnum = data.BuildingEnum,
 			Position = data.Position,
 		})
 	end)
