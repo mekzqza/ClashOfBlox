@@ -9,16 +9,10 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 local Promise = require(Packages.Promise)
 
 local Libs = ServerScriptService:FindFirstChild("Libs")
-local guard = IdempotentGuard.new("PlayerDataService", true)
+local guard = IdempotentGuard.new("PlayerDataService")
 local ProfileService: any = nil
 
 export type ResourceType = "Golds" | "Elixirs" | "Gems"
-
-export type Collectors = {
-	Timestamp: number,
-	Capacity: number,
-	ProductionRate: number,
-}
 
 export type PlayerData = {
 	_version: number,
@@ -28,7 +22,6 @@ export type PlayerData = {
 	Gems: number,
 	Level: number,
 	Experience: number,
-	Collectors: { [ResourceType]: Collectors },
 }
 
 local PlayerDataService = {}
@@ -40,41 +33,29 @@ function PlayerDataService.new()
 	self._DEFAULT_DATA = {
 		_version = self._DATA_VERSION,
 		PlayerBuildings = {
-			["18_24"] = {
+			["18,24"] = {
 				7, -- BuildingTypeEnum
 				1, -- BuildingLevel
-				0, -- endTime
-				0, -- lastCollectedTime
+				0, -- EndTime
+				0, -- LastCollectedTime
 			},
-			["23_20"] = {
+			["23,20"] = {
 				1,
 				1,
 				0,
 				0,
 			},
-			["29_23"] = {
+			["29,23"] = {
 				5,
 				1,
 				0,
 				0,
 			},
-			["26_26"] = {
+			["26,26"] = {
 				10,
 				1,
 				0,
 				0,
-			},
-		},
-		Collectors = {
-			GoldCollector = {
-				Timestamp = 0,
-				Capacity = 2500,
-				ProductionRate = 10,
-			},
-			ElixirCollector = {
-				Timestamp = 0,
-				Capacity = 2500,
-				ProductionRate = 10,
 			},
 		},
 		Golds = 0,
@@ -95,20 +76,6 @@ function PlayerDataService.new()
 		Experience = { type = "number", min = 0, max = 99999999 },
 	} :: { [string]: { type: string, min: number?, max: number? } }
 	return self
-end
-
-local function MapTOArray(tbl: { [string]: any }): { [number]: any }
-	local arr = {}
-	for key, value in pairs(tbl) do
-		table.insert(arr, {
-			SnapToString = key,
-			BuildingTypeEnum = value[1],
-			BuildingLevel = value[2],
-			EndTime = value[3],
-			LastCollectedTime = value[4],
-		})
-	end
-	return arr
 end
 
 function PlayerDataService:_validateValue(
@@ -322,8 +289,11 @@ function PlayerDataService:Increment(
 	end
 	local newValue = currentValue + amount
 
-	local send = sendToclient or true
-	local success = self:Set(player, key, newValue, send)
+	if sendToclient == nil then
+		sendToclient = true
+	end
+
+	local success = self:Set(player, key, newValue, sendToclient)
 	return success, success and newValue or nil
 end
 
@@ -378,35 +348,6 @@ function PlayerDataService:Start()
 
 	Players.PlayerRemoving:Connect(function(player: Player)
 		self:_releasePlayerProfile(player)
-	end)
-	-- [[
-	-- @Feta Emit first time when player data is loaded
-	--]]
-	EventBus:On(Events.LOCAL_CLIENT_READY, function(player)
-		self:WaitForData(player, 15)
-			:andThen(function()
-				local profile = self._Profiles[player.UserId]
-				if not profile or not profile:IsActive() then
-					return
-				end
-				local playerData = self:GetAll(player)
-
-				local ArrayBuilding = MapTOArray(playerData.PlayerBuildings)
-				local playload = {
-					Player = player,
-					Golds = playerData and playerData.Golds or 0,
-					Elixirs = playerData and playerData.Elixirs or 0,
-					Gems = playerData and playerData.Gems or 0,
-					Level = playerData and playerData.Level or 1,
-					Experience = playerData and playerData.Experience or 0,
-					Buildings = playerData and ArrayBuilding or {},
-					Collectors = playerData and playerData.Collectors or {},
-				}
-				EventBus:Emit(Events.S2C_PLAYER_DATA_FIRST_LOAD, playload)
-			end)
-			:catch(function()
-				warn(`[PlayerDataService] ⏱️ Timed out waiting for profile: {player.Name}`)
-			end)
 	end)
 end
 

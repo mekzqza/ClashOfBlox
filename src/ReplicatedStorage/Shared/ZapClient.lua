@@ -163,19 +163,6 @@ local remotes = ReplicatedStorage:WaitForChild("ZAP")
 local reliable = remotes:WaitForChild("ZAP_RELIABLE")
 assert(reliable:IsA("RemoteEvent"), "Expected ZAP_RELIABLE to be a RemoteEvent")
 
-export type BuildingEntry = ({
-	["SnapToString"]: (string),
-	["BuildingTypeEnum"]: (number),
-	["BuildingLevel"]: (number),
-	["EndTime"]: (number),
-	["LastCollectedTime"]: (number),
-})
-export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience")
-export type CollectorData = ({
-	["Timestamp"]: (number),
-	["ProductionRate"]: (number),
-	["Capacity"]: (number),
-})
 export type Collector = ({
 	["GoldCollector"]: ({
 		["Timestamp"]: (number),
@@ -187,6 +174,19 @@ export type Collector = ({
 		["ProductionRate"]: (number),
 		["Capacity"]: (number),
 	}),
+})
+export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience")
+export type CollectorData = ({
+	["Timestamp"]: (number),
+	["ProductionRate"]: (number),
+	["Capacity"]: (number),
+})
+export type BuildingEntry = ({
+	["SnapToString"]: (string),
+	["BuildingTypeEnum"]: (number),
+	["BuildingLevel"]: (number),
+	["EndTime"]: (number),
+	["LastCollectedTime"]: (number),
 })
 
 local function SendEvents()
@@ -318,15 +318,6 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 				val_2["LastCollectedTime"] = buffer.readu32(incoming_buff, read(4))
 				value["Buildings"][i_2] = val_2
 			end
-			value["Collectors"] = {  }
-			value["Collectors"]["GoldCollector"] = {  }
-			value["Collectors"]["GoldCollector"]["Timestamp"] = buffer.readu32(incoming_buff, read(4))
-			value["Collectors"]["GoldCollector"]["ProductionRate"] = buffer.readu32(incoming_buff, read(4))
-			value["Collectors"]["GoldCollector"]["Capacity"] = buffer.readu32(incoming_buff, read(4))
-			value["Collectors"]["ElixirCollector"] = {  }
-			value["Collectors"]["ElixirCollector"]["Timestamp"] = buffer.readu32(incoming_buff, read(4))
-			value["Collectors"]["ElixirCollector"]["ProductionRate"] = buffer.readu32(incoming_buff, read(4))
-			value["Collectors"]["ElixirCollector"]["Capacity"] = buffer.readu32(incoming_buff, read(4))
 			if reliable_events[0] then
 				task.spawn(reliable_events[0], value)
 			else
@@ -462,18 +453,6 @@ local returns = {
 				["EndTime"]: (number),
 				["LastCollectedTime"]: (number),
 			}) }),
-			["Collectors"]: ({
-				["GoldCollector"]: ({
-					["Timestamp"]: (number),
-					["ProductionRate"]: (number),
-					["Capacity"]: (number),
-				}),
-				["ElixirCollector"]: ({
-					["Timestamp"]: (number),
-					["ProductionRate"]: (number),
-					["Capacity"]: (number),
-				}),
-			}),
 		})) -> ()): () -> ()
 			reliable_events[0] = Callback
 			for _, value in reliable_event_queue[0] do

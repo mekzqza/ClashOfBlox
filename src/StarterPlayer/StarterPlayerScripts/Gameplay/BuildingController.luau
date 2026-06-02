@@ -6,7 +6,9 @@ local Players = game:GetService("Players")
 local Events = require(ReplicatedStorage.Shared.Events)
 local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
 local BuildingConfig = require(ReplicatedStorage.Shared.BuildingConfig)
+local GameEnum = require(ReplicatedStorage.Shared.GameEnum)
 local Player = Players.LocalPlayer
+
 local CONFIG = {
 	FOOTPRINTS_TEMPLATE = "FootPrints",
 	HARD_CODE_HIGHT = 0.5,
@@ -194,34 +196,44 @@ function BuildingController:_startPlacement(buildType: string)
 			self._GridController:SnapToGrid(mouse.Hit.Position, dimention.Length, dimention.Width) :: Vector3
 		if self._GridController:Canplace(snapPos, dimention.Length, dimention.Width) then
 			local startX, startZ = self._GridController:GetFootPrintStart(snapPos, dimention.Length, dimention.Width)
-			self:_requestPlaceBuilding(`{startX}_{startZ}`, buildType, snapPos)
+			self:_requestPlaceBuilding(`{startX},{startZ}`, buildType, snapPos)
 			self:_createBuilding(buildType, snapPos)
 			self:_createFootPrints(snapPos, dimention.Length * dimention.Width)
 			self._GridController:occupyCell(snapPos, dimention.Length, dimention.Width)
 
-			self._buildings[`{startX}_{startZ}`] = buildType
+			self._buildings[`{startX},{startZ}`] = buildType
 		end
 	end)
 end
 
-function BuildingController:RecreateBuildings(snapPosition: string, buildingType: string, buildingLevel: number)
-	local startX, startZ = string.match(snapPosition, "(-?%d+)_(-?%d+)")
+function BuildingController:RecreateBuildings(
+	snapPosition: string,
+	buildingType: string,
+	buildingLevel: number,
+	EndTime: number,
+	LastCollectedTime: number
+)
+	local startX, startZ = string.match(snapPosition, "(-?%d+),(-?%d+)")
 	local dimention = BuildingConfig:GetBuildingDimensions(buildingType)
 	if not dimention then
-		warn(`[BuildingController] Building config with id {buildingType} not found in BuildingConfig`)
 		return
 	end
 
 	local worldPos =
 		self._GridController:GridCoordsToWorld(tonumber(startX), tonumber(startZ), dimention.Length, dimention.Width)
-
 	local model = self:_createBuilding(buildingType, worldPos, buildingLevel)
 	self:_createFootPrints(worldPos, dimention.Length * dimention.Width)
 	self._GridController:occupyCell(worldPos, dimention.Length, dimention.Width)
 
 	local collectorType = BuildingConfig:GetCollectorType(buildingType)
 	if collectorType then
-		self._ResourceController:RegisterCollectors(collectorType, model)
+		self._ResourceController:RegisterclickDetector(collectorType, model)
+	end
+
+	if EndTime ~= 0 then
+	end
+
+	if LastCollectedTime ~= 0 then
 	end
 end
 
@@ -278,7 +290,20 @@ function BuildingController:Start()
 			return
 		end
 		for snapPosition, buildingType in buildings do
-			self:RecreateBuildings(snapPosition, buildingType[1], buildingType[2] or 1)
+			self:RecreateBuildings(
+				snapPosition,
+				GameEnum:GetBuildingTypeById(buildingType[1]),
+				buildingType[2],
+				buildingType[3],
+				buildingType[4]
+			)
+			self._ResourceController:RegisterColector(
+				snapPosition,
+				buildingType[1],
+				buildingType[2],
+				buildingType[3],
+				buildingType[4]
+			)
 		end
 	end)
 end

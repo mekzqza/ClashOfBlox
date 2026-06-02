@@ -37,7 +37,7 @@ local function DataLayer()
 		local buildingsMap = {}
 		for _, entry in data.Buildings do
 			buildingsMap[entry.SnapToString] = {
-				GameEnum:GetBuildingTypeById(entry.BuildingTypeEnum),
+				entry.BuildingTypeEnum,
 				entry.BuildingLevel,
 				entry.EndTime,
 				entry.LastCollectedTime,
@@ -51,7 +51,6 @@ local function DataLayer()
 			Level = data.Level,
 			Experience = data.Experience,
 			Buildings = buildingsMap,
-			Collectors = data.Collectors,
 		}
 		EventBus:Emit(Events.LOCAL_PLAYER_DATA_FIRST_LOAD, playload)
 	end)

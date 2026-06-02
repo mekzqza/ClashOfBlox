@@ -1,13 +1,19 @@
 --!strict
+local Players = game:GetService("Players")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Events = require(ReplicatedStorage.Shared.Events)
 local ServiceLocaltor = require(ServerScriptService.Utils.ServiceLocator)
+local Events = require(ReplicatedStorage.Shared.Events)
 local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
 local GameEnum = require(ReplicatedStorage.Shared.GameEnum)
 
+local IdempotentGuard = require(ServerScriptService.Utils.IdempotentGuard)
+local guard = IdempotentGuard.new("BuildingService")
+
 local CONFIG = {
 	STARTER_LEVEL = 1,
+	STARTER_END_TIME = 0, -- 0 หมายถึง กำลังก่อสร้าง
+	STARTER_LAST_COLLECTED_TIME = os.time(),
 	Category = {
 		Army = 1,
 		Resources = 2,
@@ -23,12 +29,23 @@ function BuildingService.new()
 	self._BuildingTemplate = nil
 	self._GridService = nil
 	self._PlayerDataService = nil
+	self._ResourceService = nil
+	self._LookBack = {
+		[8] = "ElixirStorage",
+		[9] = "ElixirCollector",
+		[10] = "GoldMine",
+		[11] = "GoldStorage",
+	}
+
 	return self
 end
 
 -- BoardCast to all client about building changes
 -- Update
 -- Deleted
+
+-- @ ระบบก่อสร้าง นับถอยหลัง จะฝากclient นับ ส่งไปกับsnapshot ถ้าถึงเวลา จะส่ง event มาให้ server เพื่อเช็คและอัพเดตข้อมูล
+-- ในเข้าเกมหลังจาก ก่อสร้างเสร็จ จะเช็คตอน BuildingRegister
 
 local function BuildingTOArray(tbl: { [string]: any }): { [number]: any }
 	local arr = {}
@@ -37,6 +54,8 @@ local function BuildingTOArray(tbl: { [string]: any }): { [number]: any }
 			SnapToString = key,
 			BuildingTypeEnum = value[1], -- value = { buildingTypeEnum }
 			BuildingLevel = value[2],
+			EndTime = value[3],
+			LastCollectedTime = value[4],
 		})
 	end
 	return arr
@@ -64,7 +83,17 @@ function BuildingService:_PlaceBuilding(
 	end
 
 	self:_BroadCastBuilding(player, buildingType, position)
-	self._PlayerDataService:Set(player, `PlayerBuildings.{snapTostring}`, { buildingTypeEnum, CONFIG.STARTER_LEVEL })
+
+	local lastCollectedTime = 0
+	if self._LookBack[buildingTypeEnum] ~= nil then
+		lastCollectedTime = CONFIG.STARTER_LAST_COLLECTED_TIME
+	end
+
+	self._PlayerDataService:Set(
+		player,
+		`PlayerBuildings.{snapTostring}`,
+		{ buildingTypeEnum, CONFIG.STARTER_LEVEL, CONFIG.STARTER_END_TIME, lastCollectedTime }
+	)
 end
 
 function BuildingService:_UpdateBuilding() end
@@ -92,6 +121,9 @@ function BuildingService:SendSnapshotBuildings(player: Player)
 end
 
 function BuildingService:Init()
+	if not guard:MarkInitialized() then
+		return
+	end
 	self._GridService = ServiceLocaltor:Get("GridService")
 	if not self._GridService then
 		warn("[BuildingService] ❌ ERROR: GridService not found in ServiceLocator")
@@ -109,9 +141,18 @@ function BuildingService:Init()
 		warn("[BuildingService] Building template folder not found in ReplicatedStorage.Assets")
 		return
 	end
+
+	self._ResourceService = ServiceLocaltor:Get("ResourceService")
+	if not self._ResourceService then
+		warn("[BuildingService] ❌ ERROR: ResourceService not found in ServiceLocator")
+		return
+	end
 end
 
 function BuildingService:Start()
+	if not guard:MarkStarted() then
+		return
+	end
 	EventBus:On(Events.LOCAL_PLAYER_REQUIRE_PLACE, function(data)
 		--[=[
 		    @Bug
@@ -126,6 +167,28 @@ function BuildingService:Start()
 	-- EventBus:On(Events.LOCAL_CLIENT_READY, function(player)
 	-- self:SendSnapshotBuildings(player)
 	-- end)
+	Players.PlayerAdded:Connect(function(player)
+		self._PlayerDataService
+			:WaitForData(player, 30)
+			:andThen(function()
+				local PlayerData = self._PlayerDataService:GetAll(player)
+				local playerBuildings = PlayerData.PlayerBuildings
+				for snapToString, buildingData in pairs(playerBuildings) do
+					self._ResourceService:ReisterColector(
+						player,
+						snapToString,
+						buildingData[1],
+						buildingData[2],
+						buildingData[3],
+						buildingData[4]
+					)
+				end
+				self._ResourceService:MarkRegistrationComplete(player)
+			end)
+			:catch(function()
+				warn(`[PlayerDataService] ⏱️ Timed out waiting for profile: {player.Name}`)
+			end)
+	end)
 end
 
 return BuildingService

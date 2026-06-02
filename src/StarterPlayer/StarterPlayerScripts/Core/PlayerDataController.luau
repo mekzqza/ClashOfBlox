@@ -21,6 +21,7 @@ function PlayerDataController.new()
 	self._cachedData = {}
 	self._isReady = false
 	self._readyCallbacks = {}
+
 	return self
 end
 

@@ -39,7 +39,6 @@ event LoadSnapshot = {
         Level: u32,
         Experience: u32,
         Buildings: BuildingEntry[],
-        Collectors: Collector,
     }
 }
 
