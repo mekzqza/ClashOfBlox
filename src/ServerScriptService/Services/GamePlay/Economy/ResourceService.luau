@@ -76,7 +76,7 @@ function ResourceService:WaitForReady(player: Player, timeout: number?): any
 	end):timeout(timeout or 15)
 end
 
-function ResourceService:ReisterColector(player, buildingId, buildingEnum, buildingLevel, endtime, LastCollectedTime)
+function ResourceService:ReGisterColector(player, buildingId, buildingEnum, buildingLevel, endtime, LastCollectedTime)
 	if endtime ~= 0 then
 		warn(
 			`[ResourceService] EndTime is not 0 Mean building is Constructing or Upgrade for player {player.Name} and building {buildingId} with endTime {endtime}`
@@ -113,9 +113,9 @@ function ResourceService:ReisterColector(player, buildingId, buildingEnum, build
 			EndTime = endtime,
 		}
 	elseif buildingEnum == 8 then
-		self._PlayerResourceStorage[player]["ElixirStorage"] = buildingData.Capacity
+		self._PlayerResourceStorage[player]["ElixirStorage"] += buildingData.Capacity
 	elseif buildingEnum == 11 then
-		self._PlayerResourceStorage[player]["GoldStorage"] = buildingData.Capacity
+		self._PlayerResourceStorage[player]["GoldStorage"] += buildingData.Capacity
 	elseif buildingEnum == 1 then
 		self._PlayerResourceStorage[player]["ElixirStorage"] += buildingData.Capacity
 		self._PlayerResourceStorage[player]["GoldStorage"] += buildingData.Capacity

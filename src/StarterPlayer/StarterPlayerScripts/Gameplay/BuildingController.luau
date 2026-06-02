@@ -64,6 +64,24 @@ function BuildingController:BuildingComplete(buildingId: string)
 	warn(`[BuildingController] Building construction complete for buildingId {buildingId}`)
 end
 
+function BuildingController:_ensureRuntimeChecker()
+	if self._RuntimeChecker then
+		return
+	end
+	self._RuntimeChecker = task.spawn(function()
+		while next(self._BuilderStore) ~= nil do
+			local currentTime = os.time()
+			for buildingId, data in pairs(self._BuilderStore) do
+				if currentTime >= data.EndTime then
+					self:BuildingComplete(buildingId)
+				end
+			end
+			task.wait(1)
+		end
+		self._RuntimeChecker = nil
+	end)
+end
+
 function BuildingController:_requestPlaceBuilding(snapToString: string, buildingEnum: number, position: Vector3)
 	EventBus:Emit(Events.C2S_PLAYER_REQUEST_PLACE, {
 		SnapToString = snapToString,
@@ -245,6 +263,7 @@ function BuildingController:_startPlacement(buildType: string)
 					+ BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.STARTER_LEVEL).UpgradeTime,
 				LastCollectedTime = 0,
 			}
+			self:_ensureRuntimeChecker()
 
 			-- เล่นanimation วางอาคารเรียกคนสร้างออกมา
 
@@ -294,6 +313,7 @@ function BuildingController:RecreateBuildings(
 			EndTime = endTime,
 			LastCollectedTime = LastCollectedTime,
 		}
+		self:_ensureRuntimeChecker()
 	end
 end
 
@@ -337,18 +357,6 @@ function BuildingController:Start()
 		warn(`[BuildingController] Test building: {building}`)
 		self:_stopPlacement()
 		self:_startPlacement(building)
-	end)
-
-	self._RuntimeChecker = task.spawn(function()
-		while true do
-			local currentTime = os.time()
-			for buildingId, data in pairs(self._BuilderStore) do
-				if currentTime >= data.EndTime then
-					self:BuildingComplete(buildingId)
-				end
-			end
-			task.wait(1)
-		end
 	end)
 
 	self._PlayerDataController:WaitForDataReady():andThen(function(data)

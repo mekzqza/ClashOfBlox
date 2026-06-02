@@ -178,7 +178,7 @@ function BuildingService:Start()
 				local PlayerData = self._PlayerDataService:GetAll(player)
 				local playerBuildings = PlayerData.PlayerBuildings
 				for buildingId, buildingData in pairs(playerBuildings) do
-					self._ResourceService:ReisterColector(
+					self._ResourceService:ReGisterColector(
 						player,
 						buildingId,
 						buildingData[CONFIG.KEYSTORE["BuildingEnum"]],
