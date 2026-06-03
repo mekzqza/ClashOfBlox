@@ -150,6 +150,9 @@ if not RunService:IsRunning() then
 		LoadSnapshot = table.freeze({
 			SetCallback = noop
 		}),
+		ConstructionComplete = table.freeze({
+			Fire = noop
+		}),
 		ClientReady = table.freeze({
 			Fire = noop
 		}),
@@ -163,6 +166,12 @@ local remotes = ReplicatedStorage:WaitForChild("ZAP")
 local reliable = remotes:WaitForChild("ZAP_RELIABLE")
 assert(reliable:IsA("RemoteEvent"), "Expected ZAP_RELIABLE to be a RemoteEvent")
 
+export type CollectorData = ({
+	["Timestamp"]: (number),
+	["ProductionRate"]: (number),
+	["Capacity"]: (number),
+})
+export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience")
 export type Collector = ({
 	["GoldCollector"]: ({
 		["Timestamp"]: (number),
@@ -174,12 +183,6 @@ export type Collector = ({
 		["ProductionRate"]: (number),
 		["Capacity"]: (number),
 	}),
-})
-export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience")
-export type CollectorData = ({
-	["Timestamp"]: (number),
-	["ProductionRate"]: (number),
-	["Capacity"]: (number),
 })
 export type BuildingEntry = ({
 	["SnapToString"]: (string),
@@ -462,6 +465,20 @@ local returns = {
 			return function()
 				reliable_events[0] = nil
 			end
+		end,
+	},
+	ConstructionComplete = {
+		Fire = function(Value: ({
+			["BuildingId"]: (string),
+		}))
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
+			local len_9 = #Value["BuildingId"]
+			assert(utf8.len(Value["BuildingId"]) ~= nil, "value is not valid utf-8")
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_9)
+			alloc(len_9)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["BuildingId"], len_9)
 		end,
 	},
 	ClientReady = {

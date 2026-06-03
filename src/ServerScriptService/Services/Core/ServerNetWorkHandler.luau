@@ -75,6 +75,13 @@ local function BuildingSytem()
 		})
 	end)
 
+	ZapServer.ConstructionComplete.SetCallback(function(player, data)
+		EventBus:Emit(Events.LOCAL_BUILDING_CONSTRUCTION_COMPLETE, {
+			Player = player,
+			BuildingId = data.BuildingId,
+		})
+	end)
+
 	EventBus:On(Events.S2C_CREATE_BUILDING, function(data)
 		ZapServer.PlayersCreateBuilding.FireExcept(data.Player, {
 			BuildingTypeEnum = data.BuildingEnum,

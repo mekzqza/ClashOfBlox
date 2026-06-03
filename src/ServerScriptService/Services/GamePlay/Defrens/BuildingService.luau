@@ -214,13 +214,11 @@ function BuildingService:Start()
 		local player = data.Player
 		local buildingId = data.BuildingId
 		local sucess = self:_IsbuilgIsComplete(player, buildingId)
-		if not sucess then
+		if sucess then
 			warn(
-				`[BuildingService] Building construction not complete for player {player.Name} with buildingId {buildingId}`
+				`[BuildingService] Building construction complete for player {player.Name} and buildingId {buildingId}`
 			)
-			return
 		end
-		warn(`[BuildingService] Building construction complete for player {player.Name} with buildingId {buildingId}`)
 	end)
 end
 

@@ -72,6 +72,12 @@ local function BuildingSystem()
 		})
 	end)
 
+	EventBus:On(Events.C2S_BUILDING_CONSTRUCTION_COMPLETE, function(data)
+		ZapClient.ConstructionComplete.Fire({
+			BuildingId = data.BuildingId,
+		})
+	end)
+
 	ZapClient.PlayersCreateBuilding.On(function(data)
 		EventBus:Emit(Events.LOCAL_CREATE_BUILDING, {
 			BuildingType = GameEnum:GetBuildingTypeById(data.BuildingTypeEnum),
