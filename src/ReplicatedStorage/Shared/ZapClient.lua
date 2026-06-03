@@ -166,12 +166,15 @@ local remotes = ReplicatedStorage:WaitForChild("ZAP")
 local reliable = remotes:WaitForChild("ZAP_RELIABLE")
 assert(reliable:IsA("RemoteEvent"), "Expected ZAP_RELIABLE to be a RemoteEvent")
 
-export type CollectorData = ({
-	["Timestamp"]: (number),
-	["ProductionRate"]: (number),
-	["Capacity"]: (number),
+export type BuildingEntry = ({
+	["BuildingId"]: (string),
+	["Gridx"]: (number),
+	["Gridz"]: (number),
+	["BuildingEnum"]: (number),
+	["BuildingLevel"]: (number),
+	["EndTime"]: (number),
+	["LastCollectedTime"]: (number),
 })
-export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience")
 export type Collector = ({
 	["GoldCollector"]: ({
 		["Timestamp"]: (number),
@@ -184,12 +187,11 @@ export type Collector = ({
 		["Capacity"]: (number),
 	}),
 })
-export type BuildingEntry = ({
-	["SnapToString"]: (string),
-	["BuildingTypeEnum"]: (number),
-	["BuildingLevel"]: (number),
-	["EndTime"]: (number),
-	["LastCollectedTime"]: (number),
+export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience" | "BuildingCount")
+export type CollectorData = ({
+	["Timestamp"]: (number),
+	["ProductionRate"]: (number),
+	["Capacity"]: (number),
 })
 
 local function SendEvents()
@@ -237,9 +239,11 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 				local val_1
 				val_1 = {  }
 				local len_3 = buffer.readu16(incoming_buff, read(2))
-				val_1["SnapToString"] = buffer.readstring(incoming_buff, read(len_3), len_3)
-				assert(utf8.len(val_1["SnapToString"]) ~= nil, "value is not valid utf-8")
-				val_1["BuildingTypeEnum"] = buffer.readu8(incoming_buff, read(1))
+				val_1["BuildingId"] = buffer.readstring(incoming_buff, read(len_3), len_3)
+				assert(utf8.len(val_1["BuildingId"]) ~= nil, "value is not valid utf-8")
+				val_1["Gridx"] = buffer.readu16(incoming_buff, read(2))
+				val_1["Gridz"] = buffer.readu16(incoming_buff, read(2))
+				val_1["BuildingEnum"] = buffer.readu8(incoming_buff, read(1))
 				val_1["BuildingLevel"] = buffer.readu8(incoming_buff, read(1))
 				val_1["EndTime"] = buffer.readu32(incoming_buff, read(4))
 				val_1["LastCollectedTime"] = buffer.readu32(incoming_buff, read(4))
@@ -282,8 +286,10 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 				value["Key"] = "Level"
 			elseif bit32.btest(bool_1, 0b0000000000010000) then
 				value["Key"] = "Experience"
+			elseif bit32.btest(bool_1, 0b0000000000100000) then
+				value["Key"] = "BuildingCount"
 			end
-			if bit32.btest(bool_1, 0b0000000000100000) then
+			if bit32.btest(bool_1, 0b0000000001000000) then
 				incoming_ipos = incoming_ipos + 1
 				value["Value"] = incoming_inst[incoming_ipos]
 			else
@@ -313,14 +319,17 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 				local val_2
 				val_2 = {  }
 				local len_5 = buffer.readu16(incoming_buff, read(2))
-				val_2["SnapToString"] = buffer.readstring(incoming_buff, read(len_5), len_5)
-				assert(utf8.len(val_2["SnapToString"]) ~= nil, "value is not valid utf-8")
-				val_2["BuildingTypeEnum"] = buffer.readu8(incoming_buff, read(1))
+				val_2["BuildingId"] = buffer.readstring(incoming_buff, read(len_5), len_5)
+				assert(utf8.len(val_2["BuildingId"]) ~= nil, "value is not valid utf-8")
+				val_2["Gridx"] = buffer.readu16(incoming_buff, read(2))
+				val_2["Gridz"] = buffer.readu16(incoming_buff, read(2))
+				val_2["BuildingEnum"] = buffer.readu8(incoming_buff, read(1))
 				val_2["BuildingLevel"] = buffer.readu8(incoming_buff, read(1))
 				val_2["EndTime"] = buffer.readu32(incoming_buff, read(4))
 				val_2["LastCollectedTime"] = buffer.readu32(incoming_buff, read(4))
 				value["Buildings"][i_2] = val_2
 			end
+			value["BuildingCount"] = buffer.readu32(incoming_buff, read(4))
 			if reliable_events[0] then
 				task.spawn(reliable_events[0], value)
 			else
@@ -357,8 +366,10 @@ local returns = {
 		SetCallback = function(Callback: (Value: ({
 			["FolderName"]: (string),
 			["Buildings"]: ({ ({
-				["SnapToString"]: (string),
-				["BuildingTypeEnum"]: (number),
+				["BuildingId"]: (string),
+				["Gridx"]: (number),
+				["Gridz"]: (number),
+				["BuildingEnum"]: (number),
 				["BuildingLevel"]: (number),
 				["EndTime"]: (number),
 				["LastCollectedTime"]: (number),
@@ -391,20 +402,19 @@ local returns = {
 	},
 	PlayerRequestPalceBulidings = {
 		Fire = function(Value: ({
-			["SnapToString"]: (string),
-			["BuildingTypeEnum"]: (number),
+			["Gridx"]: (number),
+			["Gridz"]: (number),
+			["BuildingEnum"]: (number),
 			["Position"]: (Vector3),
 		}))
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
-			local len_7 = #Value["SnapToString"]
-			assert(utf8.len(Value["SnapToString"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_7)
-			alloc(len_7)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["SnapToString"], len_7)
+			buffer.writeu16(outgoing_buff, outgoing_apos, Value["Gridx"])
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, Value["Gridz"])
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, Value["BuildingTypeEnum"])
+			buffer.writeu8(outgoing_buff, outgoing_apos, Value["BuildingEnum"])
 			alloc(4)
 			buffer.writef32(outgoing_buff, outgoing_apos, Value["Position"].X)
 			alloc(4)
@@ -415,7 +425,7 @@ local returns = {
 	},
 	PlayerDataUpdate = {
 		On = function(Callback: (Value: ({
-			["Key"]: ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience"),
+			["Key"]: ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience" | "BuildingCount"),
 			["Value"]: ((unknown)),
 		})) -> ())
 			table.insert(reliable_events[4], Callback)
@@ -434,12 +444,12 @@ local returns = {
 		}))
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
-			local len_8 = #Value["CollectorType"]
+			local len_7 = #Value["CollectorType"]
 			assert(utf8.len(Value["CollectorType"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_8)
-			alloc(len_8)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["CollectorType"], len_8)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_7)
+			alloc(len_7)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["CollectorType"], len_7)
 		end,
 	},
 	LoadSnapshot = {
@@ -450,12 +460,15 @@ local returns = {
 			["Level"]: (number),
 			["Experience"]: (number),
 			["Buildings"]: ({ ({
-				["SnapToString"]: (string),
-				["BuildingTypeEnum"]: (number),
+				["BuildingId"]: (string),
+				["Gridx"]: (number),
+				["Gridz"]: (number),
+				["BuildingEnum"]: (number),
 				["BuildingLevel"]: (number),
 				["EndTime"]: (number),
 				["LastCollectedTime"]: (number),
 			}) }),
+			["BuildingCount"]: (number),
 		})) -> ()): () -> ()
 			reliable_events[0] = Callback
 			for _, value in reliable_event_queue[0] do
@@ -473,12 +486,12 @@ local returns = {
 		}))
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
-			local len_9 = #Value["BuildingId"]
+			local len_8 = #Value["BuildingId"]
 			assert(utf8.len(Value["BuildingId"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_9)
-			alloc(len_9)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["BuildingId"], len_9)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_8)
+			alloc(len_8)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["BuildingId"], len_8)
 		end,
 	},
 	ClientReady = {

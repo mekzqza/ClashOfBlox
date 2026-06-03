@@ -36,8 +36,10 @@ local function DataLayer()
 	ZapClient.LoadSnapshot.SetCallback(function(data)
 		local buildingsMap = {}
 		for _, entry in data.Buildings do
-			buildingsMap[entry.SnapToString] = {
-				entry.BuildingTypeEnum,
+			buildingsMap[entry.BuildingId] = {
+				entry.Gridx,
+				entry.Gridz,
+				entry.BuildingEnum,
 				entry.BuildingLevel,
 				entry.EndTime,
 				entry.LastCollectedTime,
@@ -51,6 +53,7 @@ local function DataLayer()
 			Level = data.Level,
 			Experience = data.Experience,
 			Buildings = buildingsMap,
+			BuildingCount = data.BuildingCount,
 		}
 		EventBus:Emit(Events.LOCAL_PLAYER_DATA_FIRST_LOAD, playload)
 	end)
@@ -66,8 +69,9 @@ end
 local function BuildingSystem()
 	EventBus:On(Events.C2S_PLAYER_REQUEST_PLACE, function(data)
 		ZapClient.PlayerRequestPalceBulidings.Fire({
-			SnapToString = data.SnapToString,
-			BuildingTypeEnum = data.BuildingEnum,
+			Gridx = data.Gridx,
+			Gridz = data.Gridz,
+			BuildingEnum = data.BuildingEnum,
 			Position = data.Position,
 		})
 	end)

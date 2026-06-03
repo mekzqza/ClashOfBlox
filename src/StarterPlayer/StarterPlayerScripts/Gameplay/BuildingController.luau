@@ -19,9 +19,19 @@ local CONFIG = {
 		[9] = "3*3Grid",
 		[16] = "4*4Grid",
 	},
+	KEYSTORE = {
+		["Gridx"] = 1,
+		["Gridz"] = 2,
+		["BuildingEnum"] = 3,
+		["BuildingLevel"] = 4,
+		["EndTime"] = 5,
+		["LastCollectedTime"] = 6,
+	},
 }
 
 export type BuildingCache = {
+	Gridx: number,
+	Gridz: number,
 	BuildingEnum: number,
 	BuildingLevel: number,
 	EndTime: number,
@@ -35,6 +45,7 @@ function BuildingController.new()
 	self._BuildingStore = {} :: { [string]: BuildingCache }
 	self._BuilderStore = {} :: { [string]: BuildingCache }
 
+	self._buildingCount = 0
 	self._isPlacing = false
 	self._renderConnection = nil
 	self._indicatorModel = nil
@@ -54,6 +65,13 @@ function BuildingController:SetDependencies(locator)
 	self._PlayerDataController = locator:Get("PlayerDataController")
 	self._ResourceController = locator:Get("ResourceController")
 	self._GridController = locator:Get("GridController")
+end
+
+function BuildingController:SetPlayerFolder(folder: Folder)
+	self._PlayerFolder = folder
+	if not self._PlayerFolder then
+		warn(`[BuildingController] Player folder {folder} not found in workspace`)
+	end
 end
 
 function BuildingController:BuildingComplete(buildingId: string)
@@ -82,9 +100,10 @@ function BuildingController:_ensureRuntimeChecker()
 	end)
 end
 
-function BuildingController:_requestPlaceBuilding(snapToString: string, buildingEnum: number, position: Vector3)
+function BuildingController:_requestPlaceBuilding(gridx: number, gridz: number, buildingEnum: number, position: Vector3)
 	EventBus:Emit(Events.C2S_PLAYER_REQUEST_PLACE, {
-		SnapToString = snapToString,
+		Gridx = gridx,
+		Gridz = gridz,
 		BuildingEnum = buildingEnum,
 		Position = position,
 	})
@@ -92,6 +111,8 @@ end
 
 function BuildingController:RegisterBuildingCache(
 	buildingId: string,
+	gridx: number,
+	gridz: number,
 	buildingEnum: number,
 	buildingLevel: number,
 	endtime: number,
@@ -103,13 +124,6 @@ function BuildingController:RegisterBuildingCache(
 		EndTime = endtime,
 		LastCollectedTime = lastCollectedTime,
 	}
-end
-
-function BuildingController:SetPlayerFolder(folder: Folder)
-	self._PlayerFolder = folder
-	if not self._PlayerFolder then
-		warn(`[BuildingController] Player folder {folder} not found in workspace`)
-	end
 end
 
 function BuildingController:_createFootPrints(position: Vector3, size: number)
@@ -241,22 +255,28 @@ function BuildingController:_startPlacement(buildType: string)
 			self._GridController:SnapToGrid(mouse.Hit.Position, dimention.Length, dimention.Width) :: Vector3
 		if self._GridController:Canplace(snapPos, dimention.Length, dimention.Width) then
 			local startX, startZ = self._GridController:GetFootPrintStart(snapPos, dimention.Length, dimention.Width)
-			local buildingId = `{startX},{startZ}`
 			local buildingEnum = GameEnum:GetBuildingTypeIdByName(buildType)
-			self:_requestPlaceBuilding(buildingId, buildingEnum, snapPos)
+			self:_requestPlaceBuilding(startX, startZ, buildingEnum, snapPos)
 			self:_createBuilding(buildType, snapPos)
 			self:_createFootPrints(snapPos, dimention.Length * dimention.Width)
 			self._GridController:occupyCell(snapPos, dimention.Length, dimention.Width)
 
+			-- เก็บcache ไว้ก่อน โยยไม่รอserver
+			local buildingCount = self._buildingCount :: number
+			local nextbuildingId = `n{buildingCount + 1}`
 			self:RegisterBuildingCache(
-				buildingId,
+				nextbuildingId,
+				startX,
+				startZ,
 				buildingEnum,
 				CONFIG.STARTER_LEVEL,
 				os.time() + BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.STARTER_LEVEL).UpgradeTime,
 				0
 			)
 
-			self._BuilderStore[buildingId] = {
+			self._BuilderStore[nextbuildingId] = {
+				Gridx = startX,
+				Gridz = startZ,
 				BuildingEnum = buildingEnum,
 				BuildingLevel = CONFIG.STARTER_LEVEL,
 				EndTime = os.time()
@@ -275,16 +295,20 @@ function BuildingController:_startPlacement(buildType: string)
 end
 
 function BuildingController:RecreateBuildings(
-	snapPosition: string,
+	buildingId: string,
+	gridx: number,
+	gridz: number,
 	buildingEnum: number,
 	buildingLevel: number,
 	endTime: number,
-	LastCollectedTime: number
+	lastCollectedTime: number
 )
-	local startX, startZ = string.match(snapPosition, "(-?%d+),(-?%d+)")
+	local startX = gridx
+	local startZ = gridz
+
 	local buildingType = GameEnum:GetBuildingTypeById(buildingEnum)
 	if not buildingType then
-		warn(`[BuildingController] Invalid building enum {buildingEnum} for snap position {snapPosition}`)
+		warn(`[BuildingController] Invalid building enum {buildingEnum} for buildingId {buildingId}`)
 		return
 	end
 
@@ -293,8 +317,7 @@ function BuildingController:RecreateBuildings(
 		return
 	end
 
-	local worldPos =
-		self._GridController:GridCoordsToWorld(tonumber(startX), tonumber(startZ), dimention.Length, dimention.Width)
+	local worldPos = self._GridController:GridCoordsToWorld(startX, startZ, dimention.Length, dimention.Width)
 	local model = self:_createBuilding(buildingType, worldPos, buildingLevel)
 	self:_createFootPrints(worldPos, dimention.Length * dimention.Width)
 	self._GridController:occupyCell(worldPos, dimention.Length, dimention.Width)
@@ -304,14 +327,17 @@ function BuildingController:RecreateBuildings(
 		self._ResourceController:RegisterclickDetector(collectorType, model)
 	end
 
-	self:RegisterBuildingCache(snapPosition, buildingEnum, buildingLevel, endTime, LastCollectedTime)
+	self:RegisterBuildingCache(buildingId, gridx, gridz, buildingEnum, buildingLevel, endTime, LastCollectedTime)
+
 	--Building hut
 	if endTime ~= 0 then
-		self._BuilderStore[snapPosition] = {
+		self._BuilderStore[buildingId] = {
+			Gridx = gridx,
+			Gridz = gridz,
 			BuildingEnum = buildingEnum,
 			BuildingLevel = buildingLevel,
 			EndTime = endTime,
-			LastCollectedTime = LastCollectedTime,
+			LastCollectedTime = lastCollectedTime,
 		}
 		self:_ensureRuntimeChecker()
 	end
@@ -364,19 +390,31 @@ function BuildingController:Start()
 			warn("[BuildingController] No player data received (timeout)")
 			return
 		end
+
+		self._buildingCount = data.BuildingCount or 0
 		local buildings = data.Buildings
 		if not buildings then
 			warn("[BuildingController] No building data found for player")
 			return
 		end
-		for snapPosition, buildingType in buildings do
-			self:RecreateBuildings(snapPosition, buildingType[1], buildingType[2], buildingType[3], buildingType[4])
+		for buildingId, buildingdata in buildings do
+			self:RecreateBuildings(
+				buildingId,
+				buildingdata[CONFIG.KEYSTORE["Gridx"]],
+				buildingdata[CONFIG.KEYSTORE["Gridz"]],
+				buildingdata[CONFIG.KEYSTORE["BuildingEnum"]],
+				buildingdata[CONFIG.KEYSTORE["BuildingLevel"]],
+				buildingdata[CONFIG.KEYSTORE["EndTime"]],
+				buildingdata[CONFIG.KEYSTORE["LastCollectedTime"]]
+			)
 			self._ResourceController:RegisterColector(
-				snapPosition,
-				buildingType[1],
-				buildingType[2],
-				buildingType[3],
-				buildingType[4]
+				buildingId,
+				buildingdata[CONFIG.KEYSTORE["Gridx"]],
+				buildingdata[CONFIG.KEYSTORE["Gridz"]],
+				buildingdata[CONFIG.KEYSTORE["BuildingEnum"]],
+				buildingdata[CONFIG.KEYSTORE["BuildingLevel"]],
+				buildingdata[CONFIG.KEYSTORE["EndTime"]],
+				buildingdata[CONFIG.KEYSTORE["LastCollectedTime"]]
 			)
 		end
 	end)

@@ -7,10 +7,13 @@ local BuildingConfig = require(ReplicatedStorage.Shared.BuildingConfig)
 local Async = require(ReplicatedStorage.Utils.Async)
 
 export type Collectors = {
-	Timestamp: number,
-	ProductionRate: number,
+	BuildingId: string,
+	Gridx: number,
+	Gridz: number,
 	BuildingEnum: number,
+	Timestamp: number,
 
+	ProductionRate: number,
 	Capacity: number,
 	EndTime: number,
 }
@@ -101,7 +104,15 @@ function ResourceController:_onPlayerClickCollector(CollectorType, buildingId: s
 	]]
 end
 
-function ResourceController:RegisterColector(buildingId, buildingEnum, buildingLevel, endtime, lastCollectedTime)
+function ResourceController:RegisterColector(
+	buildingId: string,
+	gridx: number,
+	gridz: number,
+	buildingEnum: number,
+	buildingLevel: number,
+	endtime: number,
+	lastCollectedTime: number
+)
 	local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, buildingLevel)
 	if not buildingData then
 		warn(
@@ -111,19 +122,23 @@ function ResourceController:RegisterColector(buildingId, buildingEnum, buildingL
 	end
 	if buildingEnum == 9 then
 		self._Collectors["ElixirCollector"][buildingId] = {
-			Timestamp = lastCollectedTime,
-			ProductionRate = buildingData.ProductionRate,
+			Gridx = gridx,
+			Gridz = gridz,
 			BuildingId = buildingId,
 			BuildingEnum = buildingEnum,
+			Timestamp = lastCollectedTime,
+			ProductionRate = buildingData.ProductionRate,
 			Capacity = buildingData.Capacity,
 			EndTime = endtime,
 		}
 	elseif buildingEnum == 10 then
 		self._Collectors["GoldCollector"][buildingId] = {
-			Timestamp = lastCollectedTime,
-			ProductionRate = buildingData.ProductionRate,
+			Gridx = gridx,
+			Gridz = gridz,
 			BuildingId = buildingId,
 			BuildingEnum = buildingEnum,
+			Timestamp = lastCollectedTime,
+			ProductionRate = buildingData.ProductionRate,
 			Capacity = buildingData.Capacity,
 			EndTime = endtime,
 		}

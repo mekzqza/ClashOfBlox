@@ -27,11 +27,13 @@ local function MapTOArray(tbl: { [string]: any }): { [number]: any }
 	local arr = {}
 	for key, value in pairs(tbl) do
 		table.insert(arr, {
-			SnapToString = key,
-			BuildingTypeEnum = value[1],
-			BuildingLevel = value[2],
-			EndTime = value[3],
-			LastCollectedTime = value[4],
+			BuildingId = key,
+			Gridx = value[1],
+			Gridz = value[2],
+			BuildingEnum = value[3],
+			BuildingLevel = value[4],
+			EndTime = value[5],
+			LastCollectedTime = value[6],
 		})
 	end
 	return arr
@@ -60,6 +62,11 @@ function FirstLoadService:Start()
 		})
 			:andThen(function()
 				local playerData = self._PlayerDataService:GetAll(player)
+				if not playerData then
+					warn(`[FirstLoadService] ⏱️ Player data not found for player: {player.Name}`)
+					return
+				end
+
 				local storage = self._ResourceService:GetPlayerResourceStorage(player) :: { [string]: number }
 				local collectors =
 					self._ResourceService:GetPlayerCollectors(player) :: { [string]: { [number]: Collectors } }
@@ -67,12 +74,13 @@ function FirstLoadService:Start()
 				local ArrayBuilding = MapTOArray(playerData.PlayerBuildings)
 				local playload = {
 					Player = player,
-					Golds = playerData and playerData.Golds or 0,
-					Elixirs = playerData and playerData.Elixirs or 0,
-					Gems = playerData and playerData.Gems or 0,
-					Level = playerData and playerData.Level or 1,
-					Experience = playerData and playerData.Experience or 0,
-					Buildings = playerData and ArrayBuilding or {},
+					Golds = playerData.Golds or 0,
+					Elixirs = playerData.Elixirs or 0,
+					Gems = playerData.Gems or 0,
+					Level = playerData.Level or 1,
+					Experience = playerData.Experience or 0,
+					Buildings = ArrayBuilding or {},
+					BuildingCount = playerData.BuildingCount or 0,
 					-- Storage = storage,
 					-- Collectors = collectors,
 				}
