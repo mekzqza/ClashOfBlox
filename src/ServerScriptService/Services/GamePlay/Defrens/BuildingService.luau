@@ -101,16 +101,32 @@ function BuildingService:_OnbuilingDone(player: Player, buildingId: string)
 		buildingdata.BuildingEnum,
 		CONFIG.STARTER_LEVEL,
 		CONFIG.BUILDING_DONE,
-		buildingdata.LastCollectede,
+		buildingdata.LastCollectedTime,
 	}, false)
+
+	self._BuildingCache[player][buildingId].EndTime = CONFIG.BUILDING_DONE
 	warn(
 		`[BuildingService] Building construction complete for player {player.Name} and buildingId {buildingId}, updating player data and cache`
 	)
+
+	-- auto register collector when building is collector or storage
+	if self._LookBack[buildingdata.BuildingEnum] ~= nil then
+		self._ResourceService:ReGisterColector(
+			player,
+			buildingId,
+			buildingdata.Gridx,
+			buildingdata.Gridz,
+			buildingdata.BuildingEnum,
+			buildingdata.BuildingLevel,
+			CONFIG.BUILDING_DONE,
+			buildingdata.LastCollectedTime
+		)
+	end
 end
 
 function BuildingService:_RegisterBuildingCache(
 	player: Player,
-	buildingId: number,
+	buildingId: string,
 	gridCellx: number,
 	gridCellz: number,
 	buildingEnum: number,
@@ -128,7 +144,6 @@ function BuildingService:_RegisterBuildingCache(
 		BuildingEnum = buildingEnum,
 		BuildingLevel = buildingLevel,
 		EndTime = endtime,
-		Timestamp = os.time(),
 		LastCollectedTime = LastCollectedTime,
 	}
 end
@@ -275,6 +290,10 @@ function BuildingService:Start()
 			)
 			self:_OnbuilingDone(player, buildingId)
 		end
+	end)
+
+	Players.PlayerRemoving:Connect(function(player)
+		self._BuildingCache[player] = nil
 	end)
 end
 
