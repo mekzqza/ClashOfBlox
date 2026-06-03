@@ -128,9 +128,9 @@ function ResourceController:RegisterColector(buildingId, buildingEnum, buildingL
 			EndTime = endtime,
 		}
 	elseif buildingEnum == 8 then
-		self._ResourceStorage["Elixirs"] = buildingData.Capacity
+		self._ResourceStorage["Elixirs"] += buildingData.Capacity
 	elseif buildingEnum == 11 then
-		self._ResourceStorage["Golds"] = buildingData.Capacity
+		self._ResourceStorage["Golds"] += buildingData.Capacity
 	elseif buildingEnum == 1 then
 		self._ResourceStorage["Elixirs"] += buildingData.Capacity
 		self._ResourceStorage["Golds"] += buildingData.Capacity

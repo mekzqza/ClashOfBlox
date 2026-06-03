@@ -67,8 +67,14 @@ local function BuildingSystem()
 	EventBus:On(Events.C2S_PLAYER_REQUEST_PLACE, function(data)
 		ZapClient.PlayerRequestPalceBulidings.Fire({
 			SnapToString = data.SnapToString,
-			BuildingTypeEnum = GameEnum:GetBuildingTypeIdByName(data.BuildingType),
+			BuildingTypeEnum = data.BuildingEnum,
 			Position = data.Position,
+		})
+	end)
+
+	EventBus:On(Events.C2S_BUILDING_CONSTRUCTION_COMPLETE, function(data)
+		ZapClient.ConstructionComplete.Fire({
+			BuildingId = data.BuildingId,
 		})
 	end)
 

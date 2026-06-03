@@ -54,7 +54,14 @@ local Buildings: BuildingData = {
 		Width = 3,
 		Length = 3,
 		UpgradeResourceType = UpgradeResourceType.Golds,
+		[1]= {
+            UpgradeCost = 150,
+            UpgradeTime = 10,
+            MaxHp = 400,
 
+            FireRange = 5,
+            Damage = 50,
+        }
 	},
 
 	["ElixirCollector"] = {
@@ -64,7 +71,7 @@ local Buildings: BuildingData = {
 		CollectorType = "ElixirCollector",
 		[1] = {
 			UpgradeCost = 150,
-			UpgradeTime = 60,
+			UpgradeTime = 10,
 			MaxHp = 400,
 
 			ProductionRate = 1,
@@ -80,7 +87,7 @@ local Buildings: BuildingData = {
 		CollectorType = "GoldCollector",
 		[1] = {
 			UpgradeCost = 150,
-			UpgradeTime = 60,
+			UpgradeTime = 10,
 			MaxHp = 400,
 
 			ProductionRate = 1,
@@ -94,7 +101,7 @@ local Buildings: BuildingData = {
 		UpgradeResourceType = UpgradeResourceType.Golds,
 		[1] = {
             UpgradeCost = 150,
-            UpgradeTime = 60,
+            UpgradeTime = 10,
             MaxHp = 400,
 
             Capacity = 2000,
@@ -107,7 +114,7 @@ local Buildings: BuildingData = {
 		UpgradeResourceType = UpgradeResourceType.Elixirs,
 		[1] ={
 		    UpgradeCost = 150,
-            UpgradeTime = 60,
+            UpgradeTime = 10,
             MaxHp = 400,
 
             Capacity = 2000,
@@ -131,6 +138,14 @@ local Buildings: BuildingData = {
 		Length = 3,
 		UpgradeResourceType = UpgradeResourceType.Elixirs,
 
+		[1] = {
+            UpgradeCost = 150,
+            UpgradeTime = 10,
+            MaxHp = 400,
+
+            Description = "A barrack that can be used to train troops.",
+        }
+
 	},
 	["Campfire"] = {
 		Width = 4,
@@ -138,7 +153,7 @@ local Buildings: BuildingData = {
 		UpgradeResourceType = UpgradeResourceType.Elixirs,
 		[1] = {
             UpgradeCost = 150,
-            UpgradeTime = 60,
+            UpgradeTime = 10,
             MaxHp = 400,
 
             Description = "A campfire that can be used to train troops.",
@@ -150,7 +165,7 @@ local Buildings: BuildingData = {
 		Length = 2,
 		[1] = {
             UpgradeCost = 150,
-            UpgradeTime = 60,
+            UpgradeTime = 10,
             MaxHp = 400,
 
             Description = "A building hall that serves as the main hub for the base.",

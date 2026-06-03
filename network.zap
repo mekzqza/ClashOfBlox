@@ -106,3 +106,12 @@ event PlayerClickCollector = {
         CollectorType: string.utf8,
     }
 }
+
+event ConstructionComplete = {
+    from:Client,
+    type: Reliable,
+    call: SingleAsync,
+    data: struct {
+    BuildingId: string.utf8,
+    }
+}

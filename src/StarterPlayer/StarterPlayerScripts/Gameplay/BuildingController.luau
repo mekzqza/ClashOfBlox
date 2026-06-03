@@ -19,24 +19,28 @@ local CONFIG = {
 		[9] = "3*3Grid",
 		[16] = "4*4Grid",
 	},
-	Category = {
-		Army = 1,
-		Resources = 2,
-		Defense = 3,
-		Trap = 4,
-	},
+}
+
+export type BuildingCache = {
+	BuildingEnum: number,
+	BuildingLevel: number,
+	EndTime: number,
+	LastCollectedTime: number,
 }
 
 local BuildingController = {}
 BuildingController.__index = BuildingController
 function BuildingController.new()
 	local self = setmetatable({}, BuildingController)
-	self._buildings = {} :: { [string]: string }
+	self._BuildingStore = {} :: { [string]: BuildingCache }
+	self._BuilderStore = {} :: { [string]: BuildingCache }
+
 	self._isPlacing = false
 	self._renderConnection = nil
 	self._indicatorModel = nil
 	self._mouseConnettion = nil
 	self._PlayerFolder = nil
+	self._RuntimeChecker = nil
 
 	self._footPrintindicator = nil
 	self._BuildingTemplate = nil
@@ -50,6 +54,55 @@ function BuildingController:SetDependencies(locator)
 	self._PlayerDataController = locator:Get("PlayerDataController")
 	self._ResourceController = locator:Get("ResourceController")
 	self._GridController = locator:Get("GridController")
+end
+
+function BuildingController:BuildingComplete(buildingId: string)
+	EventBus:Emit(Events.C2S_BUILDING_CONSTRUCTION_COMPLETE, {
+		BuildingId = buildingId,
+	})
+	self._BuilderStore[buildingId] = nil
+	warn(`[BuildingController] Building construction complete for buildingId {buildingId}`)
+end
+
+function BuildingController:_ensureRuntimeChecker()
+	if self._RuntimeChecker then
+		return
+	end
+	self._RuntimeChecker = task.spawn(function()
+		while next(self._BuilderStore) ~= nil do
+			local currentTime = os.time()
+			for buildingId, data in pairs(self._BuilderStore) do
+				if currentTime >= data.EndTime then
+					self:BuildingComplete(buildingId)
+				end
+			end
+			task.wait(1)
+		end
+		self._RuntimeChecker = nil
+	end)
+end
+
+function BuildingController:_requestPlaceBuilding(snapToString: string, buildingEnum: number, position: Vector3)
+	EventBus:Emit(Events.C2S_PLAYER_REQUEST_PLACE, {
+		SnapToString = snapToString,
+		BuildingEnum = buildingEnum,
+		Position = position,
+	})
+end
+
+function BuildingController:RegisterBuildingCache(
+	buildingId: string,
+	buildingEnum: number,
+	buildingLevel: number,
+	endtime: number,
+	lastCollectedTime: number
+)
+	self._BuildingStore[buildingId] = {
+		BuildingEnum = buildingEnum,
+		BuildingLevel = buildingLevel,
+		EndTime = endtime,
+		LastCollectedTime = lastCollectedTime,
+	}
 end
 
 function BuildingController:SetPlayerFolder(folder: Folder)
@@ -109,14 +162,6 @@ function BuildingController:_createBuilding(buildingType: string, snapPosition: 
 			* templateRotation
 	)
 	return newBuilding
-end
-
-function BuildingController:_requestPlaceBuilding(snapToString: string, buildingType: string, position: Vector3)
-	EventBus:Emit(Events.C2S_PLAYER_REQUEST_PLACE, {
-		SnapToString = snapToString,
-		BuildingType = buildingType,
-		Position = position,
-	})
 end
 
 function BuildingController:_startPlacement(buildType: string)
@@ -196,24 +241,53 @@ function BuildingController:_startPlacement(buildType: string)
 			self._GridController:SnapToGrid(mouse.Hit.Position, dimention.Length, dimention.Width) :: Vector3
 		if self._GridController:Canplace(snapPos, dimention.Length, dimention.Width) then
 			local startX, startZ = self._GridController:GetFootPrintStart(snapPos, dimention.Length, dimention.Width)
-			self:_requestPlaceBuilding(`{startX},{startZ}`, buildType, snapPos)
+			local buildingId = `{startX},{startZ}`
+			local buildingEnum = GameEnum:GetBuildingTypeIdByName(buildType)
+			self:_requestPlaceBuilding(buildingId, buildingEnum, snapPos)
 			self:_createBuilding(buildType, snapPos)
 			self:_createFootPrints(snapPos, dimention.Length * dimention.Width)
 			self._GridController:occupyCell(snapPos, dimention.Length, dimention.Width)
 
-			self._buildings[`{startX},{startZ}`] = buildType
+			self:RegisterBuildingCache(
+				buildingId,
+				buildingEnum,
+				CONFIG.STARTER_LEVEL,
+				os.time() + BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.STARTER_LEVEL).UpgradeTime,
+				0
+			)
+
+			self._BuilderStore[buildingId] = {
+				BuildingEnum = buildingEnum,
+				BuildingLevel = CONFIG.STARTER_LEVEL,
+				EndTime = os.time()
+					+ BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.STARTER_LEVEL).UpgradeTime,
+				LastCollectedTime = 0,
+			}
+			self:_ensureRuntimeChecker()
+
+			-- เล่นanimation วางอาคารเรียกคนสร้างออกมา
+
+			-- นับถอยหลังเองเลย
+
+			--ส่งข้อมูลวางไปหาserver
 		end
 	end)
 end
 
 function BuildingController:RecreateBuildings(
 	snapPosition: string,
-	buildingType: string,
+	buildingEnum: number,
 	buildingLevel: number,
-	EndTime: number,
+	endTime: number,
 	LastCollectedTime: number
 )
 	local startX, startZ = string.match(snapPosition, "(-?%d+),(-?%d+)")
+	local buildingType = GameEnum:GetBuildingTypeById(buildingEnum)
+	if not buildingType then
+		warn(`[BuildingController] Invalid building enum {buildingEnum} for snap position {snapPosition}`)
+		return
+	end
+
 	local dimention = BuildingConfig:GetBuildingDimensions(buildingType)
 	if not dimention then
 		return
@@ -230,10 +304,16 @@ function BuildingController:RecreateBuildings(
 		self._ResourceController:RegisterclickDetector(collectorType, model)
 	end
 
-	if EndTime ~= 0 then
-	end
-
-	if LastCollectedTime ~= 0 then
+	self:RegisterBuildingCache(snapPosition, buildingEnum, buildingLevel, endTime, LastCollectedTime)
+	--Building hut
+	if endTime ~= 0 then
+		self._BuilderStore[snapPosition] = {
+			BuildingEnum = buildingEnum,
+			BuildingLevel = buildingLevel,
+			EndTime = endTime,
+			LastCollectedTime = LastCollectedTime,
+		}
+		self:_ensureRuntimeChecker()
 	end
 end
 
@@ -290,13 +370,7 @@ function BuildingController:Start()
 			return
 		end
 		for snapPosition, buildingType in buildings do
-			self:RecreateBuildings(
-				snapPosition,
-				GameEnum:GetBuildingTypeById(buildingType[1]),
-				buildingType[2],
-				buildingType[3],
-				buildingType[4]
-			)
+			self:RecreateBuildings(snapPosition, buildingType[1], buildingType[2], buildingType[3], buildingType[4])
 			self._ResourceController:RegisterColector(
 				snapPosition,
 				buildingType[1],
