@@ -11,7 +11,7 @@ local Player = Players.LocalPlayer
 
 local CONFIG = {
 	FOOTPRINTS_TEMPLATE = "FootPrints",
-	HARD_CODE_HIGHT = 0.5,
+	HEIGHT = 0.5,
 	STARTER_LEVEL = 1,
 	FOOTPRINTS = {
 		[1] = "1*1Grid",
@@ -49,7 +49,7 @@ function BuildingController.new()
 	self._isPlacing = false
 	self._renderConnection = nil
 	self._indicatorModel = nil
-	self._mouseConnettion = nil
+	self._Connettion = nil
 	self._PlayerFolder = nil
 	self._RuntimeChecker = nil
 
@@ -79,6 +79,7 @@ function BuildingController:BuildingComplete(buildingId: string)
 		BuildingId = buildingId,
 	})
 	self._BuilderStore[buildingId] = nil
+	self._BuildingStore[buildingId].EndTime = 0
 	warn(`[BuildingController] Building construction complete for buildingId {buildingId}`)
 end
 
@@ -120,10 +121,38 @@ function BuildingController:RegisterBuildingCache(
 )
 	self._BuildingStore[buildingId] = {
 		BuildingEnum = buildingEnum,
+		Gridx = gridx,
+		Gridz = gridz,
 		BuildingLevel = buildingLevel,
 		EndTime = endtime,
 		LastCollectedTime = lastCollectedTime,
 	}
+end
+
+function BuildingController:_RegisterBuilderStore(
+	buildingId: string,
+	gridx: number,
+	gridz: number,
+	buildingEnum: number,
+	buildingLevel: number,
+	endtime: number,
+	lastCollectedTime: number
+)
+	self._BuilderStore[buildingId] = {
+		Gridx = gridx,
+		Gridz = gridz,
+		BuildingEnum = buildingEnum,
+		BuildingLevel = buildingLevel,
+		EndTime = endtime,
+		LastCollectedTime = lastCollectedTime,
+	}
+	self:_ensureRuntimeChecker()
+
+	-- เล่นanimation วางอาคารเรียกคนสร้างออกมา
+
+	-- นับถอยหลังเองเลย
+
+	--ส่งข้อมูลวางไปหาserver
 end
 
 function BuildingController:_createFootPrints(position: Vector3, size: number)
@@ -139,9 +168,9 @@ function BuildingController:_createFootPrints(position: Vector3, size: number)
 		return
 	end
 
-	local haffHeight = newFootPrint.Size.Y / 2
+	local half = newFootPrint.Size.Y / 2
 	newFootPrint.Parent = self._PlayerFolder
-	newFootPrint.CFrame = CFrame.new(position.X, position.Y + haffHeight + CONFIG.HARD_CODE_HIGHT, position.Z)
+	newFootPrint.CFrame = CFrame.new(position.X, position.Y + half + CONFIG.HEIGHT, position.Z)
 end
 
 function BuildingController:_createBuilding(buildingType: string, snapPosition: Vector3, buildingLevel: number?): Model?
@@ -172,8 +201,7 @@ function BuildingController:_createBuilding(buildingType: string, snapPosition: 
 	local templateRotation = Template:GetPivot().Rotation
 	local halfHeight = primaryPart.Size.Y / 2
 	newBuilding:PivotTo(
-		CFrame.new(snapPosition.X, snapPosition.Y + halfHeight + CONFIG.HARD_CODE_HIGHT, snapPosition.Z)
-			* templateRotation
+		CFrame.new(snapPosition.X, snapPosition.Y + halfHeight + CONFIG.HEIGHT, snapPosition.Z) * templateRotation
 	)
 	return newBuilding
 end
@@ -191,8 +219,8 @@ function BuildingController:_startPlacement(buildType: string)
 		return
 	end
 
-	local dimention = BuildingConfig:GetBuildingDimensions(buildType)
-	if not dimention then
+	local dimension = BuildingConfig:GetBuildingDimensions(buildType)
+	if not dimension then
 		warn(`[BuildingController] Building config with id {buildType} not found in BuildingConfig`)
 		return
 	end
@@ -203,7 +231,7 @@ function BuildingController:_startPlacement(buildType: string)
 	self._indicatorModel = Template:Clone()
 	self._footPrintindicator = self._BuildingTemplate
 		:FindFirstChild(CONFIG.FOOTPRINTS_TEMPLATE, true)
-		:FindFirstChild(CONFIG.FOOTPRINTS[dimention.Length * dimention.Width], true)
+		:FindFirstChild(CONFIG.FOOTPRINTS[dimension.Length * dimension.Width], true)
 		:Clone()
 	self._footPrintindicator.Parent = self._indicatorModel
 	local templateRotation = Template:GetPivot().Rotation
@@ -221,8 +249,8 @@ function BuildingController:_startPlacement(buildType: string)
 
 	self._renderConnection = RunService.RenderStepped:Connect(function()
 		local mouse = Player:GetMouse()
-		local traget = mouse.Target
-		if not traget then
+		local target = mouse.Target
+		if not target then
 			return
 		end
 
@@ -231,10 +259,10 @@ function BuildingController:_startPlacement(buildType: string)
 		end
 
 		local snapPos =
-			self._GridController:SnapToGrid(mouse.Hit.Position, dimention.Length, dimention.Width) :: Vector3
+			self._GridController:SnapToGrid(mouse.Hit.Position, dimension.Length, dimension.Width) :: Vector3
 
-		local canPlace = self._GridController:Canplace(snapPos, dimention.Length, dimention.Width)
-		local color = if canPlace then Color3.new(0, 1, 0) else Color3.new(1, 0, 0)
+		local CanPlace = self._GridController:CanPlace(snapPos, dimension.Length, dimension.Width)
+		local color = if CanPlace then Color3.new(0, 1, 0) else Color3.new(1, 0, 0)
 		for _, child in ipairs(self._indicatorModel:GetDescendants()) do
 			if child:IsA("BasePart") then
 				if child:IsA("UnionOperation") then
@@ -250,46 +278,28 @@ function BuildingController:_startPlacement(buildType: string)
 	end)
 
 	local mouse = Player:GetMouse()
-	self._mouseConnettion = mouse.Button1Down:Connect(function()
+	self._Connettion = mouse.Button1Down:Connect(function()
 		local snapPos =
-			self._GridController:SnapToGrid(mouse.Hit.Position, dimention.Length, dimention.Width) :: Vector3
-		if self._GridController:Canplace(snapPos, dimention.Length, dimention.Width) then
-			local startX, startZ = self._GridController:GetFootPrintStart(snapPos, dimention.Length, dimention.Width)
+			self._GridController:SnapToGrid(mouse.Hit.Position, dimension.Length, dimension.Width) :: Vector3
+		if self._GridController:CanPlace(snapPos, dimension.Length, dimension.Width) then
+			local startX, startZ = self._GridController:GetFootPrintStart(snapPos, dimension.Length, dimension.Width)
 			local buildingEnum = GameEnum:GetBuildingTypeIdByName(buildType)
 			self:_requestPlaceBuilding(startX, startZ, buildingEnum, snapPos)
 			self:_createBuilding(buildType, snapPos)
-			self:_createFootPrints(snapPos, dimention.Length * dimention.Width)
-			self._GridController:occupyCell(snapPos, dimention.Length, dimention.Width)
+			self:_createFootPrints(snapPos, dimension.Length * dimension.Width)
+			self._GridController:occupyCell(snapPos, dimension.Length, dimension.Width)
 
 			-- เก็บcache ไว้ก่อน โยยไม่รอserver
 			local buildingCount = self._buildingCount :: number
 			local nextbuildingId = `n{buildingCount + 1}`
-			self:RegisterBuildingCache(
-				nextbuildingId,
-				startX,
-				startZ,
-				buildingEnum,
-				CONFIG.STARTER_LEVEL,
-				os.time() + BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.STARTER_LEVEL).UpgradeTime,
-				0
-			)
+			local BuildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.STARTER_LEVEL)
+			local builTime = os.time() + BuildingData.UpgradeTime
 
-			self._BuilderStore[nextbuildingId] = {
-				Gridx = startX,
-				Gridz = startZ,
-				BuildingEnum = buildingEnum,
-				BuildingLevel = CONFIG.STARTER_LEVEL,
-				EndTime = os.time()
-					+ BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.STARTER_LEVEL).UpgradeTime,
-				LastCollectedTime = 0,
-			}
-			self:_ensureRuntimeChecker()
+			self:RegisterBuildingCache(nextbuildingId, startX, startZ, buildingEnum, CONFIG.STARTER_LEVEL, builTime, 0)
 
-			-- เล่นanimation วางอาคารเรียกคนสร้างออกมา
+			self:_RegisterBuilderStore(nextbuildingId, startX, startZ, buildingEnum, CONFIG.STARTER_LEVEL, builTime, 0)
 
-			-- นับถอยหลังเองเลย
-
-			--ส่งข้อมูลวางไปหาserver
+			self._buildingCount = buildingCount + 1
 		end
 	end)
 end
@@ -312,34 +322,26 @@ function BuildingController:RecreateBuildings(
 		return
 	end
 
-	local dimention = BuildingConfig:GetBuildingDimensions(buildingType)
-	if not dimention then
+	local dimension = BuildingConfig:GetBuildingDimensions(buildingType)
+	if not dimension then
 		return
 	end
 
-	local worldPos = self._GridController:GridCoordsToWorld(startX, startZ, dimention.Length, dimention.Width)
+	local worldPos = self._GridController:GridCoordsToWorld(startX, startZ, dimension.Length, dimension.Width)
 	local model = self:_createBuilding(buildingType, worldPos, buildingLevel)
-	self:_createFootPrints(worldPos, dimention.Length * dimention.Width)
-	self._GridController:occupyCell(worldPos, dimention.Length, dimention.Width)
+	self:_createFootPrints(worldPos, dimension.Length * dimension.Width)
+	self._GridController:occupyCell(worldPos, dimension.Length, dimension.Width)
 
 	local collectorType = BuildingConfig:GetCollectorType(buildingType)
 	if collectorType then
 		self._ResourceController:RegisterclickDetector(collectorType, model)
 	end
 
-	self:RegisterBuildingCache(buildingId, gridx, gridz, buildingEnum, buildingLevel, endTime, LastCollectedTime)
+	self:RegisterBuildingCache(buildingId, gridx, gridz, buildingEnum, buildingLevel, endTime, lastCollectedTime)
 
 	--Building hut
 	if endTime ~= 0 then
-		self._BuilderStore[buildingId] = {
-			Gridx = gridx,
-			Gridz = gridz,
-			BuildingEnum = buildingEnum,
-			BuildingLevel = buildingLevel,
-			EndTime = endTime,
-			LastCollectedTime = lastCollectedTime,
-		}
-		self:_ensureRuntimeChecker()
+		self:_RegisterBuilderStore(buildingId, gridx, gridz, buildingEnum, buildingLevel, endTime, lastCollectedTime)
 	end
 end
 
@@ -350,9 +352,9 @@ function BuildingController:_stopPlacement()
 		self._renderConnection = nil
 	end
 
-	if self._mouseConnettion then
-		self._mouseConnettion:Disconnect()
-		self._mouseConnettion = nil
+	if self._Connettion then
+		self._Connettion:Disconnect()
+		self._Connettion = nil
 	end
 
 	if self._indicatorModel then

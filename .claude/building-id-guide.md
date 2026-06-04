@@ -28,7 +28,7 @@
 ฝั่ง client ตอนวางอาคาร — `BuildingController:_startPlacement`:
 
 ```lua
-local startX, startZ = self._GridController:GetFootPrintStart(snapPos, dimention.Length, dimention.Width)
+local startX, startZ = self._GridController:GetFootPrintStart(snapPos, dimension.Length, dimension.Width)
 local buildingId = `{startX},{startZ}`   -- ← เกิดตรงนี้ เช่น "18,24"
 ```
 
@@ -52,7 +52,7 @@ end
 ```lua
 local startX, startZ = string.match(snapPosition, "(-?%d+),(-?%d+)")   -- แกะตัวเลขออกจากกุญแจ
 local worldPos = self._GridController:GridCoordsToWorld(
-	tonumber(startX), tonumber(startZ), dimention.Length, dimention.Width
+	tonumber(startX), tonumber(startZ), dimension.Length, dimension.Width
 )   -- ← คำนวณตำแหน่งโลกกลับมาจากกุญแจ + ขนาด(จาก enum)
 ```
 
@@ -360,4 +360,3 @@ end
 - เมธอดสะกดผิด: `ReisterColector` / `ReGisterColector` (สองที่สะกดไม่ตรงกัน), `PlayerClieckCollector`, `_IsbuilgIsComplete`, `_collctorTimeremaining` → ตั้งใหม่ให้ถูก จะได้ไม่เรียกผิด
 - ปัจจุบัน `C2S_BUILDING_CONSTRUCTION_COMPLETE` ฝั่ง client handler (`ClientNetworkController`) **ยังว่าง** ไม่ได้ยิงไปหา server จริง → server `LOCAL_BUILDING_CONSTRUCTION_COMPLETE` เลยไม่เคยถูกกระตุ้นจาก client (ต้องเพิ่ม remote + ต่อสายให้ครบถ้าจะใช้ระบบนับถอยหลังก่อสร้าง)
 ```
-

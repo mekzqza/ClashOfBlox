@@ -159,10 +159,10 @@ function ResourceService:PlayerClieckCollector(player: Player, collectorType: Co
 	end
 
 	local totalResource = 0
-	local tragetVale = self._PlayerDataService:Get(player, self._LookBack[collectorType]) or 0
+	local targetVale = self._PlayerDataService:Get(player, self._LookBack[collectorType]) or 0
 
 	for _, entry in collectors do
-		local data = self:_collctorTimeremaining(player, collectorType, entry.BuildingId, tragetVale)
+		local data = self:_collctorTimeremaining(player, collectorType, entry.BuildingId, targetVale)
 
 		local newTimestamp = os.time() - math.floor(data.timeRemain / entry.ProductionRate)
 		entry.Timestamp = newTimestamp
@@ -174,7 +174,7 @@ function ResourceService:PlayerClieckCollector(player: Player, collectorType: Co
 			entry.EndTime or 0,
 			newTimestamp,
 		}, false)
-		tragetVale += data.amount
+		targetVale += data.amount
 		totalResource += data.amount
 	end
 	self._PlayerDataService:Increment(player, self._LookBack[collectorType], totalResource)
