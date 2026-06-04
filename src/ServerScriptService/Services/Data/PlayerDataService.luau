@@ -17,6 +17,7 @@ export type ResourceType = "Golds" | "Elixirs" | "Gems"
 export type PlayerData = {
 	_version: number,
 	PlayerBuildings: { [string]: { number } },
+	BuildingCount: number,
 	Golds: number,
 	Elixirs: number,
 	Gems: number,
@@ -33,31 +34,40 @@ function PlayerDataService.new()
 	self._DEFAULT_DATA = {
 		_version = self._DATA_VERSION,
 		PlayerBuildings = {
-			["18,24"] = {
+			["n1"] = {
+				18, -- GridX
+				24, -- GridY
 				7, -- BuildingTypeEnum
 				1, -- BuildingLevel
 				0, -- EndTime
 				0, -- LastCollectedTime
 			},
-			["23,20"] = {
+			["n2"] = {
+				23,
+				20,
 				1,
 				1,
 				0,
 				0,
 			},
-			["29,23"] = {
+			["n3"] = {
+				29,
+				23,
 				5,
 				1,
 				0,
 				0,
 			},
-			["26,26"] = {
+			["n4"] = {
+				26,
+				26,
 				10,
 				1,
 				0,
 				0,
 			},
 		},
+		BuildingCount = 4,
 		Golds = 0,
 		Elixirs = 0,
 		Gems = 0,

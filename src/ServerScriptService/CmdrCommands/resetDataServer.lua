@@ -5,7 +5,7 @@ return function(context, targetPlayer: Player, fieldsString: string)
     local PlayerDataService = ServiceLocator:Get("PlayerDataService")
 
 
-        if  fieldsString == "REST_ALL_FIELD" then
+        if  fieldsString == "RESET_ALL_FIELD" then
         PlayerDataService:ResetAllData(targetPlayer)
         return "✅ All data reset for player: " .. targetPlayer.Name
     end

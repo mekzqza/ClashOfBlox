@@ -28,13 +28,13 @@ function ShopController:SetDependencies(locator)
 end
 
 function ShopController:_updateResourceDisplay(key: string, value: number)
-	local traget = self._DisplayFrame:FindFirstChild(key, true)
-	if not traget or traget:IsA("Frame") then
+	local target = self._DisplayFrame:FindFirstChild(key, true)
+	if not target or target:IsA("Frame") then
 		warn(`[ShopController] Cannot find resource display with name {key}`)
 		return
 	end
 
-	local textLabel = traget:FindFirstChild("Value", true)
+	local textLabel = target:FindFirstChild("Value", true)
 	if not textLabel or not textLabel:IsA("TextLabel") then
 		warn(`[ShopController] Cannot find TextLabel named "Value" in resource display {key}`)
 		return

@@ -14,6 +14,8 @@ local guard = IdempotentGuard.new("ResourceService", true)
 export type CollectorsType = "GoldCollector" | "ElixirCollector"
 
 export type Collectors = {
+	Gridx: number,
+	Gridz: number,
 	BuildingEnum: number,
 	BuildingLevel: number,
 	EndTime: number,
@@ -76,7 +78,16 @@ function ResourceService:WaitForReady(player: Player, timeout: number?): any
 	end):timeout(timeout or 15)
 end
 
-function ResourceService:ReGisterColector(player, buildingId, buildingEnum, buildingLevel, endtime, LastCollectedTime)
+function ResourceService:ReGisterColector(
+	player: Player,
+	buildingId: string,
+	gridCellx: number,
+	gridCellz: number,
+	buildingEnum: number,
+	buildingLevel: number,
+	endtime: number,
+	LastCollectedTime: number
+)
 	if endtime ~= 0 then
 		warn(
 			`[ResourceService] EndTime is not 0 Mean building is Constructing or Upgrade for player {player.Name} and building {buildingId} with endTime {endtime}`
@@ -97,6 +108,8 @@ function ResourceService:ReGisterColector(player, buildingId, buildingEnum, buil
 			Capacity = buildingData.Capacity,
 
 			BuildingId = buildingId,
+			Gridx = gridCellx,
+			Gridz = gridCellz,
 			BuildingEnum = buildingEnum,
 			BuildingLevel = buildingLevel,
 			EndTime = endtime,
@@ -108,6 +121,8 @@ function ResourceService:ReGisterColector(player, buildingId, buildingEnum, buil
 			Capacity = buildingData.Capacity,
 
 			BuildingId = buildingId,
+			Gridx = gridCellx,
+			Gridz = gridCellz,
 			BuildingEnum = buildingEnum,
 			BuildingLevel = buildingLevel,
 			EndTime = endtime,
@@ -144,20 +159,22 @@ function ResourceService:PlayerClieckCollector(player: Player, collectorType: Co
 	end
 
 	local totalResource = 0
-	local tragetVale = self._PlayerDataService:Get(player, self._LookBack[collectorType]) or 0
+	local targetVale = self._PlayerDataService:Get(player, self._LookBack[collectorType]) or 0
 
 	for _, entry in collectors do
-		local data = self:_collctorTimeremaining(player, collectorType, entry.BuildingId, tragetVale)
+		local data = self:_collctorTimeremaining(player, collectorType, entry.BuildingId, targetVale)
 
 		local newTimestamp = os.time() - math.floor(data.timeRemain / entry.ProductionRate)
 		entry.Timestamp = newTimestamp
 		self._PlayerDataService:Set(player, `PlayerBuildings.{entry.BuildingId}`, {
+			entry.Gridx,
+			entry.Gridz,
 			entry.BuildingEnum,
 			entry.BuildingLevel,
 			entry.EndTime or 0,
 			newTimestamp,
 		}, false)
-		tragetVale += data.amount
+		targetVale += data.amount
 		totalResource += data.amount
 	end
 	self._PlayerDataService:Increment(player, self._LookBack[collectorType], totalResource)

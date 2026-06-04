@@ -19,6 +19,8 @@ local guard = IdempotentGuard.new("BuildingService")
  ]]
 
 export type BuildingCache = {
+	Gridx: number,
+	Gridz: number,
 	BuildingEnum: number,
 	BuildingLevel: number,
 	EndTime: number,
@@ -29,13 +31,18 @@ local CONFIG = {
 	STARTER_LEVEL = 1,
 	STARTER_END_TIME = 0, -- 0 หมายถึง กำลังก่อสร้าง
 	STARTER_LAST_COLLECTED_TIME = os.time(),
+	BUILDING_DONE = 0,
 	TIME_OUT = 30,
 	KEYSTORE = {
-		["BuildingEnum"] = 1,
-		["BuildingLevel"] = 2,
-		["EndTime"] = 3,
-		["LastCollectedTime"] = 4,
+		["Gridx"] = 1,
+		["Gridz"] = 2,
+		["BuildingEnum"] = 3,
+		["BuildingLevel"] = 4,
+		["EndTime"] = 5,
+		["LastCollectedTime"] = 6,
 	},
+	NEXT_BUILDING_ID = "n",
+	NEXT_BUILDING_ID_NUMBER = 1,
 }
 
 local BuildingService = {}
@@ -68,7 +75,7 @@ end
 function BuildingService:_IsbuilgIsComplete(player: Player, buildingId: string): boolean
 	local buildingData = self._BuildingCache[player] and self._BuildingCache[player][buildingId]
 	if not buildingData then
-		warn(`[BuilderHutService] No building found for player {player.Name} with buildingId {buildingId}`)
+		warn(`[BuildingService] No building found for player {player.Name} with buildingId {buildingId}`)
 		return false
 	end
 
@@ -81,9 +88,47 @@ function BuildingService:_IsbuilgIsComplete(player: Player, buildingId: string):
 	return true
 end
 
+function BuildingService:_OnbuilingDone(player: Player, buildingId: string)
+	local buildingdata = self._BuildingCache[player] and self._BuildingCache[player][buildingId]
+	if not buildingdata then
+		warn(`[BuildingService] No building found for player {player.Name} with buildingId {buildingId}`)
+		return
+	end
+
+	self._PlayerDataService:Set(player, `PlayerBuildings.{buildingId}`, {
+		buildingdata.Gridx,
+		buildingdata.Gridz,
+		buildingdata.BuildingEnum,
+		CONFIG.STARTER_LEVEL,
+		CONFIG.BUILDING_DONE,
+		buildingdata.LastCollectedTime,
+	}, false)
+
+	self._BuildingCache[player][buildingId].EndTime = CONFIG.BUILDING_DONE
+	warn(
+		`[BuildingService] Building construction complete for player {player.Name} and buildingId {buildingId}, updating player data and cache`
+	)
+
+	-- auto register collector when building is collector or storage
+	if self._LookBack[buildingdata.BuildingEnum] ~= nil then
+		self._ResourceService:ReGisterColector(
+			player,
+			buildingId,
+			buildingdata.Gridx,
+			buildingdata.Gridz,
+			buildingdata.BuildingEnum,
+			buildingdata.BuildingLevel,
+			CONFIG.BUILDING_DONE,
+			buildingdata.LastCollectedTime
+		)
+	end
+end
+
 function BuildingService:_RegisterBuildingCache(
 	player: Player,
-	buildingId: number,
+	buildingId: string,
+	gridCellx: number,
+	gridCellz: number,
 	buildingEnum: number,
 	buildingLevel: number,
 	endtime: number,
@@ -94,10 +139,11 @@ function BuildingService:_RegisterBuildingCache(
 	end
 
 	self._BuildingCache[player][buildingId] = {
+		Gridx = gridCellx,
+		Gridz = gridCellz,
 		BuildingEnum = buildingEnum,
 		BuildingLevel = buildingLevel,
 		EndTime = endtime,
-		Timestamp = os.time(),
 		LastCollectedTime = LastCollectedTime,
 	}
 end
@@ -110,7 +156,13 @@ function BuildingService:_BroadCastBuilding(player: Player, buildingEnum: number
 	})
 end
 
-function BuildingService:_PlaceBuilding(player: Player, snapTostring: string, buildingEnum: number, position: Vector3)
+function BuildingService:_PlaceBuilding(
+	player: Player,
+	gridx: number,
+	gridz: number,
+	buildingEnum: number,
+	position: Vector3
+)
 	local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.STARTER_LEVEL)
 	if not buildingData then
 		warn(
@@ -125,14 +177,28 @@ function BuildingService:_PlaceBuilding(player: Player, snapTostring: string, bu
 	end
 
 	local endtime = os.time() + buildingData.UpgradeTime
-
+	local buildingcount = self._PlayerDataService:Get(player, "BuildingCount") :: number
+	local nextBuildingId = buildingcount + CONFIG.NEXT_BUILDING_ID_NUMBER
 	self._PlayerDataService:Set(
 		player,
-		`PlayerBuildings.{snapTostring}`,
-		{ buildingEnum, CONFIG.STARTER_LEVEL, endtime, lastCollectedTime }
+		`PlayerBuildings.{`{CONFIG.NEXT_BUILDING_ID}{nextBuildingId}`}`,
+		{ gridx, gridz, buildingEnum, CONFIG.STARTER_LEVEL, endtime, lastCollectedTime }
+	)
+	self._PlayerDataService:Increment(player, "BuildingCount", CONFIG.NEXT_BUILDING_ID_NUMBER)
+
+	-- นับว่าเก็บ BuilderHut
+	self:_RegisterBuildingCache(
+		player,
+		CONFIG.NEXT_BUILDING_ID .. nextBuildingId,
+		gridx,
+		gridz,
+		buildingEnum,
+		CONFIG.STARTER_LEVEL,
+		endtime,
+		lastCollectedTime
 	)
 
-	self:_BroadCastBuilding(player, buildingEnum, position)
+	-- self:_BroadCastBuilding(player, buildingEnum, position)
 end
 
 function BuildingService:_UpdateBuilding() end
@@ -178,17 +244,21 @@ function BuildingService:Start()
 				local PlayerData = self._PlayerDataService:GetAll(player)
 				local playerBuildings = PlayerData.PlayerBuildings
 				for buildingId, buildingData in pairs(playerBuildings) do
-					self._ResourceService:ReGisterColector(
+					self:_RegisterBuildingCache(
 						player,
 						buildingId,
+						buildingData[CONFIG.KEYSTORE["Gridx"]],
+						buildingData[CONFIG.KEYSTORE["Gridz"]],
 						buildingData[CONFIG.KEYSTORE["BuildingEnum"]],
 						buildingData[CONFIG.KEYSTORE["BuildingLevel"]],
 						buildingData[CONFIG.KEYSTORE["EndTime"]],
 						buildingData[CONFIG.KEYSTORE["LastCollectedTime"]]
 					)
-					self:_RegisterBuildingCache(
+					self._ResourceService:ReGisterColector(
 						player,
 						buildingId,
+						buildingData[CONFIG.KEYSTORE["Gridx"]],
+						buildingData[CONFIG.KEYSTORE["Gridz"]],
 						buildingData[CONFIG.KEYSTORE["BuildingEnum"]],
 						buildingData[CONFIG.KEYSTORE["BuildingLevel"]],
 						buildingData[CONFIG.KEYSTORE["EndTime"]],
@@ -207,7 +277,7 @@ function BuildingService:Start()
 		    @Bug
 		    ตอนนี้ยังไม่มี การเช็ค cell ว่าถูกใช้ไปไหม ทำให้สามารถว่า วางทับกันได้ถ้ามีแฮค foce remote แต่ในอนาคตจะมีการเช็ค cell ก่อนที่จะsave
 		--]=]
-		self:_PlaceBuilding(data.Player, data.SnapToString, data.BuildingTypeEnum, data.Position)
+		self:_PlaceBuilding(data.Player, data.Gridx, data.Gridz, data.BuildingEnum, data.Position)
 	end)
 
 	EventBus:On(Events.LOCAL_BUILDING_CONSTRUCTION_COMPLETE, function(data)
@@ -218,7 +288,12 @@ function BuildingService:Start()
 			warn(
 				`[BuildingService] Building construction complete for player {player.Name} and buildingId {buildingId}`
 			)
+			self:_OnbuilingDone(player, buildingId)
 		end
+	end)
+
+	Players.PlayerRemoving:Connect(function(player)
+		self._BuildingCache[player] = nil
 	end)
 end
 

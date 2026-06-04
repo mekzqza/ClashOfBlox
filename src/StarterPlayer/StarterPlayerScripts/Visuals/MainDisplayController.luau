@@ -33,19 +33,19 @@ function MainDisplayController:SetDependencies(locator)
 end
 
 function MainDisplayController:_updateResourceDisplay(key: string, value: number)
-	local traget = self._ResourceFrame:FindFirstChild(key, true)
-	if not traget then
+	local target = self._ResourceFrame:FindFirstChild(key, true)
+	if not target then
 		warn(`[MainDisplayController] Cannot find resource container with name ${key}`)
 		return
 	end
 
-	local frameValue: TextLabel = traget:FindFirstChild("Value", true)
+	local frameValue: TextLabel = target:FindFirstChild("Value", true)
 	if not frameValue then
 		warn(`[MainDisplayContrcoller] Cannot find Value label in ${key} container`)
 		return
 	end
 
-	local fillFrame = traget:FindFirstChild("Fill", true)
+	local fillFrame = target:FindFirstChild("Fill", true)
 	if fillFrame and fillFrame:IsA("Frame") then
 		local fillAmount = math.clamp(value / self._ResourceController:GetResourceStorage(key), 0, 1)
 		fillFrame.AnchorPoint = Vector2.new(1, 0)

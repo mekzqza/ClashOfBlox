@@ -73,7 +73,7 @@ function GridController:GetFootPrintStart(position: Vector3, sizeX: number?, siz
 	return startX, startZ
 end
 
-function GridController:Canplace(position: Vector3, sizeX: number?, sizeZ: number?): boolean
+function GridController:CanPlace(position: Vector3, sizeX: number?, sizeZ: number?): boolean
 	local sx = sizeX or 1
 	local sz = sizeZ or 1
 	local startX, startZ = self:GetFootPrintStart(position, sx, sz)

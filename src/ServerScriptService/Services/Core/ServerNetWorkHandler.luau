@@ -5,7 +5,6 @@ local Events = require(ReplicatedStorage.Shared.Events)
 local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
 local ZapServer = require(ServerScriptService.Services.Core.ZapServer)
 local IdempotentGuard = require(ServerScriptService.Utils.IdempotentGuard)
-local GameEnum = require(ReplicatedStorage.Shared.GameEnum)
 
 local guard = IdempotentGuard.new("ServerNetWorkHandler")
 
@@ -32,7 +31,7 @@ local function DataLayer()
 			Level = data.Level,
 			Experience = data.Experience,
 			Buildings = data.Buildings,
-			Collectors = data.Collectors,
+			BuildingCount = data.BuildingCount,
 		})
 	end)
 
@@ -43,6 +42,7 @@ local function DataLayer()
 			["Gems"] = "Gems",
 			["Level"] = "Level",
 			["Experience"] = "Experience",
+			["BuildingCount"] = "BuildingCount",
 		}
 
 		local zapkey = keyMap[data.Key]
@@ -69,8 +69,9 @@ local function BuildingSytem()
 	ZapServer.PlayerRequestPalceBulidings.SetCallback(function(player, data)
 		EventBus:Emit(Events.LOCAL_PLAYER_REQUIRE_PLACE, {
 			Player = player,
-			SnapToString = data.SnapToString,
-			BuildingTypeEnum = data.BuildingTypeEnum,
+			Gridx = data.Gridx,
+			Gridz = data.Gridz,
+			BuildingEnum = data.BuildingEnum,
 			Position = data.Position,
 		})
 	end)

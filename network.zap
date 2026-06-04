@@ -2,8 +2,11 @@ opt server_output = "src/ServerScriptService/Services/Core/ZapServer.lua"
 opt client_output = "src/ReplicatedStorage/Shared/ZapClient.lua"
 
 type BuildingEntry = struct {
-    SnapToString: string.utf8,
-    BuildingTypeEnum: u8,
+    BuildingId: string.utf8,
+    Gridx: u16,
+    Gridz: u16,
+
+    BuildingEnum: u8,
     BuildingLevel: u8,
     EndTime: u32,
     LastCollectedTime : u32,
@@ -15,6 +18,7 @@ type DataKey = enum {
     Gems,
     Level,
     Experience,
+    BuildingCount,
 }
 
 type CollectorData = struct {
@@ -39,6 +43,7 @@ event LoadSnapshot = {
         Level: u32,
         Experience: u32,
         Buildings: BuildingEntry[],
+        BuildingCount: u32,
     }
 }
 
@@ -47,8 +52,9 @@ event PlayerRequestPalceBulidings = {
     type: Reliable,
     call: SingleAsync,
     data: struct {
-        SnapToString: string.utf8,
-        BuildingTypeEnum: u8,
+        Gridx: u16,
+        Gridz: u16,
+        BuildingEnum: u8,
         Position: Vector3
     }
 }
