@@ -365,8 +365,6 @@ function BuildingController:_startPlacement(buildType: string)
 			local buildingEnum = GameEnum:GetBuildingTypeIdByName(buildType)
 			local footPrint = self:_createFootPrints(snapPos, dimension.Length * dimension.Width)
 
-			-- เปลี่ยนไปใช้ CreatingBuilding Template แทนพอสร้างเสร้จค่อให้โมเดลจริง
-
 			local model = Instance.new("Model")
 			local modelUpgrade = self:_CloneConstructionVisual(
 				CONFIG.UPGRADE_BUILDING_TEMPLATE,

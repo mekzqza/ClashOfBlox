@@ -120,10 +120,6 @@ function ResourceController:RegisterColector(
 	endtime: number,
 	lastCollectedTime: number
 )
-	if CONFIG.KEY_CHECK[buildingEnum] == nil then
-		return
-	end
-
 	local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, buildingLevel)
 	if not buildingData then
 		warn(

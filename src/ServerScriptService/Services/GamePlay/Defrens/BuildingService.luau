@@ -31,8 +31,9 @@ local CONFIG = {
 	STARTER_LEVEL = 0,
 	NEXT_LEVEL = 1,
 	STARTER_END_TIME = 0, -- 0 หมายถึง กำลังก่อสร้าง
-	STARTER_LAST_COLLECTED_TIME = os.time(),
 	BUILDING_DONE = 0,
+	-- เผื่อ skew นาฬิกา client/server + latency (client เป็นคนนับถอยหลังแล้วยิง event มาบอก)
+	COMPLETE_GRACE = 2,
 	TIME_OUT = 30,
 	KEYSTORE = {
 		["Gridx"] = 1,
@@ -82,7 +83,15 @@ function BuildingService:_IsbuilgIsComplete(player: Player, buildingId: string):
 
 	local buildingendtime = buildingData.EndTime
 
-	if os.time() <= buildingendtime then
+	-- EndTime == 0 แปลว่าก่อสร้างเสร็จไปแล้ว กันยิง event ซ้ำมาอัพเลเวลฟรี
+	if buildingendtime == CONFIG.BUILDING_DONE then
+		warn(`[BuildingService] Building {buildingId} for {player.Name} is already completed`)
+		return false
+	end
+
+	-- ยังก่อสร้างไม่เสร็จจริง (หัก grace เผื่อ skew/latency) — อาจเป็นการยิงก่อนเวลา
+	if os.time() < buildingendtime - CONFIG.COMPLETE_GRACE then
+		warn(`[BuildingService] Building {buildingId} for {player.Name} not finished yet`)
 		return false
 	end
 
@@ -97,9 +106,7 @@ function BuildingService:_OnbuilingDone(player: Player, buildingId: string)
 	end
 
 	-- 0 หมายถึง กำลังก่อสร้าง ถ้าเป็น starter จะอัพเป็น level 1 ถ้ามีเลเวลอยู่แล้วจะบวกไปอีก 1
-	local level = if buildingdata.BuildingLevel == CONFIG.STARTER_LEVEL
-		then CONFIG.NEXT_LEVEL
-		else buildingdata.BuildingLevel + CONFIG.NEXT_LEVEL
+	local level = buildingdata.BuildingLevel + CONFIG.NEXT_LEVEL
 
 	self._PlayerDataService:Set(player, `PlayerBuildings.{buildingId}`, {
 		buildingdata.Gridx,
@@ -178,10 +185,9 @@ function BuildingService:_PlaceBuilding(
 		return
 	end
 
+	-- อาคารที่เพิ่งวางเริ่มที่ 0 เสมอ — ResourceService ตีความ 0 ว่า "เริ่มนับเวลาผลิต ณ ตอนสร้างเสร็จ"
+	-- (buildingData เป็น level-data จึงไม่มี CollectorType ให้เช็ก ฟิลด์นั้นอยู่ที่ตัวอาคาร)
 	local lastCollectedTime = 0
-	if buildingData.CollectorType ~= nil then
-		lastCollectedTime = CONFIG.STARTER_LAST_COLLECTED_TIME
-	end
 
 	local endtime = os.time() + buildingData.UpgradeTime
 	local buildingcount = self._PlayerDataService:Get(player, "BuildingCount") :: number
