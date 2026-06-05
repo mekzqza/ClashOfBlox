@@ -50,6 +50,7 @@ function BuildingController.new()
 	self._BuildingStore = {} :: { [string]: BuildingCache }
 	self._BuilderStore = {} :: { [string]: BuildingCache }
 
+	self._currentBuilder = 0
 	self._buildingCount = 0
 	self._isPlacing = false
 	self._renderConnection = nil
@@ -128,6 +129,7 @@ function BuildingController:BuildingComplete(buildingId: string)
 		BuildingId = buildingId,
 	})
 
+	self._currentBuilder -= 1
 	warn(`[BuildingController] Building construction complete for buildingId {buildingId}`)
 end
 
@@ -226,6 +228,8 @@ function BuildingController:_RegisterBuilderStore(
 		LastCollectedTime = lastCollectedTime,
 		BuildingModel = model,
 	}
+
+	self._currentBuilder += 1
 
 	self:_ensureRuntimeChecker()
 end
@@ -356,6 +360,11 @@ function BuildingController:_startPlacement(buildType: string)
 
 	local mouse = Player:GetMouse()
 	self._Connetion = mouse.Button1Down:Connect(function()
+		if self._currentBuilder >= self._PlayerDataController:GetAll().BuilderHutSlot then
+			warn(`[BuildingController] All builder huts are currently occupied. Cannot place new building.`)
+			return
+		end
+
 		local snapPos =
 			self._GridController:SnapToGrid(mouse.Hit.Position, dimension.Length, dimension.Width) :: Vector3
 		if self._GridController:CanPlace(snapPos, dimension.Length, dimension.Width) then

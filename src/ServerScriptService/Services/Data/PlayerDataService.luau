@@ -73,6 +73,7 @@ function PlayerDataService.new()
 		Gems = 0,
 		Level = 1,
 		Experience = 0,
+		BuilderHutSlot = 2,
 	} :: PlayerData
 	self._ProfileStore = nil
 	self._Profiles = {} :: { [number]: any }
@@ -84,6 +85,7 @@ function PlayerDataService.new()
 		Gems = { type = "number", min = 0, max = 99999999 },
 		Level = { type = "number", min = 1, max = 100 },
 		Experience = { type = "number", min = 0, max = 99999999 },
+		BuilderHutSlot = { type = "number", min = 1, max = 5 },
 	} :: { [string]: { type: string, min: number?, max: number? } }
 	return self
 end

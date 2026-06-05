@@ -52,6 +52,7 @@ BuildingService.__index = BuildingService
 function BuildingService.new()
 	local self = setmetatable({}, BuildingService)
 	self._BuildingCache = {} :: { [Player]: { [string]: BuildingCache } }
+	self._PlayerBuilderSlot = {} :: { [Player]: number }
 	self._LookBack = {
 		[8] = "ElixirStorage",
 		[9] = "ElixirCollector",
@@ -117,6 +118,8 @@ function BuildingService:_OnbuilingDone(player: Player, buildingId: string)
 		buildingdata.LastCollectedTime,
 	}, false)
 
+	self._PlayerBuilderSlot[player] = -1
+
 	self._BuildingCache[player][buildingId].EndTime = CONFIG.BUILDING_DONE
 	self._BuildingCache[player][buildingId].BuildingLevel = level
 	warn(
@@ -177,6 +180,20 @@ function BuildingService:_PlaceBuilding(
 	buildingEnum: number,
 	position: Vector3
 )
+	local playerData = self._PlayerDataService:GetAll(player)
+	if not playerData then
+		warn(`[BuildingService] Player data not found for player: {player.Name}`)
+		return
+	end
+
+	local builderHutSlot = playerData.BuilderHutSlot
+	if self._PlayerBuilderSlot[player] >= builderHutSlot then
+		warn(`[BuildingService] Player {player.Name} has no available builder slots to place new building`)
+		return
+	end
+
+	-- ทรัพยาการที่ต้องใช้ในการสร้าง
+
 	local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.STARTER_LEVEL + CONFIG.NEXT_LEVEL)
 	if not buildingData then
 		warn(
@@ -210,6 +227,8 @@ function BuildingService:_PlaceBuilding(
 		endtime,
 		lastCollectedTime
 	)
+
+	self._PlayerBuilderSlot[player] = self._PlayerBuilderSlot[player] + 1
 
 	-- self:_BroadCastBuilding(player, buildingEnum, position)
 end
@@ -256,7 +275,13 @@ function BuildingService:Start()
 			:andThen(function()
 				local PlayerData = self._PlayerDataService:GetAll(player)
 				local playerBuildings = PlayerData.PlayerBuildings
+
+				local BuilderHutSlot = 0
 				for buildingId, buildingData in pairs(playerBuildings) do
+					if buildingData[CONFIG.KEYSTORE["EndTime"]] ~= 0 then
+						BuilderHutSlot = BuilderHutSlot + 1
+					end
+
 					self:_RegisterBuildingCache(
 						player,
 						buildingId,
@@ -281,6 +306,7 @@ function BuildingService:Start()
 						)
 					end
 				end
+				self._PlayerBuilderSlot[player] = BuilderHutSlot
 				self._ResourceService:MarkRegistrationComplete(player)
 			end)
 			:catch(function()
