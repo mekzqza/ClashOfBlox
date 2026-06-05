@@ -56,6 +56,22 @@ function MainDisplayController:_updateResourceDisplay(key: string, value: number
 	frameValue.Text = tostring(value)
 end
 
+function MainDisplayController:_updateMaxResourceDisplay(key: string, value: number)
+	local target = self._ResourceFrame:FindFirstChild(key, true)
+	if not target then
+		warn(`[MainDisplayController] Cannot find resource container with name ${key}`)
+		return
+	end
+
+	local frameValue: TextLabel = target:FindFirstChild("MaxValue", true)
+	if not frameValue then
+		warn(`[MainDisplayContrcoller] Cannot find MaxValue label in ${key} container`)
+		return
+	end
+
+	frameValue.Text = `Max: {self._ResourceController:GetResourceStorage(key)}`
+end
+
 function MainDisplayController:_setPlayerName(player: Player)
 	local playerName: TextLabel = self._LevelFillBar:FindFirstChild("PlayerName", true)
 	if not playerName then
@@ -126,6 +142,8 @@ function MainDisplayController:Start()
 
 		self:_updateResourceDisplay("Golds", golds)
 		self:_updateResourceDisplay("Elixirs", elixir)
+		self:_updateMaxResourceDisplay("Golds", golds)
+		self:_updateMaxResourceDisplay("Elixirs", elixir)
 		self:_updateResourceDisplay("Gems", gem)
 		self:_setPlayerName(Player)
 		self:_updateLevelDisplay(level)

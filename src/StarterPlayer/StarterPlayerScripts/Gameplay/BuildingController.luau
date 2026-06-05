@@ -64,6 +64,7 @@ function BuildingController.new()
 	self._GridController = nil
 	self._PlayerDataController = nil
 	self._ResourceController = nil
+	self._BuilderHutController = nil
 	return self
 end
 
@@ -71,6 +72,7 @@ function BuildingController:SetDependencies(locator)
 	self._PlayerDataController = locator:Get("PlayerDataController")
 	self._ResourceController = locator:Get("ResourceController")
 	self._GridController = locator:Get("GridController")
+	self._BuilderHutController = locator:Get("BuilderHutController")
 end
 
 function BuildingController:SetPlayerFolder(folder: Folder)
@@ -112,6 +114,8 @@ function BuildingController:BuildingComplete(buildingId: string)
 	end
 
 	self._BuilderStore[buildingId] = nil
+	-- ลบแถบความคืบหน้าก่อนทำลายโมเดลก่อสร้าง (เคลียร์ entry ใน store ของ BuilderHutController)
+	self._BuilderHutController:BuildingComplated(building.BuildingModel)
 	if building.BuildingModel then
 		building.BuildingModel:Destroy()
 	end
@@ -143,6 +147,9 @@ function BuildingController:_ensureRuntimeChecker()
 			for buildingId, data in pairs(self._BuilderStore) do
 				if currentTime >= data.EndTime then
 					self:BuildingComplete(buildingId)
+				else
+					-- ยังก่อสร้างไม่เสร็จ → อัพเดตแถบความคืบหน้า/นับถอยหลัง
+					self._BuilderHutController:UpdateBuildingProgressBar(data.BuildingModel)
 				end
 			end
 			task.wait(1)
@@ -228,6 +235,10 @@ function BuildingController:_RegisterBuilderStore(
 		LastCollectedTime = lastCollectedTime,
 		BuildingModel = model,
 	}
+
+	local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, buildingLevel + CONFIG.NEXT_LEVEL)
+	local startTime = if buildingData then endtime - buildingData.UpgradeTime else os.time()
+	self._BuilderHutController:RegisterBuildingProgressBar(model, endtime, startTime)
 
 	self._currentBuilder += 1
 
@@ -360,6 +371,9 @@ function BuildingController:_startPlacement(buildType: string)
 
 	local mouse = Player:GetMouse()
 	self._Connetion = mouse.Button1Down:Connect(function()
+		-- check if currency enough
+
+		-- check builder hut availability before placing building
 		if self._currentBuilder >= self._PlayerDataController:GetAll().BuilderHutSlot then
 			warn(`[BuildingController] All builder huts are currently occupied. Cannot place new building.`)
 			return
