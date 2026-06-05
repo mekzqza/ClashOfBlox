@@ -467,7 +467,8 @@ function BuildingController:RecreateBuildings(
 		)
 		modelCrate.Parent = model
 		modelUpgrade.Parent = model
-		-- กำลังอัพเกรด ใช้โมเดลสร้างใหม่
+
+		self:_RegisterBuilderStore(buildingId, gridx, gridz, buildingEnum, CONFIG.STARTER_LEVEL, endTime, 0, model)
 	elseif endTime ~= 0 then
 		modelCrate = self:_createBuilding(buildingType, worldPos, buildingLevel)
 		modelUpgrade = self:_CloneConstructionVisual(
