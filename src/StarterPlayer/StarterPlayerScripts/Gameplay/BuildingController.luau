@@ -110,7 +110,6 @@ function BuildingController:BuildingComplete(buildingId: string)
 		footPrint.Parent = model
 	end
 
-	-- builder กับ building ชี้ไปที่ "โมเดลกำลังก่อสร้าง" ตัวเดียวกัน ลบทีเดียวพอ
 	self._BuilderStore[buildingId] = nil
 	if building.BuildingModel then
 		building.BuildingModel:Destroy()
@@ -118,9 +117,8 @@ function BuildingController:BuildingComplete(buildingId: string)
 
 	building.EndTime = 0
 	building.BuildingLevel = nextlevel
-	building.BuildingModel = model -- อัพเดทโมเดลจริงให้กับ cache หลังจากสร้างเสร็จ
+	building.BuildingModel = model
 
-	-- register collector ถ้าอาคารนี้เป็น collector
 	local collectorType = BuildingConfig:GetCollectorType(buildingType)
 	if collectorType then
 		self._ResourceController:RegisterclickDetector(collectorType, model)
@@ -492,8 +490,12 @@ function BuildingController:RecreateBuildings(
 			lastCollectedTime,
 			model
 		)
-	else -- สร้างเสร็จแล้ว ใช้โมเดลจริงเลย
+	else
 		modelCrate = self:_createBuilding(buildingType, worldPos, buildingLevel)
+		local collectorType = BuildingConfig:GetCollectorType(buildingType)
+		if collectorType then
+			self._ResourceController:RegisterclickDetector(collectorType, modelCrate)
+		end
 	end
 
 	if not model then
