@@ -89,9 +89,9 @@ function ResourceService:ReGisterColector(
 	LastCollectedTime: number
 )
 	if endtime ~= 0 then
-		warn(
-			`[ResourceService] EndTime is not 0 Mean building is Constructing or Upgrade for player {player.Name} and building {buildingId} with endTime {endtime}`
-		)
+		return
+	end
+	if buildingLevel == 0 then
 		return
 	end
 

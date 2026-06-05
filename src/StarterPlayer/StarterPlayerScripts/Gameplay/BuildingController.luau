@@ -41,8 +41,6 @@ export type BuildingCache = {
 	EndTime: number,
 	LastCollectedTime: number,
 	BuildingModel: Model,
-
-	BuilderModel: Model?,
 }
 
 local BuildingController = {}
@@ -87,28 +85,37 @@ function BuildingController:BuildingComplete(buildingId: string)
 		warn(`[BuildingController] No builder data found for buildingId {buildingId} on construction complete`)
 		return
 	end
+
+	local modelParent = building.BuildingModel and building.BuildingModel.Parent
+	local nextlevel = building.BuildingLevel + CONFIG.NEXT_LEVEL
 	building.EndTime = 0
-
-	-- clone model ของจริงมาแทนที่
-	local level = if building.BuildingLevel == CONFIG.STARTER_LEVEL
-		then CONFIG.NEXT_LEVEL
-		else (building.BuildingLevel + CONFIG.NEXT_LEVEL)
-
-	building.BuildingLevel += level
+	building.BuildingLevel = nextlevel
+	building.BuildingModel:Destroy()
+	building.BuildingModel = nil
 
 	local builder = self._BuilderStore[buildingId]
-	if builder then
-		builder.BuilderModel:Destroy()
+	if builder and builder.BuildingModel then
+		builder.BuildingModel:Destroy()
 		builder.BuildingModel = nil
-		builder.BuilderModel = nil
-		self._BuilderStore[buildingId] = nil
 	end
+	self._BuilderStore[buildingId] = nil
+
+	local buildingType = GameEnum:GetBuildingTypeById(building.BuildingEnum)
+	local dimension = BuildingConfig:GetBuildingDimensions(buildingType) :: { Length: number, Width: number }
+	local model = self._CreateBuilding(
+		buildingType,
+		self._GridController:GridCoordsToWorld(building.Gridx, building.Gridz, dimension.Length, dimension.Width),
+		nextlevel
+	)
+
+	model.Parent = modelParent
+	building.BuildingModel = model -- อัพเดทโมเดลจริงให้กับ cache หลังจากสร้างเสร็จ
+
+	--regis collector ถ้าเป็น collector
 
 	EventBus:Emit(Events.C2S_BUILDING_CONSTRUCTION_COMPLETE, {
 		BuildingId = buildingId,
 	})
-
-	-- local model = self:_createBuilding()
 
 	warn(`[BuildingController] Building construction complete for buildingId {buildingId}`)
 end
@@ -140,18 +147,31 @@ function BuildingController:_requestPlaceBuilding(gridx: number, gridz: number, 
 	})
 end
 
-function BuildingController:_CloneConstructionVisual(templatename: string, gridsize: number): Model?
+function BuildingController:_CloneConstructionVisual(
+	templatename: string,
+	gridx: number,
+	gridz: number,
+	sizex: number,
+	sizez: number
+): Model?
 	local template = self._BuildingTemplate:FindFirstChild(templatename, true)
 	if not template then
 		warn(`[BuildingController] Upgrade building template not found in BuildingTemplate`)
 		return
 	end
-	local model = template:FindFirstChild(CONFIG.GRID_KEY[gridsize], true)
+
+	local gridsize = sizex * sizez
+	local model = template:FindFirstChild(CONFIG.GRID_KEY[gridsize], true):Clone()
 	if not model then
 		warn(`[BuildingController] Upgrade building model with grid size {gridsize} not found in BuildingTemplate`)
 		return
 	end
-	return model:Clone()
+
+	local worldPos = self._GridController:GridCoordsToWorld(gridx, gridz, sizex, sizez)
+	local primaryPart1 = model.PrimaryPart :: BasePart
+	local haft = primaryPart1.Size.Y / 2
+	model:PivotTo(CFrame.new(worldPos.X, worldPos.Y + haft + CONFIG.HEIGHT, worldPos.Z))
+	return model
 end
 
 function BuildingController:RegisterBuildingCache(
@@ -173,39 +193,6 @@ function BuildingController:RegisterBuildingCache(
 		LastCollectedTime = lastCollectedTime,
 		BuildingModel = model,
 	}
-end
-
-function BuildingController:_GetBuilderModel(
-	buildingLevel: number,
-	gridx: number,
-	gridz: number,
-	sizex: number,
-	sizez: number
-): Model?
-	-- return clone แบบแปลงส่วนสูง โดยดึงจากModel primarypart setposition ให้เรียบร้อยก่อนส่ง
-	local clone = nil
-	local worldPos = self._GridController:GridCoordsToWorld(gridx, gridz, sizex, sizez)
-
-	if buildingLevel == 0 then
-		clone = Instance.new("Model")
-		local model1 = self:_CloneConstructionVisual(CONFIG.CREATE_BUILDING_TEMPLATE, sizex * sizez)
-		local model2 = self:_CloneConstructionVisual(CONFIG.UPGRADE_BUILDING_TEMPLATE, sizex * sizez)
-		local primaryPart1 = model1.PrimaryPart :: BasePart
-		local primaryPart2 = model2.PrimaryPart :: BasePart
-		local haftHeight1 = primaryPart1.Size.Y / 2
-		local haftHeight2 = primaryPart2.Size.Y / 2
-		model1:PivotTo(CFrame.new(worldPos.X, worldPos.Y + haftHeight1 + CONFIG.HEIGHT, worldPos.Z))
-		model2:PivotTo(CFrame.new(worldPos.X, worldPos.Y + haftHeight2 + CONFIG.HEIGHT, worldPos.Z))
-		model1.Parent = clone
-		model2.Parent = clone
-	else
-		clone = self:_CloneConstructionVisual(CONFIG.UPGRADE_BUILDING_TEMPLATE, sizex * sizez)
-		local primaryPart = clone.PrimaryPart :: BasePart
-		local haftHeight = primaryPart.Size.Y / 2
-		clone:PivotTo(CFrame.new(worldPos.X, worldPos.Y + haftHeight + CONFIG.HEIGHT, worldPos.Z))
-	end
-
-	return clone
 end
 
 function BuildingController:_RegisterBuilderStore(
@@ -364,18 +351,26 @@ function BuildingController:_startPlacement(buildType: string)
 			local footPrint = self:_createFootPrints(snapPos, dimension.Length * dimension.Width)
 
 			-- เปลี่ยนไปใช้ CreatingBuilding Template แทนพอสร้างเสร้จค่อให้โมเดลจริง
-			-- local model = self:_createBuilding(buildType, snapPos)
-			-- if not model then
-			-- 	warn(`[BuildingController] Failed to create building model for {buildType} at position {snapPos}`)
-			-- 	return
-			-- end
 
-			-- สร้างmodel คนสร้างออกมา จาก Crate upgrad
-			local model = self:_GetBuilderModel(CONFIG.STARTER_LEVEL, startX, startZ, dimension.Length, dimension.Width)
-			if not model then
-				warn(`[BuildingController] Failed to create builder model for {buildType} at position {snapPos}`)
-				return
-			end
+			local model = Instance.new("Model")
+			local modelUpgrade = self:_CloneConstructionVisual(
+				CONFIG.UPGRADE_BUILDING_TEMPLATE,
+				startX,
+				startZ,
+				dimension.Length,
+				dimension.Width
+			)
+			local modelCreate = self:_CloneConstructionVisual(
+				CONFIG.CREATE_BUILDING_TEMPLATE,
+				startX,
+				startZ,
+				dimension.Length,
+				dimension.Width
+			)
+
+			footPrint.Parent = model
+			modelUpgrade.Parent = model
+			modelCreate.Parent = model
 			model.Parent = self._PlayerFolder
 
 			self:_requestPlaceBuilding(startX, startZ, buildingEnum, snapPos)
@@ -409,7 +404,6 @@ function BuildingController:_startPlacement(buildType: string)
 				model
 			)
 			model.Name = nextbuildingId
-			footPrint.Parent = model
 
 			self._buildingCount = buildingCount + 1
 		end
@@ -437,7 +431,58 @@ function BuildingController:RecreateBuildings(
 	end
 
 	local worldPos = self._GridController:GridCoordsToWorld(gridx, gridz, dimension.Length, dimension.Width)
-	local model = self:_createBuilding(buildingType, worldPos, buildingLevel)
+
+	local model = Instance.new("Model")
+	-- 3 edge case คือ 1. กำลังสร้าง Level 1
+	-- 2. สร้างเสณ้จแล้ว
+	-- 3. กำลังอัพเกรด จาก N level ไป N+1 level
+	local modelCrate = nil
+	local modelUpgrade = nil
+	-- level 0 คือกำลังสร้างใหม่เลย ยังไม่มีโมเดลจริง
+	if buildingLevel == CONFIG.STARTER_LEVEL then
+		modelCrate = self:_CloneConstructionVisual(
+			CONFIG.UPGRADE_BUILDING_TEMPLATE,
+			gridx,
+			gridz,
+			dimension.Length,
+			dimension.Width
+		)
+		modelUpgrade = self:_CloneConstructionVisual(
+			CONFIG.CREATE_BUILDING_TEMPLATE,
+			gridx,
+			gridz,
+			dimension.Length,
+			dimension.Width
+		)
+		modelCrate.Parent = model
+		modelUpgrade.Parent = model
+		-- กำลังอัพเกรด ใช้โมเดลสร้างใหม่
+	elseif endTime ~= 0 then
+		modelCrate = self:_createBuilding(buildingType, worldPos, buildingLevel)
+		modelUpgrade = self:_CloneConstructionVisual(
+			CONFIG.UPGRADE_BUILDING_TEMPLATE,
+			gridx,
+			gridz,
+			dimension.Length,
+			dimension.Width
+		)
+		modelUpgrade.Parent = model
+		modelCrate.Parent = model
+
+		self:_RegisterBuilderStore(
+			buildingId,
+			gridx,
+			gridz,
+			buildingEnum,
+			buildingLevel,
+			endTime,
+			lastCollectedTime,
+			model
+		)
+	else -- สร้างเสร็จแล้ว ใช้โมเดลจริงเลย
+		modelCrate = self:_createBuilding(buildingType, worldPos, buildingLevel)
+	end
+
 	if not model then
 		warn(`[BuildingController] Failed to create building model for {buildingType} at position {worldPos}`)
 		return
@@ -455,19 +500,6 @@ function BuildingController:RecreateBuildings(
 	end
 
 	self:RegisterBuildingCache(buildingId, gridx, gridz, buildingEnum, buildingLevel, endTime, lastCollectedTime, model)
-
-	if endTime ~= 0 then
-		self:_RegisterBuilderStore(
-			buildingId,
-			gridx,
-			gridz,
-			buildingEnum,
-			buildingLevel,
-			endTime,
-			lastCollectedTime,
-			model
-		)
-	end
 end
 
 function BuildingController:_stopPlacement()

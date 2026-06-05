@@ -26,6 +26,13 @@ export type Storage = {
 local CONFIG = {
 	ACTION_PART_NAME = "ActionPart",
 	DISAPPEAR_DELAY = 5,
+	KEY_CHECK = {
+		[1] = "Golds",
+		[8] = "Elixirs",
+		[9] = "Elixirs",
+		[10] = "Golds",
+		[11] = "Golds",
+	},
 }
 
 local ResourceController = {}
@@ -113,6 +120,10 @@ function ResourceController:RegisterColector(
 	endtime: number,
 	lastCollectedTime: number
 )
+	if CONFIG.KEY_CHECK[buildingEnum] == nil then
+		return
+	end
+
 	local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, buildingLevel)
 	if not buildingData then
 		warn(
