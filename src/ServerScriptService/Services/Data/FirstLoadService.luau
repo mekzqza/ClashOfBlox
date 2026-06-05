@@ -81,6 +81,7 @@ function FirstLoadService:Start()
 					Experience = playerData.Experience or 0,
 					Buildings = ArrayBuilding or {},
 					BuildingCount = playerData.BuildingCount or 0,
+					BuilderHutSlot = playerData.BuilderHutSlot or 2,
 					-- Storage = storage,
 					-- Collectors = collectors,
 				}

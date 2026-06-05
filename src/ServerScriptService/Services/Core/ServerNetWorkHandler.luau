@@ -32,6 +32,7 @@ local function DataLayer()
 			Experience = data.Experience,
 			Buildings = data.Buildings,
 			BuildingCount = data.BuildingCount,
+			BuilderHutSlot = data.BuilderHutSlot,
 		})
 	end)
 
@@ -43,6 +44,7 @@ local function DataLayer()
 			["Level"] = "Level",
 			["Experience"] = "Experience",
 			["BuildingCount"] = "BuildingCount",
+			["BuilderHutSlot"] = "BuilderHutSlot",
 		}
 
 		local zapkey = keyMap[data.Key]

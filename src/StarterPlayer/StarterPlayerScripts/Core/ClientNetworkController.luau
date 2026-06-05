@@ -54,6 +54,7 @@ local function DataLayer()
 			Experience = data.Experience,
 			Buildings = buildingsMap,
 			BuildingCount = data.BuildingCount,
+			BuilderHutSlot = data.BuilderHutSlot,
 		}
 		EventBus:Emit(Events.LOCAL_PLAYER_DATA_FIRST_LOAD, playload)
 	end)

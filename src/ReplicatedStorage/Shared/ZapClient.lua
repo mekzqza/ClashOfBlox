@@ -166,15 +166,6 @@ local remotes = ReplicatedStorage:WaitForChild("ZAP")
 local reliable = remotes:WaitForChild("ZAP_RELIABLE")
 assert(reliable:IsA("RemoteEvent"), "Expected ZAP_RELIABLE to be a RemoteEvent")
 
-export type BuildingEntry = ({
-	["BuildingId"]: (string),
-	["Gridx"]: (number),
-	["Gridz"]: (number),
-	["BuildingEnum"]: (number),
-	["BuildingLevel"]: (number),
-	["EndTime"]: (number),
-	["LastCollectedTime"]: (number),
-})
 export type Collector = ({
 	["GoldCollector"]: ({
 		["Timestamp"]: (number),
@@ -187,12 +178,21 @@ export type Collector = ({
 		["Capacity"]: (number),
 	}),
 })
-export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience" | "BuildingCount")
+export type BuildingEntry = ({
+	["BuildingId"]: (string),
+	["Gridx"]: (number),
+	["Gridz"]: (number),
+	["BuildingEnum"]: (number),
+	["BuildingLevel"]: (number),
+	["EndTime"]: (number),
+	["LastCollectedTime"]: (number),
+})
 export type CollectorData = ({
 	["Timestamp"]: (number),
 	["ProductionRate"]: (number),
 	["Capacity"]: (number),
 })
+export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot")
 
 local function SendEvents()
 	if outgoing_used ~= 0 then
@@ -288,8 +288,10 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 				value["Key"] = "Experience"
 			elseif bit32.btest(bool_1, 0b0000000000100000) then
 				value["Key"] = "BuildingCount"
+			elseif bit32.btest(bool_1, 0b0000000001000000) then
+				value["Key"] = "BuilderHutSlot"
 			end
-			if bit32.btest(bool_1, 0b0000000001000000) then
+			if bit32.btest(bool_1, 0b0000000010000000) then
 				incoming_ipos = incoming_ipos + 1
 				value["Value"] = incoming_inst[incoming_ipos]
 			else
@@ -330,6 +332,7 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 				value["Buildings"][i_2] = val_2
 			end
 			value["BuildingCount"] = buffer.readu32(incoming_buff, read(4))
+			value["BuilderHutSlot"] = buffer.readu8(incoming_buff, read(1))
 			if reliable_events[0] then
 				task.spawn(reliable_events[0], value)
 			else
@@ -425,7 +428,7 @@ local returns = {
 	},
 	PlayerDataUpdate = {
 		On = function(Callback: (Value: ({
-			["Key"]: ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience" | "BuildingCount"),
+			["Key"]: ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot"),
 			["Value"]: ((unknown)),
 		})) -> ())
 			table.insert(reliable_events[4], Callback)
@@ -469,6 +472,7 @@ local returns = {
 				["LastCollectedTime"]: (number),
 			}) }),
 			["BuildingCount"]: (number),
+			["BuilderHutSlot"]: (number),
 		})) -> ()): () -> ()
 			reliable_events[0] = Callback
 			for _, value in reliable_event_queue[0] do

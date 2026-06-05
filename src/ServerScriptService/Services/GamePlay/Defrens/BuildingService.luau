@@ -28,10 +28,12 @@ export type BuildingCache = {
 }
 
 local CONFIG = {
-	STARTER_LEVEL = 1,
+	STARTER_LEVEL = 0,
+	NEXT_LEVEL = 1,
 	STARTER_END_TIME = 0, -- 0 หมายถึง กำลังก่อสร้าง
-	STARTER_LAST_COLLECTED_TIME = os.time(),
 	BUILDING_DONE = 0,
+	-- เผื่อ skew นาฬิกา client/server + latency (client เป็นคนนับถอยหลังแล้วยิง event มาบอก)
+	COMPLETE_GRACE = 2,
 	TIME_OUT = 30,
 	KEYSTORE = {
 		["Gridx"] = 1,
@@ -50,6 +52,7 @@ BuildingService.__index = BuildingService
 function BuildingService.new()
 	local self = setmetatable({}, BuildingService)
 	self._BuildingCache = {} :: { [Player]: { [string]: BuildingCache } }
+	self._PlayerBuilderSlot = {} :: { [Player]: number }
 	self._LookBack = {
 		[8] = "ElixirStorage",
 		[9] = "ElixirCollector",
@@ -81,7 +84,15 @@ function BuildingService:_IsbuilgIsComplete(player: Player, buildingId: string):
 
 	local buildingendtime = buildingData.EndTime
 
-	if os.time() <= buildingendtime then
+	-- EndTime == 0 แปลว่าก่อสร้างเสร็จไปแล้ว กันยิง event ซ้ำมาอัพเลเวลฟรี
+	if buildingendtime == CONFIG.BUILDING_DONE then
+		warn(`[BuildingService] Building {buildingId} for {player.Name} is already completed`)
+		return false
+	end
+
+	-- ยังก่อสร้างไม่เสร็จจริง (หัก grace เผื่อ skew/latency) — อาจเป็นการยิงก่อนเวลา
+	if os.time() < buildingendtime - CONFIG.COMPLETE_GRACE then
+		warn(`[BuildingService] Building {buildingId} for {player.Name} not finished yet`)
 		return false
 	end
 
@@ -95,16 +106,22 @@ function BuildingService:_OnbuilingDone(player: Player, buildingId: string)
 		return
 	end
 
+	-- 0 หมายถึง กำลังก่อสร้าง ถ้าเป็น starter จะอัพเป็น level 1 ถ้ามีเลเวลอยู่แล้วจะบวกไปอีก 1
+	local level = buildingdata.BuildingLevel + CONFIG.NEXT_LEVEL
+
 	self._PlayerDataService:Set(player, `PlayerBuildings.{buildingId}`, {
 		buildingdata.Gridx,
 		buildingdata.Gridz,
 		buildingdata.BuildingEnum,
-		CONFIG.STARTER_LEVEL,
+		level,
 		CONFIG.BUILDING_DONE,
 		buildingdata.LastCollectedTime,
 	}, false)
 
+	self._PlayerBuilderSlot[player] = -1
+
 	self._BuildingCache[player][buildingId].EndTime = CONFIG.BUILDING_DONE
+	self._BuildingCache[player][buildingId].BuildingLevel = level
 	warn(
 		`[BuildingService] Building construction complete for player {player.Name} and buildingId {buildingId}, updating player data and cache`
 	)
@@ -163,7 +180,21 @@ function BuildingService:_PlaceBuilding(
 	buildingEnum: number,
 	position: Vector3
 )
-	local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.STARTER_LEVEL)
+	local playerData = self._PlayerDataService:GetAll(player)
+	if not playerData then
+		warn(`[BuildingService] Player data not found for player: {player.Name}`)
+		return
+	end
+
+	local builderHutSlot = playerData.BuilderHutSlot
+	if self._PlayerBuilderSlot[player] >= builderHutSlot then
+		warn(`[BuildingService] Player {player.Name} has no available builder slots to place new building`)
+		return
+	end
+
+	-- ทรัพยาการที่ต้องใช้ในการสร้าง
+
+	local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.STARTER_LEVEL + CONFIG.NEXT_LEVEL)
 	if not buildingData then
 		warn(
 			`[BuildingService] No building data found for BuildingEnum: {buildingEnum}, BuildingLevel: {CONFIG.STARTER_LEVEL}`
@@ -171,10 +202,9 @@ function BuildingService:_PlaceBuilding(
 		return
 	end
 
+	-- อาคารที่เพิ่งวางเริ่มที่ 0 เสมอ — ResourceService ตีความ 0 ว่า "เริ่มนับเวลาผลิต ณ ตอนสร้างเสร็จ"
+	-- (buildingData เป็น level-data จึงไม่มี CollectorType ให้เช็ก ฟิลด์นั้นอยู่ที่ตัวอาคาร)
 	local lastCollectedTime = 0
-	if buildingData.CollectorType ~= nil then
-		lastCollectedTime = CONFIG.STARTER_LAST_COLLECTED_TIME
-	end
 
 	local endtime = os.time() + buildingData.UpgradeTime
 	local buildingcount = self._PlayerDataService:Get(player, "BuildingCount") :: number
@@ -197,6 +227,8 @@ function BuildingService:_PlaceBuilding(
 		endtime,
 		lastCollectedTime
 	)
+
+	self._PlayerBuilderSlot[player] = self._PlayerBuilderSlot[player] + 1
 
 	-- self:_BroadCastBuilding(player, buildingEnum, position)
 end
@@ -243,7 +275,13 @@ function BuildingService:Start()
 			:andThen(function()
 				local PlayerData = self._PlayerDataService:GetAll(player)
 				local playerBuildings = PlayerData.PlayerBuildings
+
+				local BuilderHutSlot = 0
 				for buildingId, buildingData in pairs(playerBuildings) do
+					if buildingData[CONFIG.KEYSTORE["EndTime"]] ~= 0 then
+						BuilderHutSlot = BuilderHutSlot + 1
+					end
+
 					self:_RegisterBuildingCache(
 						player,
 						buildingId,
@@ -254,17 +292,21 @@ function BuildingService:Start()
 						buildingData[CONFIG.KEYSTORE["EndTime"]],
 						buildingData[CONFIG.KEYSTORE["LastCollectedTime"]]
 					)
-					self._ResourceService:ReGisterColector(
-						player,
-						buildingId,
-						buildingData[CONFIG.KEYSTORE["Gridx"]],
-						buildingData[CONFIG.KEYSTORE["Gridz"]],
-						buildingData[CONFIG.KEYSTORE["BuildingEnum"]],
-						buildingData[CONFIG.KEYSTORE["BuildingLevel"]],
-						buildingData[CONFIG.KEYSTORE["EndTime"]],
-						buildingData[CONFIG.KEYSTORE["LastCollectedTime"]]
-					)
+
+					if buildingData[CONFIG.KEYSTORE["BuildingEnum"]] ~= nil then
+						self._ResourceService:ReGisterColector(
+							player,
+							buildingId,
+							buildingData[CONFIG.KEYSTORE["Gridx"]],
+							buildingData[CONFIG.KEYSTORE["Gridz"]],
+							buildingData[CONFIG.KEYSTORE["BuildingEnum"]],
+							buildingData[CONFIG.KEYSTORE["BuildingLevel"]],
+							buildingData[CONFIG.KEYSTORE["EndTime"]],
+							buildingData[CONFIG.KEYSTORE["LastCollectedTime"]]
+						)
+					end
 				end
+				self._PlayerBuilderSlot[player] = BuilderHutSlot
 				self._ResourceService:MarkRegistrationComplete(player)
 			end)
 			:catch(function()
