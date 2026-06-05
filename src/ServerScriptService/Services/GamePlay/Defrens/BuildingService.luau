@@ -28,7 +28,8 @@ export type BuildingCache = {
 }
 
 local CONFIG = {
-	STARTER_LEVEL = 1,
+	STARTER_LEVEL = 0,
+	NEXT_LEVEL = 1,
 	STARTER_END_TIME = 0, -- 0 หมายถึง กำลังก่อสร้าง
 	STARTER_LAST_COLLECTED_TIME = os.time(),
 	BUILDING_DONE = 0,
@@ -95,16 +96,22 @@ function BuildingService:_OnbuilingDone(player: Player, buildingId: string)
 		return
 	end
 
+	-- 0 หมายถึง กำลังก่อสร้าง ถ้าเป็น starter จะอัพเป็น level 1 ถ้ามีเลเวลอยู่แล้วจะบวกไปอีก 1
+	local level = if buildingdata.BuildingLevel == CONFIG.STARTER_LEVEL
+		then CONFIG.NEXT_LEVEL
+		else buildingdata.BuildingLevel + CONFIG.NEXT_LEVEL
+
 	self._PlayerDataService:Set(player, `PlayerBuildings.{buildingId}`, {
 		buildingdata.Gridx,
 		buildingdata.Gridz,
 		buildingdata.BuildingEnum,
-		CONFIG.STARTER_LEVEL,
+		level,
 		CONFIG.BUILDING_DONE,
 		buildingdata.LastCollectedTime,
 	}, false)
 
 	self._BuildingCache[player][buildingId].EndTime = CONFIG.BUILDING_DONE
+	self._BuildingCache[player][buildingId].BuildingLevel = level
 	warn(
 		`[BuildingService] Building construction complete for player {player.Name} and buildingId {buildingId}, updating player data and cache`
 	)
@@ -163,7 +170,7 @@ function BuildingService:_PlaceBuilding(
 	buildingEnum: number,
 	position: Vector3
 )
-	local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.STARTER_LEVEL)
+	local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.STARTER_LEVEL + CONFIG.NEXT_LEVEL)
 	if not buildingData then
 		warn(
 			`[BuildingService] No building data found for BuildingEnum: {buildingEnum}, BuildingLevel: {CONFIG.STARTER_LEVEL}`
@@ -254,16 +261,19 @@ function BuildingService:Start()
 						buildingData[CONFIG.KEYSTORE["EndTime"]],
 						buildingData[CONFIG.KEYSTORE["LastCollectedTime"]]
 					)
-					self._ResourceService:ReGisterColector(
-						player,
-						buildingId,
-						buildingData[CONFIG.KEYSTORE["Gridx"]],
-						buildingData[CONFIG.KEYSTORE["Gridz"]],
-						buildingData[CONFIG.KEYSTORE["BuildingEnum"]],
-						buildingData[CONFIG.KEYSTORE["BuildingLevel"]],
-						buildingData[CONFIG.KEYSTORE["EndTime"]],
-						buildingData[CONFIG.KEYSTORE["LastCollectedTime"]]
-					)
+
+					if buildingData[CONFIG.KEYSTORE["BuildingEnum"]] ~= nil then
+						self._ResourceService:ReGisterColector(
+							player,
+							buildingId,
+							buildingData[CONFIG.KEYSTORE["Gridx"]],
+							buildingData[CONFIG.KEYSTORE["Gridz"]],
+							buildingData[CONFIG.KEYSTORE["BuildingEnum"]],
+							buildingData[CONFIG.KEYSTORE["BuildingLevel"]],
+							buildingData[CONFIG.KEYSTORE["EndTime"]],
+							buildingData[CONFIG.KEYSTORE["LastCollectedTime"]]
+						)
+					end
 				end
 				self._ResourceService:MarkRegistrationComplete(player)
 			end)

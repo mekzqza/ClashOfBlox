@@ -11,9 +11,13 @@ local Player = Players.LocalPlayer
 
 local CONFIG = {
 	FOOTPRINTS_TEMPLATE = "FootPrints",
+	CREATE_BUILDING_TEMPLATE = "CreatingBuilding",
+	UPGRADE_BUILDING_TEMPLATE = "UpgradingBuilding",
+
 	HEIGHT = 0.5,
-	STARTER_LEVEL = 1,
-	FOOTPRINTS = {
+	STARTER_LEVEL = 0,
+	NEXT_LEVEL = 1,
+	GRID_KEY = {
 		[1] = "1*1Grid",
 		[4] = "2*2Grid",
 		[9] = "3*3Grid",
@@ -36,6 +40,9 @@ export type BuildingCache = {
 	BuildingLevel: number,
 	EndTime: number,
 	LastCollectedTime: number,
+	BuildingModel: Model,
+
+	BuilderModel: Model?,
 }
 
 local BuildingController = {}
@@ -49,7 +56,7 @@ function BuildingController.new()
 	self._isPlacing = false
 	self._renderConnection = nil
 	self._indicatorModel = nil
-	self._Connettion = nil
+	self._Connetion = nil
 	self._PlayerFolder = nil
 	self._RuntimeChecker = nil
 
@@ -75,11 +82,34 @@ function BuildingController:SetPlayerFolder(folder: Folder)
 end
 
 function BuildingController:BuildingComplete(buildingId: string)
+	local building = self._BuildingStore[buildingId]
+	if not building then
+		warn(`[BuildingController] No builder data found for buildingId {buildingId} on construction complete`)
+		return
+	end
+	building.EndTime = 0
+
+	-- clone model ของจริงมาแทนที่
+	local level = if building.BuildingLevel == CONFIG.STARTER_LEVEL
+		then CONFIG.NEXT_LEVEL
+		else (building.BuildingLevel + CONFIG.NEXT_LEVEL)
+
+	building.BuildingLevel += level
+
+	local builder = self._BuilderStore[buildingId]
+	if builder then
+		builder.BuilderModel:Destroy()
+		builder.BuildingModel = nil
+		builder.BuilderModel = nil
+		self._BuilderStore[buildingId] = nil
+	end
+
 	EventBus:Emit(Events.C2S_BUILDING_CONSTRUCTION_COMPLETE, {
 		BuildingId = buildingId,
 	})
-	self._BuilderStore[buildingId] = nil
-	self._BuildingStore[buildingId].EndTime = 0
+
+	-- local model = self:_createBuilding()
+
 	warn(`[BuildingController] Building construction complete for buildingId {buildingId}`)
 end
 
@@ -110,6 +140,20 @@ function BuildingController:_requestPlaceBuilding(gridx: number, gridz: number, 
 	})
 end
 
+function BuildingController:_CloneConstructionVisual(templatename: string, gridsize: number): Model?
+	local template = self._BuildingTemplate:FindFirstChild(templatename, true)
+	if not template then
+		warn(`[BuildingController] Upgrade building template not found in BuildingTemplate`)
+		return
+	end
+	local model = template:FindFirstChild(CONFIG.GRID_KEY[gridsize], true)
+	if not model then
+		warn(`[BuildingController] Upgrade building model with grid size {gridsize} not found in BuildingTemplate`)
+		return
+	end
+	return model:Clone()
+end
+
 function BuildingController:RegisterBuildingCache(
 	buildingId: string,
 	gridx: number,
@@ -117,7 +161,8 @@ function BuildingController:RegisterBuildingCache(
 	buildingEnum: number,
 	buildingLevel: number,
 	endtime: number,
-	lastCollectedTime: number
+	lastCollectedTime: number,
+	model: Model
 )
 	self._BuildingStore[buildingId] = {
 		BuildingEnum = buildingEnum,
@@ -126,7 +171,41 @@ function BuildingController:RegisterBuildingCache(
 		BuildingLevel = buildingLevel,
 		EndTime = endtime,
 		LastCollectedTime = lastCollectedTime,
+		BuildingModel = model,
 	}
+end
+
+function BuildingController:_GetBuilderModel(
+	buildingLevel: number,
+	gridx: number,
+	gridz: number,
+	sizex: number,
+	sizez: number
+): Model?
+	-- return clone แบบแปลงส่วนสูง โดยดึงจากModel primarypart setposition ให้เรียบร้อยก่อนส่ง
+	local clone = nil
+	local worldPos = self._GridController:GridCoordsToWorld(gridx, gridz, sizex, sizez)
+
+	if buildingLevel == 0 then
+		clone = Instance.new("Model")
+		local model1 = self:_CloneConstructionVisual(CONFIG.CREATE_BUILDING_TEMPLATE, sizex * sizez)
+		local model2 = self:_CloneConstructionVisual(CONFIG.UPGRADE_BUILDING_TEMPLATE, sizex * sizez)
+		local primaryPart1 = model1.PrimaryPart :: BasePart
+		local primaryPart2 = model2.PrimaryPart :: BasePart
+		local haftHeight1 = primaryPart1.Size.Y / 2
+		local haftHeight2 = primaryPart2.Size.Y / 2
+		model1:PivotTo(CFrame.new(worldPos.X, worldPos.Y + haftHeight1 + CONFIG.HEIGHT, worldPos.Z))
+		model2:PivotTo(CFrame.new(worldPos.X, worldPos.Y + haftHeight2 + CONFIG.HEIGHT, worldPos.Z))
+		model1.Parent = clone
+		model2.Parent = clone
+	else
+		clone = self:_CloneConstructionVisual(CONFIG.UPGRADE_BUILDING_TEMPLATE, sizex * sizez)
+		local primaryPart = clone.PrimaryPart :: BasePart
+		local haftHeight = primaryPart.Size.Y / 2
+		clone:PivotTo(CFrame.new(worldPos.X, worldPos.Y + haftHeight + CONFIG.HEIGHT, worldPos.Z))
+	end
+
+	return clone
 end
 
 function BuildingController:_RegisterBuilderStore(
@@ -136,7 +215,8 @@ function BuildingController:_RegisterBuilderStore(
 	buildingEnum: number,
 	buildingLevel: number,
 	endtime: number,
-	lastCollectedTime: number
+	lastCollectedTime: number,
+	model: Model
 )
 	self._BuilderStore[buildingId] = {
 		Gridx = gridx,
@@ -145,32 +225,28 @@ function BuildingController:_RegisterBuilderStore(
 		BuildingLevel = buildingLevel,
 		EndTime = endtime,
 		LastCollectedTime = lastCollectedTime,
+		BuildingModel = model,
 	}
+
 	self:_ensureRuntimeChecker()
-
-	-- เล่นanimation วางอาคารเรียกคนสร้างออกมา
-
-	-- นับถอยหลังเองเลย
-
-	--ส่งข้อมูลวางไปหาserver
 end
 
-function BuildingController:_createFootPrints(position: Vector3, size: number)
+function BuildingController:_createFootPrints(position: Vector3, size: number): BasePart?
 	local template = self._BuildingTemplate:FindFirstChild(CONFIG.FOOTPRINTS_TEMPLATE, true)
 	if not template then
 		warn(`[BuildingController] Footprints template not found in BuildingTemplate`)
 		return
 	end
 
-	local newFootPrint: BasePart = template:FindFirstChild(CONFIG.FOOTPRINTS[size], true):Clone()
+	local newFootPrint: BasePart = template:FindFirstChild(CONFIG.GRID_KEY[size], true):Clone()
 	if not newFootPrint then
 		warn(`[BuildingController] Footprints model with size {size} not found in BuildingTemplate`)
 		return
 	end
 
 	local half = newFootPrint.Size.Y / 2
-	newFootPrint.Parent = self._PlayerFolder
 	newFootPrint.CFrame = CFrame.new(position.X, position.Y + half + CONFIG.HEIGHT, position.Z)
+	return newFootPrint
 end
 
 function BuildingController:_createBuilding(buildingType: string, snapPosition: Vector3, buildingLevel: number?): Model?
@@ -180,7 +256,7 @@ function BuildingController:_createBuilding(buildingType: string, snapPosition: 
 		return
 	end
 
-	local Template = buildingFolder:FindFirstChild(buildingLevel or CONFIG.STARTER_LEVEL)
+	local Template = buildingFolder:FindFirstChild(tostring(buildingLevel or CONFIG.STARTER_LEVEL), true)
 	if not Template then
 		warn(`Level {CONFIG.STARTER_LEVEL} not found in {buildingType}`)
 		return
@@ -213,9 +289,9 @@ function BuildingController:_startPlacement(buildType: string)
 		return
 	end
 
-	local Template = buildingFolder:FindFirstChild(CONFIG.STARTER_LEVEL)
+	local Template = buildingFolder:FindFirstChild(tostring(CONFIG.NEXT_LEVEL))
 	if not Template then
-		warn(`[BuildingController] Level {CONFIG.STARTER_LEVEL} not found in {buildType}`)
+		warn(`[BuildingController] Level {CONFIG.NEXT_LEVEL} not found in {buildType}`)
 		return
 	end
 
@@ -228,10 +304,11 @@ function BuildingController:_startPlacement(buildType: string)
 	if not Template:IsA("Model") then
 		return
 	end
+
 	self._indicatorModel = Template:Clone()
 	self._footPrintindicator = self._BuildingTemplate
 		:FindFirstChild(CONFIG.FOOTPRINTS_TEMPLATE, true)
-		:FindFirstChild(CONFIG.FOOTPRINTS[dimension.Length * dimension.Width], true)
+		:FindFirstChild(CONFIG.GRID_KEY[dimension.Length * dimension.Width], true)
 		:Clone()
 	self._footPrintindicator.Parent = self._indicatorModel
 	local templateRotation = Template:GetPivot().Rotation
@@ -278,26 +355,61 @@ function BuildingController:_startPlacement(buildType: string)
 	end)
 
 	local mouse = Player:GetMouse()
-	self._Connettion = mouse.Button1Down:Connect(function()
+	self._Connetion = mouse.Button1Down:Connect(function()
 		local snapPos =
 			self._GridController:SnapToGrid(mouse.Hit.Position, dimension.Length, dimension.Width) :: Vector3
 		if self._GridController:CanPlace(snapPos, dimension.Length, dimension.Width) then
 			local startX, startZ = self._GridController:GetFootPrintStart(snapPos, dimension.Length, dimension.Width)
 			local buildingEnum = GameEnum:GetBuildingTypeIdByName(buildType)
+			local footPrint = self:_createFootPrints(snapPos, dimension.Length * dimension.Width)
+
+			-- เปลี่ยนไปใช้ CreatingBuilding Template แทนพอสร้างเสร้จค่อให้โมเดลจริง
+			-- local model = self:_createBuilding(buildType, snapPos)
+			-- if not model then
+			-- 	warn(`[BuildingController] Failed to create building model for {buildType} at position {snapPos}`)
+			-- 	return
+			-- end
+
+			-- สร้างmodel คนสร้างออกมา จาก Crate upgrad
+			local model = self:_GetBuilderModel(CONFIG.STARTER_LEVEL, startX, startZ, dimension.Length, dimension.Width)
+			if not model then
+				warn(`[BuildingController] Failed to create builder model for {buildType} at position {snapPos}`)
+				return
+			end
+			model.Parent = self._PlayerFolder
+
 			self:_requestPlaceBuilding(startX, startZ, buildingEnum, snapPos)
-			self:_createBuilding(buildType, snapPos)
-			self:_createFootPrints(snapPos, dimension.Length * dimension.Width)
 			self._GridController:occupyCell(snapPos, dimension.Length, dimension.Width)
 
 			-- เก็บcache ไว้ก่อน โยยไม่รอserver
 			local buildingCount = self._buildingCount :: number
 			local nextbuildingId = `n{buildingCount + 1}`
-			local BuildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.STARTER_LEVEL)
+			local BuildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.NEXT_LEVEL)
 			local builTime = os.time() + BuildingData.UpgradeTime
 
-			self:RegisterBuildingCache(nextbuildingId, startX, startZ, buildingEnum, CONFIG.STARTER_LEVEL, builTime, 0)
+			self:RegisterBuildingCache(
+				nextbuildingId,
+				startX,
+				startZ,
+				buildingEnum,
+				CONFIG.STARTER_LEVEL,
+				builTime,
+				0,
+				model
+			)
 
-			self:_RegisterBuilderStore(nextbuildingId, startX, startZ, buildingEnum, CONFIG.STARTER_LEVEL, builTime, 0)
+			self:_RegisterBuilderStore(
+				nextbuildingId,
+				startX,
+				startZ,
+				buildingEnum,
+				CONFIG.STARTER_LEVEL,
+				builTime,
+				0,
+				model
+			)
+			model.Name = nextbuildingId
+			footPrint.Parent = model
 
 			self._buildingCount = buildingCount + 1
 		end
@@ -313,9 +425,6 @@ function BuildingController:RecreateBuildings(
 	endTime: number,
 	lastCollectedTime: number
 )
-	local startX = gridx
-	local startZ = gridz
-
 	local buildingType = GameEnum:GetBuildingTypeById(buildingEnum)
 	if not buildingType then
 		warn(`[BuildingController] Invalid building enum {buildingEnum} for buildingId {buildingId}`)
@@ -327,9 +436,17 @@ function BuildingController:RecreateBuildings(
 		return
 	end
 
-	local worldPos = self._GridController:GridCoordsToWorld(startX, startZ, dimension.Length, dimension.Width)
+	local worldPos = self._GridController:GridCoordsToWorld(gridx, gridz, dimension.Length, dimension.Width)
 	local model = self:_createBuilding(buildingType, worldPos, buildingLevel)
-	self:_createFootPrints(worldPos, dimension.Length * dimension.Width)
+	if not model then
+		warn(`[BuildingController] Failed to create building model for {buildingType} at position {worldPos}`)
+		return
+	end
+	model.Name = buildingId
+	model.Parent = self._PlayerFolder
+
+	local footPrint = self:_createFootPrints(worldPos, dimension.Length * dimension.Width)
+	footPrint.Parent = model
 	self._GridController:occupyCell(worldPos, dimension.Length, dimension.Width)
 
 	local collectorType = BuildingConfig:GetCollectorType(buildingType)
@@ -337,11 +454,19 @@ function BuildingController:RecreateBuildings(
 		self._ResourceController:RegisterclickDetector(collectorType, model)
 	end
 
-	self:RegisterBuildingCache(buildingId, gridx, gridz, buildingEnum, buildingLevel, endTime, lastCollectedTime)
+	self:RegisterBuildingCache(buildingId, gridx, gridz, buildingEnum, buildingLevel, endTime, lastCollectedTime, model)
 
-	--Building hut
 	if endTime ~= 0 then
-		self:_RegisterBuilderStore(buildingId, gridx, gridz, buildingEnum, buildingLevel, endTime, lastCollectedTime)
+		self:_RegisterBuilderStore(
+			buildingId,
+			gridx,
+			gridz,
+			buildingEnum,
+			buildingLevel,
+			endTime,
+			lastCollectedTime,
+			model
+		)
 	end
 end
 
@@ -352,9 +477,9 @@ function BuildingController:_stopPlacement()
 		self._renderConnection = nil
 	end
 
-	if self._Connettion then
-		self._Connettion:Disconnect()
-		self._Connettion = nil
+	if self._Connetion then
+		self._Connetion:Disconnect()
+		self._Connetion = nil
 	end
 
 	if self._indicatorModel then
