@@ -86,32 +86,45 @@ function BuildingController:BuildingComplete(buildingId: string)
 		return
 	end
 
-	local modelParent = building.BuildingModel and building.BuildingModel.Parent
+	local buildingType = GameEnum:GetBuildingTypeById(building.BuildingEnum)
+	local dimension = BuildingConfig:GetBuildingDimensions(buildingType)
+	if not dimension then
+		warn(`[BuildingController] Building config for {buildingType} not found on construction complete`)
+		return
+	end
+
 	local nextlevel = building.BuildingLevel + CONFIG.NEXT_LEVEL
+	local worldPos =
+		self._GridController:GridCoordsToWorld(building.Gridx, building.Gridz, dimension.Length, dimension.Width)
+
+	-- สร้างโมเดลจริงของเลเวลใหม่ก่อน เผื่อสร้างไม่สำเร็จจะได้ไม่ลบโมเดลก่อสร้างทิ้งฟรี
+	local model = self:_createBuilding(buildingType, worldPos, nextlevel)
+	if not model then
+		warn(`[BuildingController] Failed to create completed building model for buildingId {buildingId}`)
+		return
+	end
+	model.Name = buildingId
+
+	local footPrint = self:_createFootPrints(worldPos, dimension.Length * dimension.Width)
+	if footPrint then
+		footPrint.Parent = model
+	end
+
+	-- builder กับ building ชี้ไปที่ "โมเดลกำลังก่อสร้าง" ตัวเดียวกัน ลบทีเดียวพอ
+	self._BuilderStore[buildingId] = nil
+	if building.BuildingModel then
+		building.BuildingModel:Destroy()
+	end
+
 	building.EndTime = 0
 	building.BuildingLevel = nextlevel
-	building.BuildingModel:Destroy()
-	building.BuildingModel = nil
-
-	local builder = self._BuilderStore[buildingId]
-	if builder and builder.BuildingModel then
-		builder.BuildingModel:Destroy()
-		builder.BuildingModel = nil
-	end
-	self._BuilderStore[buildingId] = nil
-
-	local buildingType = GameEnum:GetBuildingTypeById(building.BuildingEnum)
-	local dimension = BuildingConfig:GetBuildingDimensions(buildingType) :: { Length: number, Width: number }
-	local model = self._CreateBuilding(
-		buildingType,
-		self._GridController:GridCoordsToWorld(building.Gridx, building.Gridz, dimension.Length, dimension.Width),
-		nextlevel
-	)
-
-	model.Parent = modelParent
 	building.BuildingModel = model -- อัพเดทโมเดลจริงให้กับ cache หลังจากสร้างเสร็จ
 
-	--regis collector ถ้าเป็น collector
+	-- register collector ถ้าอาคารนี้เป็น collector
+	local collectorType = BuildingConfig:GetCollectorType(buildingType)
+	if collectorType then
+		self._ResourceController:RegisterclickDetector(collectorType, model)
+	end
 
 	EventBus:Emit(Events.C2S_BUILDING_CONSTRUCTION_COMPLETE, {
 		BuildingId = buildingId,
@@ -161,11 +174,12 @@ function BuildingController:_CloneConstructionVisual(
 	end
 
 	local gridsize = sizex * sizez
-	local model = template:FindFirstChild(CONFIG.GRID_KEY[gridsize], true):Clone()
-	if not model then
-		warn(`[BuildingController] Upgrade building model with grid size {gridsize} not found in BuildingTemplate`)
+	local gridModel = template:FindFirstChild(CONFIG.GRID_KEY[gridsize], true)
+	if not gridModel then
+		warn(`[BuildingController] Construction visual model with grid size {gridsize} not found in BuildingTemplate`)
 		return
 	end
+	local model = gridModel:Clone()
 
 	local worldPos = self._GridController:GridCoordsToWorld(gridx, gridz, sizex, sizez)
 	local primaryPart1 = model.PrimaryPart :: BasePart
@@ -225,11 +239,12 @@ function BuildingController:_createFootPrints(position: Vector3, size: number): 
 		return
 	end
 
-	local newFootPrint: BasePart = template:FindFirstChild(CONFIG.GRID_KEY[size], true):Clone()
-	if not newFootPrint then
+	local footPrintTemplate = template:FindFirstChild(CONFIG.GRID_KEY[size], true)
+	if not footPrintTemplate then
 		warn(`[BuildingController] Footprints model with size {size} not found in BuildingTemplate`)
 		return
 	end
+	local newFootPrint = footPrintTemplate:Clone() :: BasePart
 
 	local half = newFootPrint.Size.Y / 2
 	newFootPrint.CFrame = CFrame.new(position.X, position.Y + half + CONFIG.HEIGHT, position.Z)
