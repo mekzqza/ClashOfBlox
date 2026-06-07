@@ -1,4 +1,4 @@
--- !strict
+--!strict
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Events = require(ReplicatedStorage.Shared.Events)
@@ -7,54 +7,38 @@ local BuildingConfig = require(ReplicatedStorage.Shared.BuildingConfig)
 local Async = require(ReplicatedStorage.Utils.Async)
 
 export type Collectors = {
-	BuildingId: string,
-	Gridx: number,
-	Gridz: number,
-	BuildingEnum: number,
-	Timestamp: number,
-
 	ProductionRate: number,
-	Capacity: number,
-	EndTime: number,
-}
-
-export type Storage = {
-	BuildingId: string,
 	Capacity: number,
 }
 
 local CONFIG = {
 	ACTION_PART_NAME = "ActionPart",
 	DISAPPEAR_DELAY = 5,
-	KEY_CHECK = {
-		[1] = "Golds",
-		[8] = "Elixirs",
-		[9] = "Elixirs",
-		[10] = "Golds",
-		[11] = "Golds",
-	},
 }
 
 local ResourceController = {}
 ResourceController.__index = ResourceController
 function ResourceController.new()
 	local self = setmetatable({}, ResourceController)
-	self._PlayerDataController = nil
 	self._Collectors = {
 		["ElixirCollector"] = {},
 		["GoldCollector"] = {},
 	} :: { [string]: { [string]: Collectors } }
 	self._ResourceStorage = {
+		["Golds"] = {},
+		["Elixirs"] = {},
+	} :: { [string]: { [string]: number } }
+
+	self._TotalStorage = {
 		["Golds"] = 0,
 		["Elixirs"] = 0,
 	} :: { [string]: number }
+
+	-- เก็บ Building Id เข้ากับ _Collectors,_ResourceStorage
+
 	self._CollectorModels = {} :: { [string]: { Model } }
 	self._Connections = {} :: { [Model]: { Connection: RBXScriptConnection, CollectorType: string } }
 	return self
-end
-
-function ResourceController:SetDependencies(locator)
-	self._PlayerDataController = locator:Get("PlayerDataController")
 end
 
 function ResourceController:_CreateclickDetector(model: Model): ClickDetector
@@ -111,15 +95,7 @@ function ResourceController:_onPlayerClickCollector(CollectorType, buildingId: s
 	]]
 end
 
-function ResourceController:RegisterColector(
-	buildingId: string,
-	gridx: number,
-	gridz: number,
-	buildingEnum: number,
-	buildingLevel: number,
-	endtime: number,
-	lastCollectedTime: number
-)
+function ResourceController:RegisterColector(buildingId: string, buildingEnum: number, buildingLevel: number)
 	local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, buildingLevel)
 	if not buildingData then
 		warn(
@@ -129,33 +105,33 @@ function ResourceController:RegisterColector(
 	end
 	if buildingEnum == 9 then
 		self._Collectors["ElixirCollector"][buildingId] = {
-			Gridx = gridx,
-			Gridz = gridz,
-			BuildingId = buildingId,
-			BuildingEnum = buildingEnum,
-			Timestamp = lastCollectedTime,
 			ProductionRate = buildingData.ProductionRate,
 			Capacity = buildingData.Capacity,
-			EndTime = endtime,
 		}
 	elseif buildingEnum == 10 then
 		self._Collectors["GoldCollector"][buildingId] = {
-			Gridx = gridx,
-			Gridz = gridz,
-			BuildingId = buildingId,
-			BuildingEnum = buildingEnum,
-			Timestamp = lastCollectedTime,
 			ProductionRate = buildingData.ProductionRate,
 			Capacity = buildingData.Capacity,
-			EndTime = endtime,
 		}
 	elseif buildingEnum == 8 then
-		self._ResourceStorage["Elixirs"] += buildingData.Capacity
+		self._ResourceStorage["Elixirs"][buildingId] = {
+			Capacity = buildingData.Capacity,
+		}
+		self._TotalStorage["Elixirs"] += buildingData.Capacity
 	elseif buildingEnum == 11 then
-		self._ResourceStorage["Golds"] += buildingData.Capacity
+		self._ResourceStorage["Golds"][buildingId] = {
+			Capacity = buildingData.Capacity,
+		}
+		self._TotalStorage["Golds"] += buildingData.Capacity
 	elseif buildingEnum == 1 then
-		self._ResourceStorage["Elixirs"] += buildingData.Capacity
-		self._ResourceStorage["Golds"] += buildingData.Capacity
+		self._ResourceStorage["Elixirs"][buildingId] = {
+			Capacity = buildingData.Capacity,
+		}
+		self._ResourceStorage["Golds"][buildingId] = {
+			Capacity = buildingData.Capacity,
+		}
+		self._TotalStorage["Elixirs"] += buildingData.Capacity
+		self._TotalStorage["Golds"] += buildingData.Capacity
 	end
 end
 
@@ -164,7 +140,7 @@ function ResourceController:GetCollectors()
 end
 
 function ResourceController:GetResourceStorage(key: string)
-	return self._ResourceStorage[key]
+	return self._TotalStorage[key]
 end
 
 function ResourceController:Init() end

@@ -126,6 +126,7 @@ function BuildingController:BuildingComplete(buildingId: string)
 	if collectorType then
 		self._ResourceController:RegisterclickDetector(collectorType, model)
 	end
+	self._ResourceController:RegisterColector(buildingId, building.BuildingEnum, nextlevel)
 
 	EventBus:Emit(Events.C2S_BUILDING_CONSTRUCTION_COMPLETE, {
 		BuildingId = buildingId,
@@ -491,6 +492,7 @@ function BuildingController:RecreateBuildings(
 		if collectorType then
 			self._ResourceController:RegisterclickDetector(collectorType, modelCrate)
 		end
+		self._ResourceController:RegisterColector(buildingId, buildingEnum, buildingLevel)
 	end
 
 	if not model then
@@ -503,11 +505,6 @@ function BuildingController:RecreateBuildings(
 	local footPrint = self:_createFootPrints(worldPos, dimension.Length * dimension.Width)
 	footPrint.Parent = model
 	self._GridController:occupyCell(worldPos, dimension.Length, dimension.Width)
-
-	local collectorType = BuildingConfig:GetCollectorType(buildingType)
-	if collectorType then
-		self._ResourceController:RegisterclickDetector(collectorType, model)
-	end
 
 	self._BuildingStore:AddBuilding(
 		buildingId,
@@ -577,15 +574,6 @@ function BuildingController:Start()
 		end
 		for buildingId, buildingdata in buildings do
 			self:RecreateBuildings(
-				buildingId,
-				buildingdata[CONFIG.KEYSTORE["Gridx"]],
-				buildingdata[CONFIG.KEYSTORE["Gridz"]],
-				buildingdata[CONFIG.KEYSTORE["BuildingEnum"]],
-				buildingdata[CONFIG.KEYSTORE["BuildingLevel"]],
-				buildingdata[CONFIG.KEYSTORE["EndTime"]],
-				buildingdata[CONFIG.KEYSTORE["LastCollectedTime"]]
-			)
-			self._ResourceController:RegisterColector(
 				buildingId,
 				buildingdata[CONFIG.KEYSTORE["Gridx"]],
 				buildingdata[CONFIG.KEYSTORE["Gridz"]],
