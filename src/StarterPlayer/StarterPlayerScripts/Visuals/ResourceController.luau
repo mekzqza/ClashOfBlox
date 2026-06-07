@@ -1,4 +1,4 @@
---!strict
+-- !strict
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Events = require(ReplicatedStorage.Shared.Events)

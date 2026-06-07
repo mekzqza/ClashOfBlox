@@ -5,6 +5,11 @@
 
 	BuildingStore require Events/EventBus ไว้ตอนต้นไฟล์ แต่ไม่ได้ใช้ในเมธอดเลย
 	จึง mock ทั้งสองด้วยตารางว่าง เพื่อตัด dependency (Signal/Players) ออกไป
+
+	```bash
+	lune run tests/run                         # รันทุกไฟล์ tests/*.test.luau
+	lune run tests/BuildingStore.test.luau     # รันไฟล์เดียว
+	```
 ]]
 
 local process = require("@lune/process")
@@ -19,28 +24,34 @@ local function freshStore(): any
 	return h:require("StarterPlayer.StarterPlayerScripts.Core.BuildingStore")
 end
 
-testkit.test("AddBuilding เก็บข้อมูลแล้วอ่านกลับได้ครบ field", function()
-	local store = freshStore()
-	store:AddBuilding("n1", 3, 5, 101, 1, 0, 0, nil)
+testkit.test(
+	"AddBuilding เก็บข้อมูลแล้วอ่านกลับได้ครบ field",
+	function()
+		local store = freshStore()
+		store:AddBuilding("n1", 3, 5, 101, 1, 0, 0, nil)
 
-	local rec = store:GetBuildingData("n1")
-	testkit.notNil(rec, "ควรมี record ของ n1")
-	testkit.eq(rec.BuildingId, "n1")
-	testkit.eq(rec.Gridx, 3)
-	testkit.eq(rec.Gridz, 5)
-	testkit.eq(rec.BuildingEnum, 101)
-	testkit.eq(rec.BuildingLevel, 1)
-	testkit.eq(rec.EndTime, 0)
-	testkit.eq(rec.LastCollectedTime, 0)
-end)
+		local rec = store:GetBuildingData("n1")
+		testkit.notNil(rec, "ควรมี record ของ n1")
+		testkit.eq(rec.BuildingId, "n1")
+		testkit.eq(rec.Gridx, 3)
+		testkit.eq(rec.Gridz, 5)
+		testkit.eq(rec.BuildingEnum, 101)
+		testkit.eq(rec.BuildingLevel, 1)
+		testkit.eq(rec.EndTime, 0)
+		testkit.eq(rec.LastCollectedTime, 0)
+	end
+)
 
-testkit.test("buildingCount เริ่มที่ 0 แล้วเพิ่มตามจำนวนที่ Add", function()
-	local store = freshStore()
-	testkit.eq(store:GetbuildingCount(), 0, "เริ่มต้นต้องเป็น 0")
-	store:AddBuilding("n1", 0, 0, 1, 1, 0, 0)
-	store:AddBuilding("n2", 1, 1, 1, 1, 0, 0)
-	testkit.eq(store:GetbuildingCount(), 2)
-end)
+testkit.test(
+	"buildingCount เริ่มที่ 0 แล้วเพิ่มตามจำนวนที่ Add",
+	function()
+		local store = freshStore()
+		testkit.eq(store:GetbuildingCount(), 0, "เริ่มต้นต้องเป็น 0")
+		store:AddBuilding("n1", 0, 0, 1, 1, 0, 0)
+		store:AddBuilding("n2", 1, 1, 1, 1, 0, 0)
+		testkit.eq(store:GetbuildingCount(), 2)
+	end
+)
 
 testkit.test("GetBuildingData คืน nil เมื่อไม่มี id", function()
 	local store = freshStore()

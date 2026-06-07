@@ -23,6 +23,9 @@ _Index/
 *stylua.exe
 *globalTypes.RobloxScriptSecurity.d.luau
 
+# Roblox API type defs (ดาวน์โหลดอัตโนมัติโดย scripts/analyze.luau)
+globalTypes.d.luau
+
 # Sensitive Files (DO NOT COMMIT!)
 src/ServerStorage/Secrets/
 src/ServerStorage/Secrets/*.luau

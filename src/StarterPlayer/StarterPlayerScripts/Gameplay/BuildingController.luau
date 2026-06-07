@@ -33,7 +33,7 @@ local CONFIG = {
 	},
 }
 
-export type BuildingCache = {
+export type BuilderRecord = {
 	Gridx: number,
 	Gridz: number,
 	BuildingEnum: number,
@@ -47,11 +47,9 @@ local BuildingController = {}
 BuildingController.__index = BuildingController
 function BuildingController.new()
 	local self = setmetatable({}, BuildingController)
-	self._BuildingStore = {} :: { [string]: BuildingCache }
-	self._BuilderStore = {} :: { [string]: BuildingCache }
+	self._BuilderStore = {} :: { [string]: BuilderRecord }
 
 	self._currentBuilder = 0
-	self._buildingCount = 0
 	self._isPlacing = false
 	self._renderConnection = nil
 	self._indicatorModel = nil
@@ -65,6 +63,7 @@ function BuildingController.new()
 	self._PlayerDataController = nil
 	self._ResourceController = nil
 	self._BuilderHutController = nil
+	self._BuildingStore = nil
 	return self
 end
 
@@ -73,6 +72,7 @@ function BuildingController:SetDependencies(locator)
 	self._ResourceController = locator:Get("ResourceController")
 	self._GridController = locator:Get("GridController")
 	self._BuilderHutController = locator:Get("BuilderHutController")
+	self._BuildingStore = locator:Get("BuildingStore")
 end
 
 function BuildingController:SetPlayerFolder(folder: Folder)
@@ -83,7 +83,7 @@ function BuildingController:SetPlayerFolder(folder: Folder)
 end
 
 function BuildingController:BuildingComplete(buildingId: string)
-	local building = self._BuildingStore[buildingId]
+	local building = self._BuildingStore:GetBuildingData(buildingId)
 	if not building then
 		warn(`[BuildingController] No builder data found for buildingId {buildingId} on construction complete`)
 		return
@@ -100,7 +100,6 @@ function BuildingController:BuildingComplete(buildingId: string)
 	local worldPos =
 		self._GridController:GridCoordsToWorld(building.Gridx, building.Gridz, dimension.Length, dimension.Width)
 
-	-- สร้างโมเดลจริงของเลเวลใหม่ก่อน เผื่อสร้างไม่สำเร็จจะได้ไม่ลบโมเดลก่อสร้างทิ้งฟรี
 	local model = self:_createBuilding(buildingType, worldPos, nextlevel)
 	if not model then
 		warn(`[BuildingController] Failed to create completed building model for buildingId {buildingId}`)
@@ -114,7 +113,6 @@ function BuildingController:BuildingComplete(buildingId: string)
 	end
 
 	self._BuilderStore[buildingId] = nil
-	-- ลบแถบความคืบหน้าก่อนทำลายโมเดลก่อสร้าง (เคลียร์ entry ใน store ของ BuilderHutController)
 	self._BuilderHutController:BuildingComplated(building.BuildingModel)
 	if building.BuildingModel then
 		building.BuildingModel:Destroy()
@@ -148,7 +146,6 @@ function BuildingController:_ensureRuntimeChecker()
 				if currentTime >= data.EndTime then
 					self:BuildingComplete(buildingId)
 				else
-					-- ยังก่อสร้างไม่เสร็จ → อัพเดตแถบความคืบหน้า/นับถอยหลัง
 					self._BuilderHutController:UpdateBuildingProgressBar(data.BuildingModel)
 				end
 			end
@@ -193,27 +190,6 @@ function BuildingController:_CloneConstructionVisual(
 	local haft = primaryPart1.Size.Y / 2
 	model:PivotTo(CFrame.new(worldPos.X, worldPos.Y + haft + CONFIG.HEIGHT, worldPos.Z))
 	return model
-end
-
-function BuildingController:RegisterBuildingCache(
-	buildingId: string,
-	gridx: number,
-	gridz: number,
-	buildingEnum: number,
-	buildingLevel: number,
-	endtime: number,
-	lastCollectedTime: number,
-	model: Model
-)
-	self._BuildingStore[buildingId] = {
-		BuildingEnum = buildingEnum,
-		Gridx = gridx,
-		Gridz = gridz,
-		BuildingLevel = buildingLevel,
-		EndTime = endtime,
-		LastCollectedTime = lastCollectedTime,
-		BuildingModel = model,
-	}
 end
 
 function BuildingController:_RegisterBuilderStore(
@@ -411,12 +387,12 @@ function BuildingController:_startPlacement(buildType: string)
 			self._GridController:occupyCell(snapPos, dimension.Length, dimension.Width)
 
 			-- เก็บcache ไว้ก่อน โยยไม่รอserver
-			local buildingCount = self._buildingCount :: number
+			local buildingCount = self._BuildingStore:GetbuildingCount() :: number
 			local nextbuildingId = `n{buildingCount + 1}`
 			local BuildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.NEXT_LEVEL)
 			local builTime = os.time() + BuildingData.UpgradeTime
 
-			self:RegisterBuildingCache(
+			self._BuildingStore:AddBuilding(
 				nextbuildingId,
 				startX,
 				startZ,
@@ -438,8 +414,6 @@ function BuildingController:_startPlacement(buildType: string)
 				model
 			)
 			model.Name = nextbuildingId
-
-			self._buildingCount = buildingCount + 1
 		end
 	end)
 end
@@ -467,12 +441,9 @@ function BuildingController:RecreateBuildings(
 	local worldPos = self._GridController:GridCoordsToWorld(gridx, gridz, dimension.Length, dimension.Width)
 
 	local model = Instance.new("Model")
-	-- 3 edge case คือ 1. กำลังสร้าง Level 1
-	-- 2. สร้างเสณ้จแล้ว
-	-- 3. กำลังอัพเกรด จาก N level ไป N+1 level
+
 	local modelCrate = nil
 	local modelUpgrade = nil
-	-- level 0 คือกำลังสร้างใหม่เลย ยังไม่มีโมเดลจริง
 	if buildingLevel == CONFIG.STARTER_LEVEL then
 		modelCrate = self:_CloneConstructionVisual(
 			CONFIG.UPGRADE_BUILDING_TEMPLATE,
@@ -538,7 +509,16 @@ function BuildingController:RecreateBuildings(
 		self._ResourceController:RegisterclickDetector(collectorType, model)
 	end
 
-	self:RegisterBuildingCache(buildingId, gridx, gridz, buildingEnum, buildingLevel, endTime, lastCollectedTime, model)
+	self._BuildingStore:AddBuilding(
+		buildingId,
+		gridx,
+		gridz,
+		buildingEnum,
+		buildingLevel,
+		endTime,
+		lastCollectedTime,
+		model
+	)
 end
 
 function BuildingController:_stopPlacement()
@@ -589,7 +569,7 @@ function BuildingController:Start()
 			return
 		end
 
-		self._buildingCount = data.BuildingCount or 0
+		self._BuildingStore:SetBuildingCount(data.BuildingCount)
 		local buildings = data.Buildings
 		if not buildings then
 			warn("[BuildingController] No building data found for player")

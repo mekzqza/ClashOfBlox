@@ -22,7 +22,21 @@ selene src/                     # Lint
 stylua src/                     # Format
 ``` 
 
-> No test runner is wired up. `roblox/testez` is a dependency but no test files exist yet.
+### Testing / Type-checking outside Roblox Studio (Lune + luau-lsp)
+
+โปรเจ็คนี้รัน/เช็คโค้ดได้โดย **ไม่ต้องเปิด Roblox Studio**:
+
+```bash
+lune run tests/run        # รัน unit test ทุกไฟล์ (tests/*.test.luau)
+lune run scripts/analyze  # type-check ทั้งโปรเจ็ค (regenerate sourcemap + luau-lsp analyze)
+```
+
+- `tests/harness.luau` สร้าง fake `game`/`require` จาก `sourcemap.json` แล้วรันโมดูลจริงด้วย `luau.load`
+  (custom environment) — เขียนเทสได้ทั้งแบบ mock dependency และ require โมดูลจริง ดู `tests/README.md`
+- `scripts/analyze.luau` ดาวน์โหลด `globalTypes.d.luau` ให้อัตโนมัติ และกรอง noise (`[INFO]`,
+  บรรทัดรายงานซ้ำ `[game/...]`) — exit code = 1 เมื่อพบ TypeError
+- รันไฟล์เทสเดี่ยว: `lune run tests/<ชื่อ>.test.luau`
+- `sourcemap.json` และ `globalTypes.d.luau` ถูก gitignore (สร้าง/ดาวน์โหลดใหม่ได้เสมอ)
 
 ## Architecture
 
