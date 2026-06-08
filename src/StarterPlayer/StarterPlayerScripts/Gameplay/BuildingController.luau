@@ -473,8 +473,6 @@ function BuildingController:RecreateBuildings(
 			dimension.Length,
 			dimension.Width
 		)
-		modelUpgrade.Parent = model
-		modelCrate.Parent = model
 
 		self:_RegisterBuilderStore(
 			buildingId,
@@ -486,6 +484,9 @@ function BuildingController:RecreateBuildings(
 			lastCollectedTime,
 			model
 		)
+
+		modelUpgrade.Parent = model
+		modelCrate.Parent = model
 	else
 		modelCrate = self:_createBuilding(buildingType, worldPos, buildingLevel)
 		local collectorType = BuildingConfig:GetCollectorType(buildingType)
@@ -493,18 +494,22 @@ function BuildingController:RecreateBuildings(
 			self._ResourceController:RegisterclickDetector(collectorType, modelCrate)
 		end
 		self._ResourceController:RegisterColector(buildingId, buildingEnum, buildingLevel)
+
+		modelCrate.Parent = model
 	end
 
 	if not model then
 		warn(`[BuildingController] Failed to create building model for {buildingType} at position {worldPos}`)
 		return
 	end
+
+	local footPrint = self:_createFootPrints(worldPos, dimension.Length * dimension.Width) :: BasePart
+	self._GridController:occupyCell(worldPos, dimension.Length, dimension.Width)
+
+	footPrint.Parent = model
 	model.Name = buildingId
 	model.Parent = self._PlayerFolder
-
-	local footPrint = self:_createFootPrints(worldPos, dimension.Length * dimension.Width)
-	footPrint.Parent = model
-	self._GridController:occupyCell(worldPos, dimension.Length, dimension.Width)
+	model.PrimaryPart = footPrint
 
 	self._BuildingStore:AddBuilding(
 		buildingId,
@@ -539,6 +544,109 @@ function BuildingController:_stopPlacement()
 		self._footPrintindicator:Destroy()
 		self._footPrintindicator = nil
 	end
+end
+
+--หาฟังชันมาทริกเกอร์ MoveBuilding
+
+function BuildingController:MoveBuilding(buildingId: string)
+	local buildingData = self._BuildingStore:GetBuildingData(buildingId)
+	if not buildingData then
+		warn(`[BuildingController] No building data found for buildingId {buildingId} on move request`)
+		return
+	end
+
+	local buildingModel = buildingData.BuildingModel
+	if not buildingModel then
+		warn(`[BuildingController] No building model found for buildingId {buildingId} on move request`)
+		return
+	end
+
+	self:_stopPlacement()
+
+	self._indicatorModel = buildingModel:Clone()
+	self._indicatorModel.Parent = self._PlayerFolder
+	self._isPlacing = true
+
+	-- @BUG ยังไม่ assing Primary part
+	local primaryPart: BasePart? = self._indicatorModel.PrimaryPart
+	if not primaryPart then
+		warn(
+			`[BuildingController] Building model for buildingId {buildingId} does not have a PrimaryPart on move request`
+		)
+		return
+	end
+
+	local dimension = BuildingConfig:GetBuildingDimensions(GameEnum:GetBuildingTypeById(buildingData.BuildingEnum))
+	if not dimension then
+		warn(`[BuildingController] Building config for buildingId {buildingId} not found on move request`)
+		return
+	end
+
+	local oldPosition = self._GridController:GridCoordsToWorld(
+		buildingData.Gridx,
+		buildingData.Gridz,
+		dimension.Length,
+		dimension.Width
+	)
+
+	self._GridController:freeCell(oldPosition, dimension.Length, dimension.Width)
+
+	local indicatorModelhalfHeight = primaryPart.Size.Y / 2
+
+	self._renderConnection = RunService.RenderStepped:Connect(function()
+		local mouse = Player:GetMouse()
+		local target = mouse.Target
+		if not target then
+			return
+		end
+
+		if not self._indicatorModel then
+			return
+		end
+
+		local snapPos =
+			self._GridController:SnapToGrid(mouse.Hit.Position, dimension.Length, dimension.Width) :: Vector3
+
+		local CanPlace = self._GridController:CanPlace(snapPos, dimension.Length, dimension.Width)
+		local color = if CanPlace then Color3.new(0, 1, 0) else Color3.new(1, 0, 0)
+		for _, child in ipairs(self._indicatorModel:GetDescendants()) do
+			if child:IsA("BasePart") then
+				if child:IsA("UnionOperation") then
+					child.UsePartColor = true
+				end
+				child.Color = color
+			end
+		end
+		self._indicatorModel:SetPrimaryPartCFrame(
+			CFrame.new(snapPos.X, snapPos.Y + indicatorModelhalfHeight, snapPos.Z)
+		)
+	end)
+
+	local mouse = Player:GetMouse()
+	self._Connetion = mouse.Button1Down:Connect(function()
+		local snapPos =
+			self._GridController:SnapToGrid(mouse.Hit.Position, dimension.Length, dimension.Width) :: Vector3
+		if self._GridController:CanPlace(snapPos, dimension.Length, dimension.Width) then
+			local startX, startZ = self._GridController:GetFootPrintStart(snapPos, dimension.Length, dimension.Width)
+
+			--ย้ายโมเดลไปยั้งตำแหน่งใหม่
+			buildingModel:SetPrimaryPartCFrame(CFrame.new(snapPos.X, snapPos.Y + indicatorModelhalfHeight, snapPos.Z))
+
+			-- อัพเดทข้อมูลใหม่
+			self._BuildingStore:SetBuildingData(buildingId, {
+				Gridx = startX,
+				Gridz = startZ,
+				BuildingEnum = buildingData.BuildingEnum,
+				BuildingLevel = buildingData.BuildingLevel,
+				EndTime = buildingData.EndTime,
+				LastCollectedTime = buildingData.LastCollectedTime,
+				BuildingModel = buildingModel,
+			})
+
+			self._GridController:occupyCell(snapPos, dimension.Length, dimension.Width)
+			self:_stopPlacement()
+		end
+	end)
 end
 
 function BuildingController:Init()
