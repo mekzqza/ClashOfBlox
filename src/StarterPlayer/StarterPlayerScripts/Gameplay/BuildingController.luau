@@ -567,12 +567,8 @@ function BuildingController:MoveBuilding(buildingId: string)
 	self._indicatorModel.Parent = self._PlayerFolder
 	self._isPlacing = true
 
-	-- @BUG ยังไม่ assing Primary part
 	local primaryPart: BasePart? = self._indicatorModel.PrimaryPart
 	if not primaryPart then
-		warn(
-			`[BuildingController] Building model for buildingId {buildingId} does not have a PrimaryPart on move request`
-		)
 		return
 	end
 
@@ -623,12 +619,13 @@ function BuildingController:MoveBuilding(buildingId: string)
 	end)
 
 	local mouse = Player:GetMouse()
+
+	--
 	self._Connetion = mouse.Button1Down:Connect(function()
 		local snapPos =
 			self._GridController:SnapToGrid(mouse.Hit.Position, dimension.Length, dimension.Width) :: Vector3
 		if self._GridController:CanPlace(snapPos, dimension.Length, dimension.Width) then
 			local startX, startZ = self._GridController:GetFootPrintStart(snapPos, dimension.Length, dimension.Width)
-
 			--ย้ายโมเดลไปยั้งตำแหน่งใหม่
 			buildingModel:SetPrimaryPartCFrame(CFrame.new(snapPos.X, snapPos.Y + indicatorModelhalfHeight, snapPos.Z))
 
@@ -644,6 +641,10 @@ function BuildingController:MoveBuilding(buildingId: string)
 			})
 
 			self._GridController:occupyCell(snapPos, dimension.Length, dimension.Width)
+
+			-- @ TODO
+			-- Send update to server
+			--
 			self:_stopPlacement()
 		end
 	end)
@@ -666,6 +667,15 @@ function BuildingController:Start()
 		warn(`[BuildingController] Test building: {building}`)
 		self:_stopPlacement()
 		self:_startPlacement(building)
+	end)
+
+	EventBus:On(Events.LOCAL_MOVE_BUILDING, function(buildingId: string)
+		if buildingId == nil or buildingId == "" then
+			self:_stopPlacement()
+			return
+		end
+		warn(`[BuildingController] Move building with id: {buildingId}`)
+		self:MoveBuilding(buildingId)
 	end)
 
 	self._PlayerDataController:WaitForDataReady():andThen(function(data)
