@@ -186,13 +186,6 @@ function BuildingConfig:GetBuildingDimensions(buildingType: string): { Width: nu
 	}
 end
 
-function BuildingConfig:IsSameCategory(buildingType1: number, buildingType2: number): boolean?
-    if buildingType1 == buildingType2 then
-        return true
-    end
-    return
-end
-
 function BuildingConfig:GetBuildingData(buildingType: string, level: number): BuildingLevelData?
 	local building = Buildings[buildingType]
 	if not building then

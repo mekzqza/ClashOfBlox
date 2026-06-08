@@ -65,7 +65,7 @@ function GridController:RegisterZone(part: BasePart)
 	end
 end
 
-function GridController:GetFootPrintStart(position: Vector3, sizeX: number?, sizeZ: number?)
+function GridController:GetFootPrintStart(position: Vector3, sizeX: number?, sizeZ: number?): (number, number)
 	local halfX = (sizeX or 1) * CONFIG.CELL_SIZE / 2
 	local halfZ = (sizeZ or 1) * CONFIG.CELL_SIZE / 2
 	local startX = math.floor((position.X - self._gridOriginX - halfX) / CONFIG.CELL_SIZE)
@@ -73,7 +73,26 @@ function GridController:GetFootPrintStart(position: Vector3, sizeX: number?, siz
 	return startX, startZ
 end
 
-function GridController:CanPlace(position: Vector3, sizeX: number?, sizeZ: number?): boolean
+function GridController:GetFootPrintCells(position: Vector3, sizeX: number?, sizeZ: number?): { [string]: true }
+	local sx = sizeX or 1
+	local sz = sizeZ or 1
+	local startX, startZ = self:GetFootPrintStart(position, sx, sz)
+
+	local cells: { [string]: true } = {}
+	for x = 0, sx - 1 do
+		for z = 0, sz - 1 do
+			cells[self:_gridKeyfromCoords(startX + x, startZ + z)] = true
+		end
+	end
+	return cells
+end
+
+function GridController:CanPlace(
+	position: Vector3,
+	sizeX: number?,
+	sizeZ: number?,
+	ignoreCells: { [string]: true }?
+): boolean
 	local sx = sizeX or 1
 	local sz = sizeZ or 1
 	local startX, startZ = self:GetFootPrintStart(position, sx, sz)
@@ -84,7 +103,7 @@ function GridController:CanPlace(position: Vector3, sizeX: number?, sizeZ: numbe
 			if not self._validCells[key] then
 				return false
 			end
-			if self._occupiedCells[key] then
+			if self._occupiedCells[key] and not (ignoreCells and ignoreCells[key]) then
 				return false
 			end
 		end
