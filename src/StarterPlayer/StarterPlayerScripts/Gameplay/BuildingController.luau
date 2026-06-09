@@ -54,6 +54,7 @@ function BuildingController.new()
 	self._renderConnection = nil
 	self._indicatorModel = nil
 	self._Connetion = nil
+	self._moveSession = nil
 	self._PlayerFolder = nil
 	self._RuntimeChecker = nil
 
@@ -382,6 +383,7 @@ function BuildingController:_startPlacement(buildType: string)
 			footPrint.Parent = model
 			modelUpgrade.Parent = model
 			modelCreate.Parent = model
+			model.PrimaryPart = footPrint
 			model.Parent = self._PlayerFolder
 
 			self:_requestPlaceBuilding(startX, startZ, buildingEnum, snapPos)
@@ -535,6 +537,8 @@ function BuildingController:_stopPlacement()
 		self._Connetion = nil
 	end
 
+	self._moveSession = nil
+
 	if self._indicatorModel then
 		self._indicatorModel:Destroy()
 		self._indicatorModel = nil
@@ -583,71 +587,76 @@ function BuildingController:MoveBuilding(buildingId: string)
 		buildingData.Gridz,
 		dimension.Length,
 		dimension.Width
-	)
+	) :: Vector3
 
-	self._GridController:freeCell(oldPosition, dimension.Length, dimension.Width)
+	-- เก็บ state รอบการย้ายไว้ให้ handler ใช้ — input (ลาก/ปล่อย) มาจาก BuildingVisualize ผ่าน EventBus
+	self._moveSession = {
+		buildingId = buildingId,
+		buildingModel = buildingModel,
+		buildingData = buildingData,
+		dimension = dimension,
+		oldPosition = oldPosition,
+		ignoreCells = self._GridController:GetFootPrintCells(oldPosition, dimension.Length, dimension.Width),
+		halfHeight = primaryPart.Size.Y / 2,
+	}
+end
 
-	local indicatorModelhalfHeight = primaryPart.Size.Y / 2
+-- ขยับ indicator + พรีวิวเขียว/แดง ตามตำแหน่งที่ BuildingVisualize ส่งมา (ระหว่างลาก)
+function BuildingController:_updateMovePreview(position: Vector3)
+	local session = self._moveSession
+	if not session or not self._indicatorModel then
+		return
+	end
 
-	self._renderConnection = RunService.RenderStepped:Connect(function()
-		local mouse = Player:GetMouse()
-		local target = mouse.Target
-		if not target then
-			return
-		end
-
-		if not self._indicatorModel then
-			return
-		end
-
-		local snapPos =
-			self._GridController:SnapToGrid(mouse.Hit.Position, dimension.Length, dimension.Width) :: Vector3
-
-		local CanPlace = self._GridController:CanPlace(snapPos, dimension.Length, dimension.Width)
-		local color = if CanPlace then Color3.new(0, 1, 0) else Color3.new(1, 0, 0)
-		for _, child in ipairs(self._indicatorModel:GetDescendants()) do
-			if child:IsA("BasePart") then
-				if child:IsA("UnionOperation") then
-					child.UsePartColor = true
-				end
-				child.Color = color
+	local snapPos =
+		self._GridController:SnapToGrid(position, session.dimension.Length, session.dimension.Width) :: Vector3
+	local canPlace =
+		self._GridController:CanPlace(snapPos, session.dimension.Length, session.dimension.Width, session.ignoreCells)
+	local color = if canPlace then Color3.new(0, 1, 0) else Color3.new(1, 0, 0)
+	for _, child in ipairs(self._indicatorModel:GetDescendants()) do
+		if child:IsA("BasePart") then
+			if child:IsA("UnionOperation") then
+				child.UsePartColor = true
 			end
+			child.Color = color
 		end
-		self._indicatorModel:SetPrimaryPartCFrame(
-			CFrame.new(snapPos.X, snapPos.Y + indicatorModelhalfHeight, snapPos.Z)
-		)
-	end)
+	end
+	self._indicatorModel:SetPrimaryPartCFrame(CFrame.new(snapPos.X, snapPos.Y + session.halfHeight, snapPos.Z))
+end
 
-	local mouse = Player:GetMouse()
+-- ยืนยันการย้ายตอนปล่อยเมาส์: วางได้ = ย้ายโมเดลจริง + อัปเดตกริด/store, วางไม่ได้ = ยกเลิก (โมเดลจริงไม่ขยับ)
+function BuildingController:_confirmMove(position: Vector3)
+	local session = self._moveSession
+	if not session then
+		return
+	end
 
-	--
-	self._Connetion = mouse.Button1Down:Connect(function()
-		local snapPos =
-			self._GridController:SnapToGrid(mouse.Hit.Position, dimension.Length, dimension.Width) :: Vector3
-		if self._GridController:CanPlace(snapPos, dimension.Length, dimension.Width) then
-			local startX, startZ = self._GridController:GetFootPrintStart(snapPos, dimension.Length, dimension.Width)
-			--ย้ายโมเดลไปยั้งตำแหน่งใหม่
-			buildingModel:SetPrimaryPartCFrame(CFrame.new(snapPos.X, snapPos.Y + indicatorModelhalfHeight, snapPos.Z))
+	local snapPos =
+		self._GridController:SnapToGrid(position, session.dimension.Length, session.dimension.Width) :: Vector3
+	if
+		self._GridController:CanPlace(snapPos, session.dimension.Length, session.dimension.Width, session.ignoreCells)
+	then
+		local startX, startZ =
+			self._GridController:GetFootPrintStart(snapPos, session.dimension.Length, session.dimension.Width)
+		session.buildingModel:SetPrimaryPartCFrame(CFrame.new(snapPos.X, snapPos.Y + session.halfHeight, snapPos.Z))
 
-			-- อัพเดทข้อมูลใหม่
-			self._BuildingStore:SetBuildingData(buildingId, {
-				Gridx = startX,
-				Gridz = startZ,
-				BuildingEnum = buildingData.BuildingEnum,
-				BuildingLevel = buildingData.BuildingLevel,
-				EndTime = buildingData.EndTime,
-				LastCollectedTime = buildingData.LastCollectedTime,
-				BuildingModel = buildingModel,
-			})
+		self._BuildingStore:SetBuildingData(session.buildingId, {
+			Gridx = startX,
+			Gridz = startZ,
+			BuildingEnum = session.buildingData.BuildingEnum,
+			BuildingLevel = session.buildingData.BuildingLevel,
+			EndTime = session.buildingData.EndTime,
+			LastCollectedTime = session.buildingData.LastCollectedTime,
+			BuildingModel = session.buildingModel,
+		})
 
-			self._GridController:occupyCell(snapPos, dimension.Length, dimension.Width)
+		self._GridController:freeCell(session.oldPosition, session.dimension.Length, session.dimension.Width)
+		self._GridController:occupyCell(snapPos, session.dimension.Length, session.dimension.Width)
 
-			-- @ TODO
-			-- Send update to server
-			--
-			self:_stopPlacement()
-		end
-	end)
+		-- @TODO ส่ง update ให้ server
+	end
+
+	self:_stopPlacement()
 end
 
 function BuildingController:Init()
@@ -674,8 +683,15 @@ function BuildingController:Start()
 			self:_stopPlacement()
 			return
 		end
-		warn(`[BuildingController] Move building with id: {buildingId}`)
 		self:MoveBuilding(buildingId)
+	end)
+
+	EventBus:On(Events.LOCAL_MOVE_BUILDING_UPDATE, function(position: Vector3)
+		self:_updateMovePreview(position)
+	end)
+
+	EventBus:On(Events.LOCAL_MOVE_BUILDING_CONFIRM, function(position: Vector3)
+		self:_confirmMove(position)
 	end)
 
 	self._PlayerDataController:WaitForDataReady():andThen(function(data)
