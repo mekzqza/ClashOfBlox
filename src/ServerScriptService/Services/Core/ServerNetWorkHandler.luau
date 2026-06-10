@@ -85,6 +85,16 @@ local function BuildingSytem()
 		})
 	end)
 
+	ZapServer.UpdateBuildingPosition.SetCallback(function(player, data)
+		EventBus:Emit(Events.LOCAL_UPDATE_BUILDING_POSITION, {
+			Player = player,
+			BuildingId = data.BuildingId,
+			Gridx = data.Gridx,
+			Gridz = data.Gridz,
+			Position = data.Position,
+		})
+	end)
+
 	EventBus:On(Events.S2C_CREATE_BUILDING, function(data)
 		ZapServer.PlayersCreateBuilding.FireExcept(data.Player, {
 			BuildingTypeEnum = data.BuildingEnum,

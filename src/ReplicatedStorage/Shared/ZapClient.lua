@@ -132,6 +132,9 @@ if not RunService:IsRunning() then
 	local noop = function() end
 	return table.freeze({
 		SendEvents = noop,
+		UpdateBuildingPosition = table.freeze({
+			Fire = noop
+		}),
 		SnapshotBuildings = table.freeze({
 			SetCallback = noop
 		}),
@@ -166,6 +169,21 @@ local remotes = ReplicatedStorage:WaitForChild("ZAP")
 local reliable = remotes:WaitForChild("ZAP_RELIABLE")
 assert(reliable:IsA("RemoteEvent"), "Expected ZAP_RELIABLE to be a RemoteEvent")
 
+export type CollectorData = ({
+	["Timestamp"]: (number),
+	["ProductionRate"]: (number),
+	["Capacity"]: (number),
+})
+export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot")
+export type BuildingEntry = ({
+	["BuildingId"]: (string),
+	["Gridx"]: (number),
+	["Gridz"]: (number),
+	["BuildingEnum"]: (number),
+	["BuildingLevel"]: (number),
+	["EndTime"]: (number),
+	["LastCollectedTime"]: (number),
+})
 export type Collector = ({
 	["GoldCollector"]: ({
 		["Timestamp"]: (number),
@@ -178,21 +196,6 @@ export type Collector = ({
 		["Capacity"]: (number),
 	}),
 })
-export type BuildingEntry = ({
-	["BuildingId"]: (string),
-	["Gridx"]: (number),
-	["Gridz"]: (number),
-	["BuildingEnum"]: (number),
-	["BuildingLevel"]: (number),
-	["EndTime"]: (number),
-	["LastCollectedTime"]: (number),
-})
-export type CollectorData = ({
-	["Timestamp"]: (number),
-	["ProductionRate"]: (number),
-	["Capacity"]: (number),
-})
-export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot")
 
 local function SendEvents()
 	if outgoing_used ~= 0 then
@@ -365,6 +368,33 @@ table.freeze(polling_queues_unreliable)
 
 local returns = {
 	SendEvents = SendEvents,
+	UpdateBuildingPosition = {
+		Fire = function(Value: ({
+			["BuildingId"]: (string),
+			["Gridx"]: (number),
+			["Gridz"]: (number),
+			["Position"]: (Vector3),
+		}))
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
+			local len_7 = #Value["BuildingId"]
+			assert(utf8.len(Value["BuildingId"]) ~= nil, "value is not valid utf-8")
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_7)
+			alloc(len_7)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["BuildingId"], len_7)
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, Value["Gridx"])
+			alloc(2)
+			buffer.writeu16(outgoing_buff, outgoing_apos, Value["Gridz"])
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, Value["Position"].X)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, Value["Position"].Y)
+			alloc(4)
+			buffer.writef32(outgoing_buff, outgoing_apos, Value["Position"].Z)
+		end,
+	},
 	SnapshotBuildings = {
 		SetCallback = function(Callback: (Value: ({
 			["FolderName"]: (string),
@@ -447,12 +477,12 @@ local returns = {
 		}))
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
-			local len_7 = #Value["CollectorType"]
+			local len_8 = #Value["CollectorType"]
 			assert(utf8.len(Value["CollectorType"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_7)
-			alloc(len_7)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["CollectorType"], len_7)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_8)
+			alloc(len_8)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["CollectorType"], len_8)
 		end,
 	},
 	LoadSnapshot = {
@@ -490,12 +520,12 @@ local returns = {
 		}))
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
-			local len_8 = #Value["BuildingId"]
+			local len_9 = #Value["BuildingId"]
 			assert(utf8.len(Value["BuildingId"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_8)
-			alloc(len_8)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["BuildingId"], len_8)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_9)
+			alloc(len_9)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["BuildingId"], len_9)
 		end,
 	},
 	ClientReady = {

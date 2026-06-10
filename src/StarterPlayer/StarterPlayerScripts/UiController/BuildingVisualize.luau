@@ -188,6 +188,7 @@ function BuildingVisualize:Start()
 		end
 	end)
 
+	-- ปล่อยเมาส์ → ยืนยันการย้ายที่ตำแหน่งปล่อย (ปล่อยนอกแมพ = ยกเลิก)
 	self._connInputEnded = UserInputService.InputEnded:Connect(function(input)
 		if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
 			return

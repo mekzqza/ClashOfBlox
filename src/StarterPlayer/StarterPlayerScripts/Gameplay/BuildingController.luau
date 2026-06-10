@@ -83,6 +83,15 @@ function BuildingController:SetPlayerFolder(folder: Folder)
 	end
 end
 
+function BuildingController:_syncToserver(buildingId: string, gridx: number, gridz: number, position: Vector3)
+	EventBus:Emit(Events.C2S_UPDATE_BUILDING_POSITION, {
+		BuildingId = buildingId,
+		Gridx = gridx,
+		Gridz = gridz,
+		Position = position,
+	})
+end
+
 function BuildingController:BuildingComplete(buildingId: string)
 	local building = self._BuildingStore:GetBuildingData(buildingId)
 	if not building then
@@ -550,8 +559,6 @@ function BuildingController:_stopPlacement()
 	end
 end
 
---หาฟังชันมาทริกเกอร์ MoveBuilding
-
 function BuildingController:MoveBuilding(buildingId: string)
 	local buildingData = self._BuildingStore:GetBuildingData(buildingId)
 	if not buildingData then
@@ -589,7 +596,6 @@ function BuildingController:MoveBuilding(buildingId: string)
 		dimension.Width
 	) :: Vector3
 
-	-- เก็บ state รอบการย้ายไว้ให้ handler ใช้ — input (ลาก/ปล่อย) มาจาก BuildingVisualize ผ่าน EventBus
 	self._moveSession = {
 		buildingId = buildingId,
 		buildingModel = buildingModel,
@@ -601,7 +607,6 @@ function BuildingController:MoveBuilding(buildingId: string)
 	}
 end
 
--- ขยับ indicator + พรีวิวเขียว/แดง ตามตำแหน่งที่ BuildingVisualize ส่งมา (ระหว่างลาก)
 function BuildingController:_updateMovePreview(position: Vector3)
 	local session = self._moveSession
 	if not session or not self._indicatorModel then
@@ -646,7 +651,7 @@ function BuildingController:_confirmMove(position: Vector3)
 			BuildingEnum = session.buildingData.BuildingEnum,
 			BuildingLevel = session.buildingData.BuildingLevel,
 			EndTime = session.buildingData.EndTime,
-			LastCollectedTime = session.buildingData.LastCollectedTime,
+			LastCollectedTime = session.buildingData.LastCollaectedTime,
 			BuildingModel = session.buildingModel,
 		})
 
@@ -654,6 +659,8 @@ function BuildingController:_confirmMove(position: Vector3)
 		self._GridController:occupyCell(snapPos, session.dimension.Length, session.dimension.Width)
 
 		-- @TODO ส่ง update ให้ server
+		self:_syncToserver(session.buildingId, startX, startZ, snapPos)
+		warn(`[BuildingController] Building {session.buildingId} moved to new position {snapPos}`)
 	end
 
 	self:_stopPlacement()
