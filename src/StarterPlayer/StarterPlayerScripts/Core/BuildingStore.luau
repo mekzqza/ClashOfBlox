@@ -4,10 +4,6 @@
 --  @signature
 --  จุดกลางในการจัดการข้อมูลอาคารของผู้เล่น รวมถึงการสร้างอาคารใหม่และการอัปเดตข้อมูลอาคารที่มีอยู่
 --  ]]
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Events = require(ReplicatedStorage.Shared.Events)
-local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
-
 export type BuildingRecord = {
 	BuildingId: string,
 	BuildingEnum: number,

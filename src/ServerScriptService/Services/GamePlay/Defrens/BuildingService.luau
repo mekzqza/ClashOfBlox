@@ -69,7 +69,32 @@ function BuildingService.new()
 end
 
 -- BoardCast to all client about building changes
+
+-- @TODO Server veryfing ว่า buildingId belongs to player หรือเปล่า กันแฮคยิงมาอัพเลเวลฟรี
 -- Update
+function BuildingService:_buildingChanges(player: Player, buildingId: string, gridx: number, gridz: number)
+	--Veryfing buildingId and player
+	if not self._BuildingCache[player] then
+		warn(`[BuildingService] No building cache found for player {player.Name}`)
+		return
+	end
+
+	local buildingcache = self._BuildingCache[player][buildingId]
+	if not buildingcache then
+		warn(`[BuildingService] No building found for player {player.Name} with buildingId {buildingId}`)
+		return
+	end
+
+	self._PlayerDataService:Set(player, `PlayerBuildings.{buildingId}`, {
+		gridx,
+		gridz,
+		buildingcache.BuildingEnum,
+		buildingcache.BuildingLevel,
+		buildingcache.EndTime,
+		buildingcache.LastCollectedTime,
+	}, false)
+end
+
 -- Deleted
 
 -- @ ระบบก่อสร้าง นับถอยหลัง จะฝากclient นับ ส่งไปกับsnapshot ถ้าถึงเวลา จะส่ง event มาให้ server เพื่อเช็คและอัพเดตข้อมูล
@@ -106,7 +131,6 @@ function BuildingService:_OnbuilingDone(player: Player, buildingId: string)
 		return
 	end
 
-	-- 0 หมายถึง กำลังก่อสร้าง ถ้าเป็น starter จะอัพเป็น level 1 ถ้ามีเลเวลอยู่แล้วจะบวกไปอีก 1
 	local level = buildingdata.BuildingLevel + CONFIG.NEXT_LEVEL
 
 	self._PlayerDataService:Set(player, `PlayerBuildings.{buildingId}`, {
@@ -126,7 +150,6 @@ function BuildingService:_OnbuilingDone(player: Player, buildingId: string)
 		`[BuildingService] Building construction complete for player {player.Name} and buildingId {buildingId}, updating player data and cache`
 	)
 
-	-- auto register collector when building is collector or storage
 	if self._LookBack[buildingdata.BuildingEnum] ~= nil then
 		self._ResourceService:ReGisterColector(
 			player,
@@ -192,8 +215,6 @@ function BuildingService:_PlaceBuilding(
 		return
 	end
 
-	-- ทรัพยาการที่ต้องใช้ในการสร้าง
-
 	local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.STARTER_LEVEL + CONFIG.NEXT_LEVEL)
 	if not buildingData then
 		warn(
@@ -201,6 +222,8 @@ function BuildingService:_PlaceBuilding(
 		)
 		return
 	end
+
+	-- ทรัพยาการที่ต้องใช้ในการสร้าง
 
 	-- อาคารที่เพิ่งวางเริ่มที่ 0 เสมอ — ResourceService ตีความ 0 ว่า "เริ่มนับเวลาผลิต ณ ตอนสร้างเสร็จ"
 	-- (buildingData เป็น level-data จึงไม่มี CollectorType ให้เช็ก ฟิลด์นั้นอยู่ที่ตัวอาคาร)
@@ -320,6 +343,13 @@ function BuildingService:Start()
 		    ตอนนี้ยังไม่มี การเช็ค cell ว่าถูกใช้ไปไหม ทำให้สามารถว่า วางทับกันได้ถ้ามีแฮค foce remote แต่ในอนาคตจะมีการเช็ค cell ก่อนที่จะsave
 		--]=]
 		self:_PlaceBuilding(data.Player, data.Gridx, data.Gridz, data.BuildingEnum, data.Position)
+	end)
+
+	EventBus:On(Events.LOCAL_UPDATE_BUILDING_POSITION, function(data)
+		warn(
+			`[BuildingService] Received request to update building position for player {data.Player.Name}, buildingId {data.BuildingId}, new gridx: {data.Gridx}, new gridz: {data.Gridz}`
+		)
+		self:_buildingChanges(data.Player, data.BuildingId, data.Gridx, data.Gridz)
 	end)
 
 	EventBus:On(Events.LOCAL_BUILDING_CONSTRUCTION_COMPLETE, function(data)

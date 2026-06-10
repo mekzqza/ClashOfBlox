@@ -123,3 +123,15 @@ event ConstructionComplete = {
     BuildingId: string.utf8,
     }
 }
+
+event UpdateBuildingPosition = {
+    from: Client,
+    type: Reliable,
+    call: SingleAsync,
+    data: struct {
+        BuildingId: string.utf8,
+        Gridx: u16,
+        Gridz: u16,
+        Position: Vector3
+    }
+}

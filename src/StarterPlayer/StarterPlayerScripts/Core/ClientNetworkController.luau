@@ -83,6 +83,15 @@ local function BuildingSystem()
 		})
 	end)
 
+	EventBus:On(Events.C2S_UPDATE_BUILDING_POSITION, function(data)
+		ZapClient.UpdateBuildingPosition.Fire({
+			BuildingId = data.BuildingId,
+			Gridx = data.Gridx,
+			Gridz = data.Gridz,
+			Position = data.Position,
+		})
+	end)
+
 	ZapClient.PlayersCreateBuilding.On(function(data)
 		EventBus:Emit(Events.LOCAL_CREATE_BUILDING, {
 			BuildingType = GameEnum:GetBuildingTypeById(data.BuildingTypeEnum),
