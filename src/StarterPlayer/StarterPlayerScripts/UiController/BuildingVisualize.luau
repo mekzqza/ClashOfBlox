@@ -198,18 +198,16 @@ function BuildingVisualize:Start()
 		end
 
 		local raycastResult = self:_raycastFromInput(input)
-		if not raycastResult then
-			return
-		end
+		local buildId = if raycastResult then self:_resolveBuildingId(raycastResult.Instance) else nil
 
-		local buildId = self:_resolveBuildingId(raycastResult.Instance)
-		if not buildId then
-			return
+		if buildId then
+			self._isDragging = true
+			self._currentBuildingId = buildId
+			self:_ondetectBuilding(buildId)
+		else
+			-- คลิกพื้น/ที่ว่าง → ยกเลิก move ที่ค้างแดงไว้ (ถ้ามี) controller เช็ค session เอง
+			EventBus:Emit(Events.LOCAL_MOVE_BUILDING, nil)
 		end
-
-		self._isDragging = true
-		self._currentBuildingId = buildId
-		self:_ondetectBuilding(buildId)
 	end)
 
 	self._connInputChanged = UserInputService.InputChanged:Connect(function(input)

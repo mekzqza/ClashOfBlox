@@ -15,6 +15,7 @@ local CONFIG = {
 	UPGRADE_BUILDING_TEMPLATE = "UpgradingBuilding",
 
 	HEIGHT = 0.5,
+	DEFAULT_FOOTPRINT_COLOR = Color3.fromRGB(117, 161, 37),
 	STARTER_LEVEL = 0,
 	NEXT_LEVEL = 1,
 	GRID_KEY = {
@@ -613,6 +614,7 @@ function BuildingController:MoveBuilding(buildingId: string)
 		dimension = dimension,
 		oldPosition = oldPosition,
 		currentPosition = oldPosition,
+		canPlace = true,
 		ignoreCells = self._GridController:GetFootPrintCells(oldPosition, dimension.Length, dimension.Width),
 		halfHeight = primaryPart.Size.Y / 2,
 		PrimaryPart = primaryPart,
@@ -649,90 +651,75 @@ function BuildingController:_updateMovePreview(position: Vector3)
 	local canPlace =
 		self._GridController:CanPlace(snapPos, session.dimension.Length, session.dimension.Width, session.ignoreCells)
 
-	if canPlace then
-		session.currentPosition = snapPos
-	end
+	-- เก็บตำแหน่ง + สถานะของเฟรมปัจจุบันไว้ทุกเฟรม (รวมตอนแดง) ให้ _confirmMove ตัดสินตอนปล่อยเมาส์
+	session.currentPosition = snapPos
+	session.canPlace = canPlace
 
-	local color = if canPlace then Color3.new(0, 1, 0) else Color3.new(1, 0, 0)
-
-	texture.Color3 = color
+	texture.Color3 = if canPlace then Color3.new(0, 1, 0) else Color3.new(1, 0, 0)
 
 	model:SetPrimaryPartCFrame(CFrame.new(snapPos.X, snapPos.Y + session.halfHeight + CONFIG.HEIGHT, snapPos.Z))
 end
 
--- ยืนยันการย้ายตอนปล่อยเมาส์: วางได้ = ย้ายโมเดลจริง + อัปเดตกริด/store, วางไม่ได้ = ยกเลิก (โมเดลจริงไม่ขยับ)
+-- ปล่อยเมาส์: วางได้(เขียว) = ย้ายจริง + อัปเดตกริด/store, วางไม่ได้(แดง) = ค้างไว้รอ revert ตอนคลิกอย่างอื่น
 function BuildingController:_confirmMove()
 	local session = self._moveSession
 	if not session then
 		return
 	end
 
-	local model = session.buildingModel
-	if not model then
+	-- ปล่อยบนช่องแดง → ไม่ commit ไม่ revert ปล่อยให้อาคารค้างที่เดิม(แดง)
+	-- การกลับ oldPosition จะเกิดตอนผู้เล่นคลิกอย่างอื่น (ดู handler LOCAL_MOVE_BUILDING)
+	if not session.canPlace then
 		return
 	end
 
 	local newsnapPos = session.currentPosition :: Vector3
-	if
-		self._GridController:CanPlace(
-			newsnapPos,
-			session.dimension.Length,
-			session.dimension.Width,
-			session.ignoreCells
-		)
-	then
-		local startX, startZ =
-			self._GridController:GetFootPrintStart(newsnapPos, session.dimension.Length, session.dimension.Width)
-		session.buildingModel:SetPrimaryPartCFrame(
-			CFrame.new(newsnapPos.X, newsnapPos.Y + session.halfHeight + CONFIG.HEIGHT, newsnapPos.Z)
-		)
+	local startX, startZ =
+		self._GridController:GetFootPrintStart(newsnapPos, session.dimension.Length, session.dimension.Width)
+	session.buildingModel:SetPrimaryPartCFrame(
+		CFrame.new(newsnapPos.X, newsnapPos.Y + session.halfHeight + CONFIG.HEIGHT, newsnapPos.Z)
+	)
 
-		self._BuildingStore:SetBuildingData(session.buildingId, {
-			Gridx = startX,
-			Gridz = startZ,
-			BuildingEnum = session.buildingData.BuildingEnum,
-			BuildingLevel = session.buildingData.BuildingLevel,
-			EndTime = session.buildingData.EndTime,
-			LastCollectedTime = session.buildingData.LastCollectedTime,
-			BuildingModel = session.buildingModel,
-		})
+	self._BuildingStore:SetBuildingData(session.buildingId, {
+		Gridx = startX,
+		Gridz = startZ,
+		BuildingEnum = session.buildingData.BuildingEnum,
+		BuildingLevel = session.buildingData.BuildingLevel,
+		EndTime = session.buildingData.EndTime,
+		LastCollectedTime = session.buildingData.LastCollectedTime,
+		BuildingModel = session.buildingModel,
+	})
 
-		self._GridController:freeCell(session.oldPosition, session.dimension.Length, session.dimension.Width)
-		self._GridController:occupyCell(newsnapPos, session.dimension.Length, session.dimension.Width)
+	self._GridController:freeCell(session.oldPosition, session.dimension.Length, session.dimension.Width)
+	self._GridController:occupyCell(newsnapPos, session.dimension.Length, session.dimension.Width)
 
-		self:_syncToserver(session.buildingId, startX, startZ, newsnapPos)
-		warn(`[BuildingController] Building {session.buildingId} moved to new position {newsnapPos}`)
-	else
-		local oldSnapPos = session.oldPosition :: Vector3
-		local startX, startZ =
-			self._GridController:GetFootPrintStart(oldSnapPos, session.dimension.Length, session.dimension.Width)
-		session.buildingModel:SetPrimaryPartCFrame(
-			CFrame.new(oldSnapPos.X, oldSnapPos.Y + session.halfHeight + CONFIG.HEIGHT, oldSnapPos.Z)
-		)
+	self:_syncToserver(session.buildingId, startX, startZ, newsnapPos)
 
-		self._BuildingStore:SetBuildingData(session.buildingId, {
-			Gridx = startX,
-			Gridz = startZ,
-			BuildingEnum = session.buildingData.BuildingEnum,
-			BuildingLevel = session.buildingData.BuildingLevel,
-			EndTime = session.buildingData.EndTime,
-			LastCollectedTime = session.buildingData.LastCollectedTime,
-			BuildingModel = session.buildingModel,
-		})
-
-		self._GridController:freeCell(session.oldPosition, session.dimension.Length, session.dimension.Width)
-		self._GridController:occupyCell(oldSnapPos, session.dimension.Length, session.dimension.Width)
+	if session.FootPrintTexture then
+		session.FootPrintTexture.Color3 = CONFIG.DEFAULT_FOOTPRINT_COLOR
 	end
+	warn(`[BuildingController] Building {session.buildingId} moved to new position {newsnapPos}`)
 
-	local texture = session.FootPrintTexture
-	if not texture then
-		warn(
-			`[BuildingController] No texture found in move session for buildingId {session.buildingId} during move preview update`
-		)
+	self:_stopPlacement()
+end
+
+-- คืนอาคารกลับ oldPosition — เรียกตอนผู้เล่นคลิกอย่างอื่นขณะมีอาคารค้างบนช่องแดง
+function BuildingController:_cancelMove()
+	local session = self._moveSession
+	if not session then
 		return
 	end
 
-	texture.Color3 = Color3.fromRGB(117, 161, 37)
+	local oldPos = session.oldPosition :: Vector3
+	session.buildingModel:SetPrimaryPartCFrame(
+		CFrame.new(oldPos.X, oldPos.Y + session.halfHeight + CONFIG.HEIGHT, oldPos.Z)
+	)
+
+	-- เซลล์เดิมยัง occupied อยู่ (preview ไม่เคยแตะ grid) จึงไม่ต้องคืน/จองใหม่
+	if session.FootPrintTexture then
+		session.FootPrintTexture.Color3 = CONFIG.DEFAULT_FOOTPRINT_COLOR
+	end
+
 	self:_stopPlacement()
 end
 
@@ -755,19 +742,18 @@ function BuildingController:Start()
 		self:_startPlacement(building)
 	end)
 
-	EventBus:On(Events.LOCAL_MOVE_BUILDING, function(buildingId: string)
+	EventBus:On(Events.LOCAL_MOVE_BUILDING, function(buildingId: string?)
+		-- มี move ค้างอยู่ (drop บนช่องแดง) → คืน oldPosition ก่อนเสมอ
+		if self._moveSession then
+			self:_cancelMove()
+		end
 		if buildingId == nil or buildingId == "" then
-			self:_stopPlacement()
-			return
+			return -- คลิกพื้น/ที่ว่าง = แค่ revert ตัวที่ค้าง
 		end
 		self:MoveBuilding(buildingId)
 	end)
 
 	EventBus:On(Events.LOCAL_MOVE_BUILDING_UPDATE, function(position: Vector3)
-		if not position then
-			self:_confirmMove()
-			return
-		end
 		self:_updateMovePreview(position)
 	end)
 
