@@ -400,6 +400,7 @@ function BuildingController:_startPlacement(buildType: string)
 
 			-- เก็บcache ไว้ก่อน โยยไม่รอserver
 			local buildingCount = self._BuildingStore:GetbuildingCount() :: number
+			warn(`{buildingCount}`)
 			local nextbuildingId = `n{buildingCount + 1}`
 			local BuildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.NEXT_LEVEL)
 			local builTime = os.time() + BuildingData.UpgradeTime
@@ -707,7 +708,6 @@ function BuildingController:Start()
 			return
 		end
 
-		self._BuildingStore:SetBuildingCount(data.BuildingCount)
 		local buildings = data.Buildings
 		if not buildings then
 			warn("[BuildingController] No building data found for player")
