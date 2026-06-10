@@ -31,6 +31,9 @@ local CONFIG = {
 		["EndTime"] = 5,
 		["LastCollectedTime"] = 6,
 	},
+
+	-- @TODO
+	-- HARD_CODE Building Position เพื่อให้ สามารถทดสอบการย้ายได้ง่ายขึ้น อาคารไม่ทับกับตอนเข้า buildingMove mode
 }
 
 export type BuilderRecord = {
@@ -120,6 +123,7 @@ function BuildingController:BuildingComplete(buildingId: string)
 	local footPrint = self:_createFootPrints(worldPos, dimension.Length * dimension.Width)
 	if footPrint then
 		footPrint.Parent = model
+		model.PrimaryPart = footPrint
 	end
 
 	self._BuilderStore[buildingId] = nil
@@ -284,6 +288,7 @@ function BuildingController:_createBuilding(buildingType: string, snapPosition: 
 	return newBuilding
 end
 
+-- @TODO set priamry part ให้ footprint model เพื่อให้การวางตำแหน่งถูกต้องแม้โมเดลมี
 function BuildingController:_startPlacement(buildType: string)
 	local buildingFolder = self._BuildingTemplate:FindFirstChild(buildType, true)
 	if not buildingFolder then
@@ -357,6 +362,7 @@ function BuildingController:_startPlacement(buildType: string)
 	end)
 
 	local mouse = Player:GetMouse()
+	-- @TODO ทำใ้รองรับมือถือ
 	self._Connetion = mouse.Button1Down:Connect(function()
 		-- check if currency enough
 
@@ -398,9 +404,7 @@ function BuildingController:_startPlacement(buildType: string)
 			self:_requestPlaceBuilding(startX, startZ, buildingEnum, snapPos)
 			self._GridController:occupyCell(snapPos, dimension.Length, dimension.Width)
 
-			-- เก็บcache ไว้ก่อน โยยไม่รอserver
 			local buildingCount = self._BuildingStore:GetbuildingCount() :: number
-			warn(`{buildingCount}`)
 			local nextbuildingId = `n{buildingCount + 1}`
 			local BuildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.NEXT_LEVEL)
 			local builTime = os.time() + BuildingData.UpgradeTime
@@ -575,12 +579,17 @@ function BuildingController:MoveBuilding(buildingId: string)
 
 	self:_stopPlacement()
 
-	self._indicatorModel = buildingModel:Clone()
-	self._indicatorModel.Parent = self._PlayerFolder
 	self._isPlacing = true
 
-	local primaryPart: BasePart? = self._indicatorModel.PrimaryPart
+	local primaryPart: BasePart? = buildingModel.PrimaryPart
 	if not primaryPart then
+		warn(`[BuildingController] No primary part found for buildingId {buildingId} on move request`)
+		return
+	end
+
+	local texture = primaryPart:FindFirstChild("Texture") :: Texture
+	if not texture then
+		warn(`[BuildingController] No texture found on primary part of buildingId {buildingId} during move request`)
 		return
 	end
 
@@ -605,12 +614,32 @@ function BuildingController:MoveBuilding(buildingId: string)
 		oldPosition = oldPosition,
 		ignoreCells = self._GridController:GetFootPrintCells(oldPosition, dimension.Length, dimension.Width),
 		halfHeight = primaryPart.Size.Y / 2,
+		PrimaryPart = primaryPart,
+		FootPrintTexture = texture,
 	}
 end
 
 function BuildingController:_updateMovePreview(position: Vector3)
 	local session = self._moveSession
-	if not session or not self._indicatorModel then
+	if not session then
+		return
+	end
+
+	local model = session.buildingModel
+	if not model then
+		return
+	end
+
+	local primaryPart = session.PrimaryPart
+	if not primaryPart then
+		return
+	end
+
+	local texture = session.FootPrintTexture
+	if not texture then
+		warn(
+			`[BuildingController] No texture found in move session for buildingId {session.buildingId} during move preview update`
+		)
 		return
 	end
 
@@ -619,21 +648,21 @@ function BuildingController:_updateMovePreview(position: Vector3)
 	local canPlace =
 		self._GridController:CanPlace(snapPos, session.dimension.Length, session.dimension.Width, session.ignoreCells)
 	local color = if canPlace then Color3.new(0, 1, 0) else Color3.new(1, 0, 0)
-	for _, child in ipairs(self._indicatorModel:GetDescendants()) do
-		if child:IsA("BasePart") then
-			if child:IsA("UnionOperation") then
-				child.UsePartColor = true
-			end
-			child.Color = color
-		end
-	end
-	self._indicatorModel:SetPrimaryPartCFrame(CFrame.new(snapPos.X, snapPos.Y + session.halfHeight, snapPos.Z))
+
+	texture.Color3 = color
+
+	model:SetPrimaryPartCFrame(CFrame.new(snapPos.X, snapPos.Y + session.halfHeight, snapPos.Z))
 end
 
 -- ยืนยันการย้ายตอนปล่อยเมาส์: วางได้ = ย้ายโมเดลจริง + อัปเดตกริด/store, วางไม่ได้ = ยกเลิก (โมเดลจริงไม่ขยับ)
 function BuildingController:_confirmMove(position: Vector3)
 	local session = self._moveSession
 	if not session then
+		return
+	end
+
+	local model = session.buildingModel
+	if not model then
 		return
 	end
 
@@ -652,14 +681,13 @@ function BuildingController:_confirmMove(position: Vector3)
 			BuildingEnum = session.buildingData.BuildingEnum,
 			BuildingLevel = session.buildingData.BuildingLevel,
 			EndTime = session.buildingData.EndTime,
-			LastCollectedTime = session.buildingData.LastCollaectedTime,
+			LastCollectedTime = session.buildingData.LastCollectedTime,
 			BuildingModel = session.buildingModel,
 		})
 
 		self._GridController:freeCell(session.oldPosition, session.dimension.Length, session.dimension.Width)
 		self._GridController:occupyCell(snapPos, session.dimension.Length, session.dimension.Width)
 
-		-- @TODO ส่ง update ให้ server
 		self:_syncToserver(session.buildingId, startX, startZ, snapPos)
 		warn(`[BuildingController] Building {session.buildingId} moved to new position {snapPos}`)
 	end
