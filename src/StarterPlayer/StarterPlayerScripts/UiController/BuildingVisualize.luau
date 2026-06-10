@@ -30,12 +30,16 @@ function BuildingVisualize.new()
 	self._MainDisPlay = nil
 	self._MainInfoFrame = nil
 	self._BuildingInfo = nil
+	self._PlaceBillderboards = nil
 
 	self._currentBuildingId = nil
 	self._connInputBegan = nil
 	self._connInputChanged = nil
 	self._connInputEnded = nil
 	self._isDragging = false
+
+	self._connConfirmMove = nil
+	self._connCancelMove = nil
 
 	self._mouse = nil
 	self._raycastParams = nil
@@ -57,6 +61,41 @@ function BuildingVisualize:_ondetectBuilding(buildingId: string)
 	-- local buildingNameT = self._BuildingInfo:FindFirstChild("BuildingName")
 
 	EventBus:Emit(Events.LOCAL_MOVE_BUILDING, buildingId)
+end
+
+function BuildingVisualize:_showPlaceBillderboards(buildingId: string)
+	local buildingData = self._BuildingStore:GetBuildingData(buildingId)
+	if not buildingData then
+		warn("Building data not found for ID:", buildingId)
+		return
+	end
+	local buildingModel = buildingData.BuildingModel
+	if not buildingModel then
+		warn("Building model not found for ID:", buildingId)
+		return
+	end
+
+	local attachPart = buildingModel:FindFirstChild("Attachment", true) :: BasePart
+	if not attachPart then
+		warn("Attachment part not found in building model for ID:", buildingId)
+		return
+	end
+
+	-- local cancelBnt = self._PlaceBillderboards:FindFirstChild("CancelBnt", true)
+	-- local confirm = self._PlaceBillderboards:FindFirstChild("Confirm", true)
+
+	-- self._connConfirmMove = confirm.Activated:Connect(function()
+	-- 	EventBus:Emit(Events.LOCAL_MOVE_BUILDING_CONFIRM, true)
+	-- 	self._PlaceBillderboards.Enabled = false
+	-- end)
+
+	-- self._connCancelMove = cancelBnt.Activated:Connect(function()
+	-- 	EventBus:Emit(Events.LOCAL_MOVE_BUILDING_CONFIRM, false)
+	-- 	self._PlaceBillderboards.Enabled = false
+	-- end)
+
+	self._PlaceBillderboards.Enabled = true
+	self._PlaceBillderboards.Adornee = attachPart
 end
 
 function BuildingVisualize:_raycastFromInput(input: InputObject): RaycastResult?
@@ -136,6 +175,7 @@ end
 function BuildingVisualize:Init()
 	self._playerGui = Player:WaitForChild("PlayerGui")
 	self._MainDisPlay = self._playerGui:WaitForChild("MainDisPlay")
+	self._PlaceBillderboards = self._playerGui:WaitForChild("PlaceBillderboards")
 	self._MainInfoFrame = self._MainDisPlay:WaitForChild("MainInfoFrame")
 	self._BuildingInfo = self._MainInfoFrame:WaitForChild("BuildingInfo")
 
@@ -172,7 +212,6 @@ function BuildingVisualize:Start()
 		self:_ondetectBuilding(buildId)
 	end)
 
-	-- อาคารติดไปกับตอนลาก เปลี่ยนPosition ที่ใช้ในการ ควบคุมโมดล indicator
 	self._connInputChanged = UserInputService.InputChanged:Connect(function(input)
 		if not self._isDragging or not self._currentBuildingId then
 			return
@@ -183,12 +222,11 @@ function BuildingVisualize:Start()
 
 		local raycastResult = self:_raycastFromInput(input)
 		if raycastResult then
-			-- ส่งตำแหน่งโลกให้ BuildingController ขยับ indicator + พรีวิวเขียว/แดง
 			EventBus:Emit(Events.LOCAL_MOVE_BUILDING_UPDATE, raycastResult.Position)
 		end
 	end)
 
-	-- ปล่อยเมาส์ → ยืนยันการย้ายที่ตำแหน่งปล่อย (ปล่อยนอกแมพ = ยกเลิก)
+	-- @TODO เปลี่ยนเป็นการกด ปุ่มอื่นยกเว้นการลากต่อจะ cancel การวางอาคาร
 	self._connInputEnded = UserInputService.InputEnded:Connect(function(input)
 		if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
 			return
@@ -200,13 +238,7 @@ function BuildingVisualize:Start()
 		self._isDragging = false
 		self._currentBuildingId = nil
 
-		-- ปล่อยเมาส์ → ยืนยันการย้ายที่ตำแหน่งปล่อย (ปล่อยนอกแมพ = ยกเลิก)
-		local raycastResult = self:_raycastFromInput(input)
-		if raycastResult then
-			EventBus:Emit(Events.LOCAL_MOVE_BUILDING_CONFIRM, raycastResult.Position)
-		else
-			EventBus:Emit(Events.LOCAL_MOVE_BUILDING, "")
-		end
+		EventBus:Emit(Events.LOCAL_MOVE_BUILDING_CONFIRM)
 	end)
 end
 

@@ -70,6 +70,7 @@ end
 
 -- BoardCast to all client about building changes
 
+-- @TODO Server veryfing ว่า buildingId belongs to player หรือเปล่า กันแฮคยิงมาอัพเลเวลฟรี
 -- Update
 function BuildingService:_buildingChanges(player: Player, buildingId: string, gridx: number, gridz: number)
 	--Veryfing buildingId and player

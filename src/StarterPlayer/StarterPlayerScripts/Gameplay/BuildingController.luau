@@ -612,6 +612,7 @@ function BuildingController:MoveBuilding(buildingId: string)
 		buildingData = buildingData,
 		dimension = dimension,
 		oldPosition = oldPosition,
+		currentPosition = oldPosition,
 		ignoreCells = self._GridController:GetFootPrintCells(oldPosition, dimension.Length, dimension.Width),
 		halfHeight = primaryPart.Size.Y / 2,
 		PrimaryPart = primaryPart,
@@ -647,15 +648,20 @@ function BuildingController:_updateMovePreview(position: Vector3)
 		self._GridController:SnapToGrid(position, session.dimension.Length, session.dimension.Width) :: Vector3
 	local canPlace =
 		self._GridController:CanPlace(snapPos, session.dimension.Length, session.dimension.Width, session.ignoreCells)
+
+	if canPlace then
+		session.currentPosition = snapPos
+	end
+
 	local color = if canPlace then Color3.new(0, 1, 0) else Color3.new(1, 0, 0)
 
 	texture.Color3 = color
 
-	model:SetPrimaryPartCFrame(CFrame.new(snapPos.X, snapPos.Y + session.halfHeight, snapPos.Z))
+	model:SetPrimaryPartCFrame(CFrame.new(snapPos.X, snapPos.Y + session.halfHeight + CONFIG.HEIGHT, snapPos.Z))
 end
 
 -- ยืนยันการย้ายตอนปล่อยเมาส์: วางได้ = ย้ายโมเดลจริง + อัปเดตกริด/store, วางไม่ได้ = ยกเลิก (โมเดลจริงไม่ขยับ)
-function BuildingController:_confirmMove(position: Vector3)
+function BuildingController:_confirmMove()
 	local session = self._moveSession
 	if not session then
 		return
@@ -666,14 +672,20 @@ function BuildingController:_confirmMove(position: Vector3)
 		return
 	end
 
-	local snapPos =
-		self._GridController:SnapToGrid(position, session.dimension.Length, session.dimension.Width) :: Vector3
+	local newsnapPos = session.currentPosition :: Vector3
 	if
-		self._GridController:CanPlace(snapPos, session.dimension.Length, session.dimension.Width, session.ignoreCells)
+		self._GridController:CanPlace(
+			newsnapPos,
+			session.dimension.Length,
+			session.dimension.Width,
+			session.ignoreCells
+		)
 	then
 		local startX, startZ =
-			self._GridController:GetFootPrintStart(snapPos, session.dimension.Length, session.dimension.Width)
-		session.buildingModel:SetPrimaryPartCFrame(CFrame.new(snapPos.X, snapPos.Y + session.halfHeight, snapPos.Z))
+			self._GridController:GetFootPrintStart(newsnapPos, session.dimension.Length, session.dimension.Width)
+		session.buildingModel:SetPrimaryPartCFrame(
+			CFrame.new(newsnapPos.X, newsnapPos.Y + session.halfHeight + CONFIG.HEIGHT, newsnapPos.Z)
+		)
 
 		self._BuildingStore:SetBuildingData(session.buildingId, {
 			Gridx = startX,
@@ -686,12 +698,41 @@ function BuildingController:_confirmMove(position: Vector3)
 		})
 
 		self._GridController:freeCell(session.oldPosition, session.dimension.Length, session.dimension.Width)
-		self._GridController:occupyCell(snapPos, session.dimension.Length, session.dimension.Width)
+		self._GridController:occupyCell(newsnapPos, session.dimension.Length, session.dimension.Width)
 
-		self:_syncToserver(session.buildingId, startX, startZ, snapPos)
-		warn(`[BuildingController] Building {session.buildingId} moved to new position {snapPos}`)
+		self:_syncToserver(session.buildingId, startX, startZ, newsnapPos)
+		warn(`[BuildingController] Building {session.buildingId} moved to new position {newsnapPos}`)
+	else
+		local oldSnapPos = session.oldPosition :: Vector3
+		local startX, startZ =
+			self._GridController:GetFootPrintStart(oldSnapPos, session.dimension.Length, session.dimension.Width)
+		session.buildingModel:SetPrimaryPartCFrame(
+			CFrame.new(oldSnapPos.X, oldSnapPos.Y + session.halfHeight + CONFIG.HEIGHT, oldSnapPos.Z)
+		)
+
+		self._BuildingStore:SetBuildingData(session.buildingId, {
+			Gridx = startX,
+			Gridz = startZ,
+			BuildingEnum = session.buildingData.BuildingEnum,
+			BuildingLevel = session.buildingData.BuildingLevel,
+			EndTime = session.buildingData.EndTime,
+			LastCollectedTime = session.buildingData.LastCollectedTime,
+			BuildingModel = session.buildingModel,
+		})
+
+		self._GridController:freeCell(session.oldPosition, session.dimension.Length, session.dimension.Width)
+		self._GridController:occupyCell(oldSnapPos, session.dimension.Length, session.dimension.Width)
 	end
 
+	local texture = session.FootPrintTexture
+	if not texture then
+		warn(
+			`[BuildingController] No texture found in move session for buildingId {session.buildingId} during move preview update`
+		)
+		return
+	end
+
+	texture.Color3 = Color3.fromRGB(117, 161, 37)
 	self:_stopPlacement()
 end
 
@@ -723,11 +764,15 @@ function BuildingController:Start()
 	end)
 
 	EventBus:On(Events.LOCAL_MOVE_BUILDING_UPDATE, function(position: Vector3)
+		if not position then
+			self:_confirmMove()
+			return
+		end
 		self:_updateMovePreview(position)
 	end)
 
-	EventBus:On(Events.LOCAL_MOVE_BUILDING_CONFIRM, function(position: Vector3)
-		self:_confirmMove(position)
+	EventBus:On(Events.LOCAL_MOVE_BUILDING_CONFIRM, function()
+		self:_confirmMove()
 	end)
 
 	self._PlayerDataController:WaitForDataReady():andThen(function(data)
