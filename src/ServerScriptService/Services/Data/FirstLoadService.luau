@@ -74,8 +74,8 @@ function FirstLoadService:Start()
 				local ArrayBuilding = MapTOArray(playerData.PlayerBuildings)
 				local playload = {
 					Player = player,
-					Golds = playerData.Golds or 0,
-					Elixirs = playerData.Elixirs or 0,
+					Crystals = playerData.Crystals or 0,
+					Aethers = playerData.Aethers or 0,
 					Gems = playerData.Gems or 0,
 					Level = playerData.Level or 1,
 					Experience = playerData.Experience or 0,
@@ -88,7 +88,7 @@ function FirstLoadService:Start()
 				EventBus:Emit(Events.S2C_PLAYER_DATA_FIRST_LOAD, playload)
 			end)
 			:catch(function()
-				warn(`[PlayerDataService] ⏱️ Timed out waiting for profile: {player.Name}`)
+				warn(`[FirstLoadService] ⏱️ Timed out waiting for profile: {player.Name}`)
 			end)
 	end)
 end

@@ -54,10 +54,10 @@ function BuildingService.new()
 	self._BuildingCache = {} :: { [Player]: { [string]: BuildingCache } }
 	self._PlayerBuilderSlot = {} :: { [Player]: number }
 	self._LookBack = {
-		[8] = "ElixirStorage",
-		[9] = "ElixirCollector",
-		[10] = "GoldMine",
-		[11] = "GoldStorage",
+		[8] = "AetherWell",
+		[9] = "AetherSiphon",
+		[10] = "CrystalMine",
+		[11] = "CrystalVault",
 	}
 
 	self._BuildingTemplate = nil

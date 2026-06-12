@@ -364,8 +364,6 @@ function BuildingController:_startPlacement(buildType: string)
 	local mouse = Player:GetMouse()
 	-- @TODO ทำใ้รองรับมือถือ
 	self._Connetion = mouse.Button1Down:Connect(function()
-		-- check if currency enough
-
 		-- check builder hut availability before placing building
 		if self._currentBuilder >= self._PlayerDataController:GetAll().BuilderHutSlot then
 			warn(`[BuildingController] All builder huts are currently occupied. Cannot place new building.`)

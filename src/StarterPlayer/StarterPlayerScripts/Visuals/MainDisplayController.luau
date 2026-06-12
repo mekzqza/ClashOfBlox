@@ -18,9 +18,9 @@ function MainDisplayController.new()
 	self._LevelCount = nil
 	self._LevelFillBar = nil
 
-	self._ElixirContainer = nil
+	self._AethersContainer = nil
 	self._GemContainer = nil
-	self._GoldContainer = nil
+	self._CrystalsContainer = nil
 
 	self._PlayerDataController = nil
 	self._ResourceController = nil
@@ -113,17 +113,17 @@ function MainDisplayController:Init()
 	self._LevelCount = self._ProfileContainer:WaitForChild("LevelCount")
 	self._LevelFillBar = self._ProfileContainer:WaitForChild("LevelFillBar")
 
-	self._GoldContainer = self._ResourceFrame:WaitForChild("Golds")
-	self._ElixirContainer = self._ResourceFrame:WaitForChild("Elixirs")
+	self._CrystalsContainer = self._ResourceFrame:WaitForChild("Crystals")
+	self._AethersContainer = self._ResourceFrame:WaitForChild("Aethers")
 	self._GemContainer = self._ResourceFrame:WaitForChild("Gems")
 end
 
 function MainDisplayController:Start()
 	EventBus:On(Events.LOCAL_DATA_CHANGED, function(data)
-		if data.Key == "Golds" then
-			self:_updateResourceDisplay("Golds", data.Value)
-		elseif data.Key == "Elixirs" then
-			self:_updateResourceDisplay("Elixirs", data.Value)
+		if data.Key == "Crystals" then
+			self:_updateResourceDisplay("Crystals", data.Value)
+		elseif data.Key == "Aethers" then
+			self:_updateResourceDisplay("Aethers", data.Value)
 		elseif data.Key == "Gems" then
 			self:_updateResourceDisplay("Gems", data.Value)
 		elseif data.Key == "Level" then
@@ -134,16 +134,16 @@ function MainDisplayController:Start()
 	end)
 
 	self._PlayerDataController:WaitForDataReady():andThen(function(data)
-		local golds = data.Golds or 0
-		local elixir = data.Elixirs or 0
+		local crystals = data.Crystals or 0
+		local aethers = data.Aethers or 0
 		local gem = data.Gems or 0
 		local level = data.Level or 1
 		local experience = data.Experience or 0
 
-		self:_updateResourceDisplay("Golds", golds)
-		self:_updateResourceDisplay("Elixirs", elixir)
-		self:_updateMaxResourceDisplay("Golds", golds)
-		self:_updateMaxResourceDisplay("Elixirs", elixir)
+		self:_updateResourceDisplay("Crystals", crystals)
+		self:_updateResourceDisplay("Aethers", aethers)
+		self:_updateMaxResourceDisplay("Crystals", crystals)
+		self:_updateMaxResourceDisplay("Aethers", aethers)
 		self:_updateResourceDisplay("Gems", gem)
 		self:_setPlayerName(Player)
 		self:_updateLevelDisplay(level)

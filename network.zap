@@ -13,8 +13,8 @@ type BuildingEntry = struct {
 }
 
 type DataKey = enum {
-    Golds,
-    Elixirs,
+    Crystals,
+    Aethers,
     Gems,
     Level,
     Experience,
@@ -29,8 +29,8 @@ type CollectorData = struct {
 }
 
 type Collector = struct {
-    GoldCollector: CollectorData,
-    ElixirCollector: CollectorData,
+    CrystalCollector: CollectorData,
+    AetherCollector: CollectorData,
 }
 
 event LoadSnapshot = {
@@ -38,8 +38,8 @@ event LoadSnapshot = {
     type: Reliable,
     call: SingleAsync,
     data: struct {
-        Golds: u32,
-        Elixirs: u32,
+        Crystals: u32,
+        Aethers: u32,
         Gems: u32,
         Level: u32,
         Experience: u32,
