@@ -160,7 +160,7 @@ local Buildings: BuildingData = {
         }
 
 	},
-	["Builinghut"] = {
+	["Buildinghut"] = {
 		Width = 2,
 		Length = 2,
 		[1] = {

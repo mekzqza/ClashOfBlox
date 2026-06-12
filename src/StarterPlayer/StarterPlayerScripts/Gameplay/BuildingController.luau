@@ -289,7 +289,6 @@ function BuildingController:_createBuilding(buildingType: string, snapPosition: 
 	return newBuilding
 end
 
--- @TODO set priamry part ให้ footprint model เพื่อให้การวางตำแหน่งถูกต้องแม้โมเดลมี
 function BuildingController:_startPlacement(buildType: string)
 	local buildingFolder = self._BuildingTemplate:FindFirstChild(buildType, true)
 	if not buildingFolder then
@@ -698,7 +697,6 @@ function BuildingController:_confirmMove()
 	if session.FootPrintTexture then
 		session.FootPrintTexture.Color3 = CONFIG.DEFAULT_FOOTPRINT_COLOR
 	end
-	warn(`[BuildingController] Building {session.buildingId} moved to new position {newsnapPos}`)
 
 	self:_stopPlacement()
 end

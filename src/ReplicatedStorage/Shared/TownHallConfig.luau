@@ -11,7 +11,7 @@ local TownHallConfig = {}
 
 local TownHallLevels: TownHallConfigType = {
 	[1] = {
-		["Builinghut"] = { Max = 1, MaxLevel = 2 },
+		["Buildinghut"] = { Max = 1, MaxLevel = 2 },
 		["Cannon"] = { Max = 1, MaxLevel = 2 },
 
 		["GoldStorage"] = { Max = 1, MaxLevel = 2 },
@@ -23,7 +23,7 @@ local TownHallLevels: TownHallConfigType = {
 		["Barrack"] = { Max = 1, MaxLevel = 1 },
 	},
 	[2] = {
-		["Builinghut"] = { Max = 1, MaxLevel = 3 },
+		["Buildinghut"] = { Max = 1, MaxLevel = 3 },
 		["Cannon"] = { Max = 2, MaxLevel = 3 },
 		["ArcherTower"] = { Max = 1, MaxLevel = 2 },
 
@@ -36,7 +36,7 @@ local TownHallLevels: TownHallConfigType = {
 		["Barrack"] = { Max = 1, MaxLevel = 1 },
 	},
 	[3] = {
-		["Builinghut"] = { Max = 1, MaxLevel = 4 },
+		["Buildinghut"] = { Max = 1, MaxLevel = 4 },
 		["Cannon"] = { Max = 3, MaxLevel = 4 },
 		["Wall"] = { Max = 10, MaxLevel = 3 },
 

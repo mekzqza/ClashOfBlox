@@ -346,9 +346,6 @@ function BuildingService:Start()
 	end)
 
 	EventBus:On(Events.LOCAL_UPDATE_BUILDING_POSITION, function(data)
-		warn(
-			`[BuildingService] Received request to update building position for player {data.Player.Name}, buildingId {data.BuildingId}, new gridx: {data.Gridx}, new gridz: {data.Gridz}`
-		)
 		self:_buildingChanges(data.Player, data.BuildingId, data.Gridx, data.Gridz)
 	end)
 
