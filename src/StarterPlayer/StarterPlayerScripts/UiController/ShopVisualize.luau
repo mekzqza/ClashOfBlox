@@ -20,7 +20,7 @@ function ShopVisualize.new()
 	self._StructureModel = nil
 
 	--Cache
-	self._CardConn = {} :: { [string]: RBXScriptConnection }
+	self._CardConn = {} :: { [string]: { MainButton: RBXScriptConnection, DetailBtn: RBXScriptConnection } }
 
 	-- Ui
 	self._ShopGui = nil
@@ -94,12 +94,34 @@ function ShopVisualize:_setupBuildingCard(frameName: Frame, modelTemplate: Model
 		return
 	end
 
+	local detailFrame = frameName:FindFirstChild("DetailFrame")
+	local timeFrame = detailFrame:FindFirstChild("TimeFrame")
+	local time = timeFrame:FindFirstChild("Time") :: textLabel
+
+	local costFrame = detailFrame:FindFirstChild("CostFrame")
+	local Cost = costFrame:FindFirstChild("Cost") :: TextLabel
+	local currencryImmage = costFrame:FindFirstChild("Currencry") :: ImageLabel
+
 	setupBuildingViewport(viewPort, modelTemplate)
 
-	self._CardConn[frameName.Name] = mainBtn.MouseButton1Click:Connect(function()
-		--TODO
-		warn(`[ShopVisualize] Clicked on building card {frameName.Name}`)
-	end)
+	local nameContrainer = frameName:FindFirstChild("NameContainer")
+	local buildingName = nameContrainer:FindFirstChild("BuildingName") :: textLabel
+	local DetailBtn = nameContrainer:FindFirstChild("DetailBtn")
+
+	time.Text = tostring(buildingData.UpgradeTime) .. "s"
+	Cost.Text = tostring(buildingData.UpgradeCost)
+	buildingName.Text = frameName.Name
+
+	self._CardConn[frameName.Name] = {
+		MainButton = mainBtn.MouseButton1Click:Connect(function()
+			--TODO logic check currencry
+			EventBus:Emit(Events.LOCAL_TEST_BUILDING, frameName.Name)
+			warn("Emitted event to test building: " .. frameName.Name)
+		end),
+		DetailBtn = DetailBtn.MouseButton1Click:Connect(function()
+			warn("Detail button clicked for " .. frameName.Name)
+		end),
+	}
 end
 
 -- @ หาโมเดลจาก Frame name ที่ Asset Constucture และ Level ที่กำหนด
@@ -153,6 +175,16 @@ function ShopVisualize:Start()
 			end
 		end
 	end
+
+	EventBus:On(Events.LOCAL_DATA_CHANGED, function(data)
+		if data.Key == "Golds" then
+			self:_updateResourceDisplay("Golds", data.Value)
+		elseif data.Key == "Elixirs" then
+			self:_updateResourceDisplay("Elixirs", data.Value)
+		elseif data.Key == "Gems" then
+			self:_updateResourceDisplay("Gems", data.Value)
+		end
+	end)
 
 	self._PlayerDataController:WaitForDataReady():andThen(function(data)
 		self:_updateResourceDisplay("Golds", data.Golds)
