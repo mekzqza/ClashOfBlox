@@ -38,9 +38,6 @@ function BuildingVisualize.new()
 	self._connInputEnded = nil
 	self._isDragging = false
 
-	self._connConfirmMove = nil
-	self._connCancelMove = nil
-
 	self._mouse = nil
 	self._raycastParams = nil
 	self._debugPart = nil
@@ -80,19 +77,6 @@ function BuildingVisualize:_showPlaceBillderboards(buildingId: string)
 		warn("Attachment part not found in building model for ID:", buildingId)
 		return
 	end
-
-	-- local cancelBnt = self._PlaceBillderboards:FindFirstChild("CancelBnt", true)
-	-- local confirm = self._PlaceBillderboards:FindFirstChild("Confirm", true)
-
-	-- self._connConfirmMove = confirm.Activated:Connect(function()
-	-- 	EventBus:Emit(Events.LOCAL_MOVE_BUILDING_CONFIRM, true)
-	-- 	self._PlaceBillderboards.Enabled = false
-	-- end)
-
-	-- self._connCancelMove = cancelBnt.Activated:Connect(function()
-	-- 	EventBus:Emit(Events.LOCAL_MOVE_BUILDING_CONFIRM, false)
-	-- 	self._PlaceBillderboards.Enabled = false
-	-- end)
 
 	self._PlaceBillderboards.Enabled = true
 	self._PlaceBillderboards.Adornee = attachPart
