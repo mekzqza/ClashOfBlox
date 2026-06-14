@@ -29,6 +29,8 @@ function ShopVisualize.new()
 	self._Resource = nil
 	self._DisplayFrame = nil
 
+	self._closeBtn = nil
+
 	self._MainShop = nil
 	self._BuildingContrainer = nil
 	return self
@@ -158,6 +160,7 @@ function ShopVisualize:Init()
 	self._MainFrame2 = self._MainFrame:WaitForChild("MainFrame2")
 	self._MainShop = self._MainFrame2:WaitForChild("MainShop")
 	self._BuildingContrainer = self._MainShop:WaitForChild("BuildingContrainer")
+	self._closeBtn = self._MainFrame:WaitForChild("CloseContrain"):WaitForChild("CloseFrame"):WaitForChild("CloseBtn")
 
 	self._StructureModel = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("Structure")
 	if not self._StructureModel then
@@ -177,6 +180,16 @@ function ShopVisualize:Start()
 			end
 		end
 	end
+
+	self._closeBtn.Activated:Connect(function()
+		self._MainFrame.Visible = false
+	end)
+
+	EventBus:On(Events.LOCAL_TOGGLE_UI, function(window)
+		if window == "BuildingShop" then
+			self._MainFrame.Visible = not self._MainFrame.Visible
+		end
+	end)
 
 	EventBus:On(Events.LOCAL_DATA_CHANGED, function(data)
 		if data.Key == "Crystals" then
