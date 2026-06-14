@@ -121,7 +121,7 @@ local Buildings: BuildingData = {
 		}
 	},
 
-	["CrystalTree"] = {
+	["Tree"] = {
 		Width = 2,
 		Length = 2,
 
@@ -171,6 +171,31 @@ local Buildings: BuildingData = {
             Description = "A building hall that serves as the main hub for the base.",
         }
 	},
+	["Stump"] = {
+	    Width = 2,
+        Length = 2,
+
+        [1] = {
+            UpgradeCost = 0,
+            UpgradeTime = 0,
+            MaxHp = 100,
+
+            Description = "A tree stump that can be removed to clear space.",
+        }
+	},
+	["Crystal"] = {
+	    Width = 2,
+        Length = 2,
+
+        [1] = {
+            UpgradeCost = 0,
+            UpgradeTime = 0,
+            MaxHp = 100,
+
+            Description = "A crystal that can be harvested for resources.",
+        }
+	}
+
 }
 
 

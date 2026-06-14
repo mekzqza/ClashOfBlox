@@ -4,7 +4,7 @@ local BuildingTypeById: { [number]: string } = {
 	[1] = "Nexus",
 	[2] = "ArcaneTurret",
 	[3] = "ArcherTower",
-	[4] = "CrystalTree",
+	[4] = "Tree",
 	[5] = "ArtificerHut",
 	[6] = "SummonAltar",
 	[7] = "HeroCamp",
@@ -12,6 +12,8 @@ local BuildingTypeById: { [number]: string } = {
 	[9] = "AetherSiphon",
 	[10] = "CrystalMine",
 	[11] = "CrystalVault",
+	[12] = "Crystal",
+	[13] = "Stump",
 }
 
 local BuildingTypeIdByName: { [string]: number } = {}
