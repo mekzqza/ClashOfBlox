@@ -47,8 +47,8 @@ local function DataLayer()
 		end
 
 		local playload = {
-			Golds = data.Golds,
-			Elixirs = data.Elixirs,
+			Crystals = data.Crystals,
+			Aethers = data.Aethers,
 			Gems = data.Gems,
 			Level = data.Level,
 			Experience = data.Experience,

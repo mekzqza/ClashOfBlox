@@ -214,12 +214,7 @@ end
 Players.PlayerRemoving:Connect(function(player)
 	player_map[player] = nil
 end)
-export type CollectorData = ({
-	["Timestamp"]: (number),
-	["ProductionRate"]: (number),
-	["Capacity"]: (number),
-})
-export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot")
+export type DataKey = ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot")
 export type BuildingEntry = ({
 	["BuildingId"]: (string),
 	["Gridx"]: (number),
@@ -229,13 +224,18 @@ export type BuildingEntry = ({
 	["EndTime"]: (number),
 	["LastCollectedTime"]: (number),
 })
+export type CollectorData = ({
+	["Timestamp"]: (number),
+	["ProductionRate"]: (number),
+	["Capacity"]: (number),
+})
 export type Collector = ({
-	["GoldCollector"]: ({
+	["CrystalCollector"]: ({
 		["Timestamp"]: (number),
 		["ProductionRate"]: (number),
 		["Capacity"]: (number),
 	}),
-	["ElixirCollector"]: ({
+	["AetherCollector"]: ({
 		["Timestamp"]: (number),
 		["ProductionRate"]: (number),
 		["Capacity"]: (number),
@@ -736,7 +736,7 @@ local returns = {
 	},
 	PlayerDataUpdate = {
 		Fire = function(Player: Player, Value: ({
-			["Key"]: ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot"),
+			["Key"]: ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot"),
 			["Value"]: ((unknown)),
 		}))
 			load_player(Player)
@@ -744,9 +744,9 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_1 = 0
 			local bool_1_pos_1 = alloc(1)
-			if Value["Key"] == "Golds" then
+			if Value["Key"] == "Crystals" then
 				bool_1 = bit32.bor(bool_1, 0b0000000000000001)
-			elseif Value["Key"] == "Elixirs" then
+			elseif Value["Key"] == "Aethers" then
 				bool_1 = bit32.bor(bool_1, 0b0000000000000010)
 			elseif Value["Key"] == "Gems" then
 				bool_1 = bit32.bor(bool_1, 0b0000000000000100)
@@ -769,7 +769,7 @@ local returns = {
 			player_map[Player] = save()
 		end,
 		FireAll = function(Value: ({
-			["Key"]: ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot"),
+			["Key"]: ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot"),
 			["Value"]: ((unknown)),
 		}))
 			load_empty()
@@ -777,9 +777,9 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_2 = 0
 			local bool_2_pos_1 = alloc(1)
-			if Value["Key"] == "Golds" then
+			if Value["Key"] == "Crystals" then
 				bool_2 = bit32.bor(bool_2, 0b0000000000000001)
-			elseif Value["Key"] == "Elixirs" then
+			elseif Value["Key"] == "Aethers" then
 				bool_2 = bit32.bor(bool_2, 0b0000000000000010)
 			elseif Value["Key"] == "Gems" then
 				bool_2 = bit32.bor(bool_2, 0b0000000000000100)
@@ -809,7 +809,7 @@ local returns = {
 			end
 		end,
 		FireExcept = function(Except: Player, Value: ({
-			["Key"]: ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot"),
+			["Key"]: ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot"),
 			["Value"]: ((unknown)),
 		}))
 			load_empty()
@@ -817,9 +817,9 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_3 = 0
 			local bool_3_pos_1 = alloc(1)
-			if Value["Key"] == "Golds" then
+			if Value["Key"] == "Crystals" then
 				bool_3 = bit32.bor(bool_3, 0b0000000000000001)
-			elseif Value["Key"] == "Elixirs" then
+			elseif Value["Key"] == "Aethers" then
 				bool_3 = bit32.bor(bool_3, 0b0000000000000010)
 			elseif Value["Key"] == "Gems" then
 				bool_3 = bit32.bor(bool_3, 0b0000000000000100)
@@ -851,7 +851,7 @@ local returns = {
 			end
 		end,
 		FireList = function(List: { [unknown]: Player }, Value: ({
-			["Key"]: ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot"),
+			["Key"]: ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot"),
 			["Value"]: ((unknown)),
 		}))
 			load_empty()
@@ -859,9 +859,9 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_4 = 0
 			local bool_4_pos_1 = alloc(1)
-			if Value["Key"] == "Golds" then
+			if Value["Key"] == "Crystals" then
 				bool_4 = bit32.bor(bool_4, 0b0000000000000001)
-			elseif Value["Key"] == "Elixirs" then
+			elseif Value["Key"] == "Aethers" then
 				bool_4 = bit32.bor(bool_4, 0b0000000000000010)
 			elseif Value["Key"] == "Gems" then
 				bool_4 = bit32.bor(bool_4, 0b0000000000000100)
@@ -891,7 +891,7 @@ local returns = {
 			end
 		end,
 		FireSet = function(Set: { [Player]: any }, Value: ({
-			["Key"]: ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot"),
+			["Key"]: ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot"),
 			["Value"]: ((unknown)),
 		}))
 			load_empty()
@@ -899,9 +899,9 @@ local returns = {
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_5 = 0
 			local bool_5_pos_1 = alloc(1)
-			if Value["Key"] == "Golds" then
+			if Value["Key"] == "Crystals" then
 				bool_5 = bit32.bor(bool_5, 0b0000000000000001)
-			elseif Value["Key"] == "Elixirs" then
+			elseif Value["Key"] == "Aethers" then
 				bool_5 = bit32.bor(bool_5, 0b0000000000000010)
 			elseif Value["Key"] == "Gems" then
 				bool_5 = bit32.bor(bool_5, 0b0000000000000100)
@@ -943,8 +943,8 @@ local returns = {
 	},
 	LoadSnapshot = {
 		Fire = function(Player: Player, Value: ({
-			["Golds"]: (number),
-			["Elixirs"]: (number),
+			["Crystals"]: (number),
+			["Aethers"]: (number),
 			["Gems"]: (number),
 			["Level"]: (number),
 			["Experience"]: (number),
@@ -964,9 +964,9 @@ local returns = {
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
 			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Golds"])
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Crystals"])
 			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Elixirs"])
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Aethers"])
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Gems"])
 			alloc(4)
@@ -1004,8 +1004,8 @@ local returns = {
 			player_map[Player] = save()
 		end,
 		FireAll = function(Value: ({
-			["Golds"]: (number),
-			["Elixirs"]: (number),
+			["Crystals"]: (number),
+			["Aethers"]: (number),
 			["Gems"]: (number),
 			["Level"]: (number),
 			["Experience"]: (number),
@@ -1025,9 +1025,9 @@ local returns = {
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
 			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Golds"])
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Crystals"])
 			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Elixirs"])
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Aethers"])
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Gems"])
 			alloc(4)
@@ -1072,8 +1072,8 @@ local returns = {
 			end
 		end,
 		FireExcept = function(Except: Player, Value: ({
-			["Golds"]: (number),
-			["Elixirs"]: (number),
+			["Crystals"]: (number),
+			["Aethers"]: (number),
 			["Gems"]: (number),
 			["Level"]: (number),
 			["Experience"]: (number),
@@ -1093,9 +1093,9 @@ local returns = {
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
 			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Golds"])
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Crystals"])
 			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Elixirs"])
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Aethers"])
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Gems"])
 			alloc(4)
@@ -1142,8 +1142,8 @@ local returns = {
 			end
 		end,
 		FireList = function(List: { [unknown]: Player }, Value: ({
-			["Golds"]: (number),
-			["Elixirs"]: (number),
+			["Crystals"]: (number),
+			["Aethers"]: (number),
 			["Gems"]: (number),
 			["Level"]: (number),
 			["Experience"]: (number),
@@ -1163,9 +1163,9 @@ local returns = {
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
 			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Golds"])
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Crystals"])
 			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Elixirs"])
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Aethers"])
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Gems"])
 			alloc(4)
@@ -1210,8 +1210,8 @@ local returns = {
 			end
 		end,
 		FireSet = function(Set: { [Player]: any }, Value: ({
-			["Golds"]: (number),
-			["Elixirs"]: (number),
+			["Crystals"]: (number),
+			["Aethers"]: (number),
 			["Gems"]: (number),
 			["Level"]: (number),
 			["Experience"]: (number),
@@ -1231,9 +1231,9 @@ local returns = {
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 0)
 			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Golds"])
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Crystals"])
 			alloc(4)
-			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Elixirs"])
+			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Aethers"])
 			alloc(4)
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["Gems"])
 			alloc(4)

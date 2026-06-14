@@ -12,14 +12,14 @@ local Libs = ServerScriptService:FindFirstChild("Libs")
 local guard = IdempotentGuard.new("PlayerDataService")
 local ProfileService: any = nil
 
-export type ResourceType = "Golds" | "Elixirs" | "Gems"
+export type ResourceType = "Crystals" | "Aethers" | "Gems"
 
 export type PlayerData = {
 	_version: number,
 	PlayerBuildings: { [string]: { number } },
 	BuildingCount: number,
-	Golds: number,
-	Elixirs: number,
+	Crystal: number,
+	Aether: number,
 	Gems: number,
 	Level: number,
 	Experience: number,
@@ -68,8 +68,8 @@ function PlayerDataService.new()
 			},
 		},
 		BuildingCount = 4,
-		Golds = 0,
-		Elixirs = 0,
+		Crystals = 0,
+		Aethers = 0,
 		Gems = 0,
 		Level = 1,
 		Experience = 0,
@@ -80,8 +80,8 @@ function PlayerDataService.new()
 	self._LoadingPlayers = {} :: { [number]: boolean }
 	self._profileReadyCallbacks = {} :: { [number]: { (boolean) -> () } }
 	self._VALIDATION_RULES = {
-		Golds = { type = "number", min = 0, max = 99999999 },
-		Elixirs = { type = "number", min = 0, max = 99999999 },
+		Crystals = { type = "number", min = 0, max = 99999999 },
+		Aethers = { type = "number", min = 0, max = 99999999 },
 		Gems = { type = "number", min = 0, max = 99999999 },
 		Level = { type = "number", min = 1, max = 100 },
 		Experience = { type = "number", min = 0, max = 99999999 },

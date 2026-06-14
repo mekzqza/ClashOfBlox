@@ -1,17 +1,19 @@
 local GameEnum = {}
 -- Enum maps
 local BuildingTypeById: { [number]: string } = {
-	[1] = "TownHall",
-	[2] = "Cannon",
+	[1] = "Nexus",
+	[2] = "ArcaneTurret",
 	[3] = "ArcherTower",
 	[4] = "Tree",
-	[5] = "Buildinghut",
-	[6] = "Barrack",
-	[7] = "Campfire",
-	[8] = "ElixirStorage",
-	[9] = "ElixirCollector",
-	[10] = "GoldMine",
-	[11] = "GoldStorage",
+	[5] = "ArtificerHut",
+	[6] = "SummonAltar",
+	[7] = "HeroCamp",
+	[8] = "AetherWell",
+	[9] = "AetherSiphon",
+	[10] = "CrystalMine",
+	[11] = "CrystalVault",
+	[12] = "Crystal",
+	[13] = "Stump",
 }
 
 local BuildingTypeIdByName: { [string]: number } = {}

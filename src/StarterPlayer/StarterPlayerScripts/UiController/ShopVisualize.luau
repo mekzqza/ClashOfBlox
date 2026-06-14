@@ -114,11 +114,13 @@ function ShopVisualize:_setupBuildingCard(frameName: Frame, modelTemplate: Model
 
 	self._CardConn[frameName.Name] = {
 		MainButton = mainBtn.MouseButton1Click:Connect(function()
-			--TODO logic check currencry
+			--@TODO logic check currencry
+
 			EventBus:Emit(Events.LOCAL_TEST_BUILDING, frameName.Name)
 			warn("Emitted event to test building: " .. frameName.Name)
 		end),
 		DetailBtn = DetailBtn.MouseButton1Click:Connect(function()
+			--@TODO logic Shop model Description
 			warn("Detail button clicked for " .. frameName.Name)
 		end),
 	}
@@ -177,18 +179,18 @@ function ShopVisualize:Start()
 	end
 
 	EventBus:On(Events.LOCAL_DATA_CHANGED, function(data)
-		if data.Key == "Golds" then
-			self:_updateResourceDisplay("Golds", data.Value)
-		elseif data.Key == "Elixirs" then
-			self:_updateResourceDisplay("Elixirs", data.Value)
+		if data.Key == "Crystals" then
+			self:_updateResourceDisplay("Crystals", data.Value)
+		elseif data.Key == "Aethers" then
+			self:_updateResourceDisplay("Aethers", data.Value)
 		elseif data.Key == "Gems" then
 			self:_updateResourceDisplay("Gems", data.Value)
 		end
 	end)
 
 	self._PlayerDataController:WaitForDataReady():andThen(function(data)
-		self:_updateResourceDisplay("Golds", data.Golds)
-		self:_updateResourceDisplay("Elixirs", data.Elixirs)
+		self:_updateResourceDisplay("Crystals", data.Crystals)
+		self:_updateResourceDisplay("Aethers", data.Aethers)
 		self:_updateResourceDisplay("Gems", data.Gems)
 	end)
 end

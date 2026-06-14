@@ -169,12 +169,7 @@ local remotes = ReplicatedStorage:WaitForChild("ZAP")
 local reliable = remotes:WaitForChild("ZAP_RELIABLE")
 assert(reliable:IsA("RemoteEvent"), "Expected ZAP_RELIABLE to be a RemoteEvent")
 
-export type CollectorData = ({
-	["Timestamp"]: (number),
-	["ProductionRate"]: (number),
-	["Capacity"]: (number),
-})
-export type DataKey = ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot")
+export type DataKey = ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot")
 export type BuildingEntry = ({
 	["BuildingId"]: (string),
 	["Gridx"]: (number),
@@ -184,13 +179,18 @@ export type BuildingEntry = ({
 	["EndTime"]: (number),
 	["LastCollectedTime"]: (number),
 })
+export type CollectorData = ({
+	["Timestamp"]: (number),
+	["ProductionRate"]: (number),
+	["Capacity"]: (number),
+})
 export type Collector = ({
-	["GoldCollector"]: ({
+	["CrystalCollector"]: ({
 		["Timestamp"]: (number),
 		["ProductionRate"]: (number),
 		["Capacity"]: (number),
 	}),
-	["ElixirCollector"]: ({
+	["AetherCollector"]: ({
 		["Timestamp"]: (number),
 		["ProductionRate"]: (number),
 		["Capacity"]: (number),
@@ -280,9 +280,9 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 			local bool_1 = buffer.readu8(incoming_buff, read(1))
 			value = {  }
 			if bit32.btest(bool_1, 0b0000000000000001) then
-				value["Key"] = "Golds"
+				value["Key"] = "Crystals"
 			elseif bit32.btest(bool_1, 0b0000000000000010) then
-				value["Key"] = "Elixirs"
+				value["Key"] = "Aethers"
 			elseif bit32.btest(bool_1, 0b0000000000000100) then
 				value["Key"] = "Gems"
 			elseif bit32.btest(bool_1, 0b0000000000001000) then
@@ -313,8 +313,8 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 		elseif id == 0 then -- LoadSnapshot
 			local value
 			value = {  }
-			value["Golds"] = buffer.readu32(incoming_buff, read(4))
-			value["Elixirs"] = buffer.readu32(incoming_buff, read(4))
+			value["Crystals"] = buffer.readu32(incoming_buff, read(4))
+			value["Aethers"] = buffer.readu32(incoming_buff, read(4))
 			value["Gems"] = buffer.readu32(incoming_buff, read(4))
 			value["Level"] = buffer.readu32(incoming_buff, read(4))
 			value["Experience"] = buffer.readu32(incoming_buff, read(4))
@@ -458,7 +458,7 @@ local returns = {
 	},
 	PlayerDataUpdate = {
 		On = function(Callback: (Value: ({
-			["Key"]: ("Golds" | "Elixirs" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot"),
+			["Key"]: ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot"),
 			["Value"]: ((unknown)),
 		})) -> ())
 			table.insert(reliable_events[4], Callback)
@@ -487,8 +487,8 @@ local returns = {
 	},
 	LoadSnapshot = {
 		SetCallback = function(Callback: (Value: ({
-			["Golds"]: (number),
-			["Elixirs"]: (number),
+			["Crystals"]: (number),
+			["Aethers"]: (number),
 			["Gems"]: (number),
 			["Level"]: (number),
 			["Experience"]: (number),

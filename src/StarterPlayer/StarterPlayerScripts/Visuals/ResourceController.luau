@@ -21,17 +21,17 @@ ResourceController.__index = ResourceController
 function ResourceController.new()
 	local self = setmetatable({}, ResourceController)
 	self._Collectors = {
-		["ElixirCollector"] = {},
-		["GoldCollector"] = {},
+		["AetherCollector"] = {},
+		["CrystalCollector"] = {},
 	} :: { [string]: { [string]: Collectors } }
 	self._ResourceStorage = {
-		["Golds"] = {},
-		["Elixirs"] = {},
+		["Crystals"] = {},
+		["Aethers"] = {},
 	} :: { [string]: { [string]: number } }
 
 	self._TotalStorage = {
-		["Golds"] = 0,
-		["Elixirs"] = 0,
+		["Crystals"] = 0,
+		["Aethers"] = 0,
 	} :: { [string]: number }
 
 	-- เก็บ Building Id เข้ากับ _Collectors,_ResourceStorage
@@ -104,34 +104,34 @@ function ResourceController:RegisterColector(buildingId: string, buildingEnum: n
 		return
 	end
 	if buildingEnum == 9 then
-		self._Collectors["ElixirCollector"][buildingId] = {
+		self._Collectors["AetherCollector"][buildingId] = {
 			ProductionRate = buildingData.ProductionRate,
 			Capacity = buildingData.Capacity,
 		}
 	elseif buildingEnum == 10 then
-		self._Collectors["GoldCollector"][buildingId] = {
+		self._Collectors["CrystalCollector"][buildingId] = {
 			ProductionRate = buildingData.ProductionRate,
 			Capacity = buildingData.Capacity,
 		}
 	elseif buildingEnum == 8 then
-		self._ResourceStorage["Elixirs"][buildingId] = {
+		self._ResourceStorage["Aethers"][buildingId] = {
 			Capacity = buildingData.Capacity,
 		}
-		self._TotalStorage["Elixirs"] += buildingData.Capacity
+		self._TotalStorage["Aethers"] += buildingData.Capacity
 	elseif buildingEnum == 11 then
-		self._ResourceStorage["Golds"][buildingId] = {
+		self._ResourceStorage["Crystals"][buildingId] = {
 			Capacity = buildingData.Capacity,
 		}
-		self._TotalStorage["Golds"] += buildingData.Capacity
+		self._TotalStorage["Crystals"] += buildingData.Capacity
 	elseif buildingEnum == 1 then
-		self._ResourceStorage["Elixirs"][buildingId] = {
+		self._ResourceStorage["Aethers"][buildingId] = {
 			Capacity = buildingData.Capacity,
 		}
-		self._ResourceStorage["Golds"][buildingId] = {
+		self._ResourceStorage["Crystals"][buildingId] = {
 			Capacity = buildingData.Capacity,
 		}
-		self._TotalStorage["Elixirs"] += buildingData.Capacity
-		self._TotalStorage["Golds"] += buildingData.Capacity
+		self._TotalStorage["Aethers"] += buildingData.Capacity
+		self._TotalStorage["Crystals"] += buildingData.Capacity
 	end
 end
 

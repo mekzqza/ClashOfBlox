@@ -25,8 +25,8 @@ local function DataLayer()
 
 	EventBus:On(Events.S2C_PLAYER_DATA_FIRST_LOAD, function(data)
 		ZapServer.LoadSnapshot.Fire(data.Player, {
-			Golds = data.Golds,
-			Elixirs = data.Elixirs,
+			Crystals = data.Crystals,
+			Aethers = data.Aethers,
 			Gems = data.Gems,
 			Level = data.Level,
 			Experience = data.Experience,
@@ -38,8 +38,8 @@ local function DataLayer()
 
 	EventBus:On(Events.S2C_PLAYER_DATA_UPDATE, function(player, data)
 		local keyMap = {
-			["Golds"] = "Golds",
-			["Elixirs"] = "Elixirs",
+			["Crystals"] = "Crystals",
+			["Aethers"] = "Aethers",
 			["Gems"] = "Gems",
 			["Level"] = "Level",
 			["Experience"] = "Experience",

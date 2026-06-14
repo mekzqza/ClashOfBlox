@@ -11,7 +11,7 @@ local Packages = ReplicatedStorage:WaitForChild("Packages")
 local Promise = require(Packages.Promise)
 local guard = IdempotentGuard.new("ResourceService", true)
 
-export type CollectorsType = "GoldCollector" | "ElixirCollector"
+export type CollectorsType = "CrystalCollector" | "AetherCollector"
 
 export type Collectors = {
 	Gridx: number,
@@ -36,12 +36,12 @@ function ResourceService.new()
 	self._registeredPlayers = {} :: { [number]: boolean }
 	self._registrationCallbacks = {} :: { [number]: { (boolean) -> () } }
 	self._LookBack = {
-		["GoldCollector"] = "Golds",
-		["ElixirCollector"] = "Elixirs",
+		["CrystalCollector"] = "Crystals",
+		["AetherCollector"] = "Aethers",
 	}
 	self._LokbackV2 = {
-		["GoldCollector"] = "GoldStorage",
-		["ElixirCollector"] = "ElixirStorage",
+		["CrystalCollector"] = "CrystalVault",
+		["AetherCollector"] = "AetherWell",
 	}
 	return self
 end
@@ -96,13 +96,13 @@ function ResourceService:ReGisterColector(
 	end
 
 	if not self._PlayersCollectors[player] then
-		self._PlayersCollectors[player] = { ["ElixirCollector"] = {}, ["GoldCollector"] = {} }
-		self._PlayerResourceStorage[player] = { ["ElixirStorage"] = 0, ["GoldStorage"] = 0 }
+		self._PlayersCollectors[player] = { ["AetherCollector"] = {}, ["CrystalCollector"] = {} }
+		self._PlayerResourceStorage[player] = { ["AetherWell"] = 0, ["CrystalVault"] = 0 }
 	end
 
 	local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, buildingLevel)
 	if buildingEnum == 9 then
-		self._PlayersCollectors[player]["ElixirCollector"][buildingId] = {
+		self._PlayersCollectors[player]["AetherCollector"][buildingId] = {
 			Timestamp = if LastCollectedTime == 0 then os.time() else LastCollectedTime,
 			ProductionRate = buildingData.ProductionRate,
 			Capacity = buildingData.Capacity,
@@ -115,7 +115,7 @@ function ResourceService:ReGisterColector(
 			EndTime = endtime,
 		}
 	elseif buildingEnum == 10 then
-		self._PlayersCollectors[player]["GoldCollector"][buildingId] = {
+		self._PlayersCollectors[player]["CrystalCollector"][buildingId] = {
 			Timestamp = if LastCollectedTime == 0 then os.time() else LastCollectedTime,
 			ProductionRate = buildingData.ProductionRate,
 			Capacity = buildingData.Capacity,
@@ -128,12 +128,12 @@ function ResourceService:ReGisterColector(
 			EndTime = endtime,
 		}
 	elseif buildingEnum == 8 then
-		self._PlayerResourceStorage[player]["ElixirStorage"] += buildingData.Capacity
+		self._PlayerResourceStorage[player]["AetherWell"] += buildingData.Capacity
 	elseif buildingEnum == 11 then
-		self._PlayerResourceStorage[player]["GoldStorage"] += buildingData.Capacity
+		self._PlayerResourceStorage[player]["CrystalVault"] += buildingData.Capacity
 	elseif buildingEnum == 1 then
-		self._PlayerResourceStorage[player]["ElixirStorage"] += buildingData.Capacity
-		self._PlayerResourceStorage[player]["GoldStorage"] += buildingData.Capacity
+		self._PlayerResourceStorage[player]["AetherWell"] += buildingData.Capacity
+		self._PlayerResourceStorage[player]["CrystalVault"] += buildingData.Capacity
 	end
 end
 

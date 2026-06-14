@@ -14,10 +14,10 @@ local TownHallLevels: TownHallConfigType = {
 		["Buildinghut"] = { Max = 1, MaxLevel = 2 },
 		["Cannon"] = { Max = 1, MaxLevel = 2 },
 
-		["GoldStorage"] = { Max = 1, MaxLevel = 2 },
-		["GoldMine"] = { Max = 1, MaxLevel = 2 },
-		["ElixirStorage"] = { Max = 1, MaxLevel = 2 },
-		["ElixirCollector"] = { Max = 1, MaxLevel = 2 },
+		["CrystalVault"] = { Max = 1, MaxLevel = 2 },
+		["CrystalMine"] = { Max = 1, MaxLevel = 2 },
+		["AetherWell"] = { Max = 1, MaxLevel = 2 },
+		["AetherSiphon"] = { Max = 1, MaxLevel = 2 },
 
 		["Campfire"] = { Max = 1, MaxLevel = 1 },
 		["Barrack"] = { Max = 1, MaxLevel = 1 },
@@ -27,10 +27,10 @@ local TownHallLevels: TownHallConfigType = {
 		["Cannon"] = { Max = 2, MaxLevel = 3 },
 		["ArcherTower"] = { Max = 1, MaxLevel = 2 },
 
-		["GoldStorage"] = { Max = 2, MaxLevel = 3 },
-		["GoldMine"] = { Max = 2, MaxLevel = 3 },
-		["ElixirStorage"] = { Max = 2, MaxLevel = 3 },
-		["ElixirCollector"] = { Max = 2, MaxLevel = 3 },
+		["CrystalVault"] = { Max = 2, MaxLevel = 3 },
+		["CrystalMine"] = { Max = 2, MaxLevel = 3 },
+		["AetherWell"] = { Max = 2, MaxLevel = 3 },
+		["AetherSiphon"] = { Max = 2, MaxLevel = 3 },
 
 		["Campfire"] = { Max = 1, MaxLevel = 1 },
 		["Barrack"] = { Max = 1, MaxLevel = 1 },
@@ -40,10 +40,10 @@ local TownHallLevels: TownHallConfigType = {
 		["Cannon"] = { Max = 3, MaxLevel = 4 },
 		["Wall"] = { Max = 10, MaxLevel = 3 },
 
-		["GoldStorage"] = { Max = 3, MaxLevel = 4 },
-		["GoldMine"] = { Max = 3, MaxLevel = 4 },
-		["ElixirStorage"] = { Max = 3, MaxLevel = 4 },
-		["ElixirCollector"] = { Max = 3, MaxLevel = 4 },
+		["CrystalVault"] = { Max = 3, MaxLevel = 4 },
+		["CrystalMine"] = { Max = 3, MaxLevel = 4 },
+		["AetherWell"] = { Max = 3, MaxLevel = 4 },
+		["AetherSiphon"] = { Max = 3, MaxLevel = 4 },
 
 		["Campfire"] = { Max = 1, MaxLevel = 1 },
 		["Barrack"] = { Max = 1, MaxLevel = 1 },

@@ -10,8 +10,8 @@ local GameEnum = require(ReplicatedStorage.Shared.GameEnum)
 ]]
 
 local BuildingConfig = {}
-export type Category = |"Army" |"Resources"| "Defrens"| "Trap"
-export type ResourceType = "Golds" | "Elixirs"
+export type Category = |"Army" |"Resources"| "Defrens"| "Trap"| "Obstacle"
+export type ResourceType = "Crystals" | "Aethers"
 
 export type BuildingLevelData = {
 	UpgradeCost: number,
@@ -32,15 +32,15 @@ export type BuildingData = { [string]: { Width: number, Length: number, Category
 
 
 local UpgradeResourceType = {
-    Golds = 1,
-    Elixirs = 2,
+    Crystals = 1,
+    Aethers = 2,
 }
 
 local Buildings: BuildingData = {
-	["TownHall"] = {
+	["Nexus"] = {
 		Width = 4,
 		Length = 4,
-		UpgradeResourceType = UpgradeResourceType.Golds,
+		UpgradeResourceType = UpgradeResourceType.Crystals,
 		[1] = {
 			UpgradeCost = 150,
 			UpgradeTime = 60,
@@ -50,10 +50,10 @@ local Buildings: BuildingData = {
 		}
 	},
 
-	["Cannon"] = {
+	["ArcaneTurret"] = {
 		Width = 3,
 		Length = 3,
-		UpgradeResourceType = UpgradeResourceType.Golds,
+		UpgradeResourceType = UpgradeResourceType.Crystals,
 		[1]= {
             UpgradeCost = 150,
             UpgradeTime = 10,
@@ -64,11 +64,11 @@ local Buildings: BuildingData = {
         }
 	},
 
-	["ElixirCollector"] = {
+	["AetherSiphon"] = {
 		Width = 3,
 		Length = 3,
-		UpgradeResourceType = UpgradeResourceType.Golds,
-		CollectorType = "ElixirCollector",
+		UpgradeResourceType = UpgradeResourceType.Crystals,
+		CollectorType = "AetherCollector",
 		[1] = {
 			UpgradeCost = 150,
 			UpgradeTime = 10,
@@ -80,11 +80,11 @@ local Buildings: BuildingData = {
 		},
 	},
 
-	["GoldMine"] = {
+	["CrystalMine"] = {
 		Width = 3,
 		Length = 3,
-		UpgradeResourceType = UpgradeResourceType.Elixirs,
-		CollectorType = "GoldCollector",
+		UpgradeResourceType = UpgradeResourceType.Aethers,
+		CollectorType = "CrystalCollector",
 		[1] = {
 			UpgradeCost = 150,
 			UpgradeTime = 10,
@@ -95,10 +95,10 @@ local Buildings: BuildingData = {
 		},
 	},
 
-	["ElixirStorage"] = {
+	["AetherWell"] = {
 		Width = 3,
 		Length = 3,
-		UpgradeResourceType = UpgradeResourceType.Golds,
+		UpgradeResourceType = UpgradeResourceType.Crystals,
 		[1] = {
             UpgradeCost = 150,
             UpgradeTime = 10,
@@ -108,10 +108,10 @@ local Buildings: BuildingData = {
         }
 	},
 
-	["GoldStorage"] = {
+	["CrystalVault"] = {
 		Width = 3,
 		Length = 3,
-		UpgradeResourceType = UpgradeResourceType.Elixirs,
+		UpgradeResourceType = UpgradeResourceType.Aethers,
 		[1] ={
 		    UpgradeCost = 150,
             UpgradeTime = 10,
@@ -133,10 +133,10 @@ local Buildings: BuildingData = {
             Description = "A tree that can be cut down for resources.",
 		}
 	},
-	["Barrack"] = {
+	["SummonAltar"] = {
 		Width = 3,
 		Length = 3,
-		UpgradeResourceType = UpgradeResourceType.Elixirs,
+		UpgradeResourceType = UpgradeResourceType.Aethers,
 
 		[1] = {
             UpgradeCost = 150,
@@ -147,10 +147,10 @@ local Buildings: BuildingData = {
         }
 
 	},
-	["Campfire"] = {
+	["HeroCamp"] = {
 		Width = 4,
 		Length = 4,
-		UpgradeResourceType = UpgradeResourceType.Elixirs,
+		UpgradeResourceType = UpgradeResourceType.Aethers,
 		[1] = {
             UpgradeCost = 150,
             UpgradeTime = 10,
@@ -160,7 +160,7 @@ local Buildings: BuildingData = {
         }
 
 	},
-	["Buildinghut"] = {
+	["ArtificerHut"] = {
 		Width = 2,
 		Length = 2,
 		[1] = {
@@ -171,6 +171,31 @@ local Buildings: BuildingData = {
             Description = "A building hall that serves as the main hub for the base.",
         }
 	},
+	["Stump"] = {
+	    Width = 2,
+        Length = 2,
+
+        [1] = {
+            UpgradeCost = 0,
+            UpgradeTime = 0,
+            MaxHp = 100,
+
+            Description = "A tree stump that can be removed to clear space.",
+        }
+	},
+	["Crystal"] = {
+	    Width = 2,
+        Length = 2,
+
+        [1] = {
+            UpgradeCost = 0,
+            UpgradeTime = 0,
+            MaxHp = 100,
+
+            Description = "A crystal that can be harvested for resources.",
+        }
+	}
+
 }
 
 
