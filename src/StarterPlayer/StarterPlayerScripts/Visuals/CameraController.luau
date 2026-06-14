@@ -15,7 +15,7 @@ local CONFIG = {
 	ZOOM_DECAY = 10,
 	EPSILON = 0.01,
 
-	WHELL_SENSITIVITY = 5,
+	WHEEL_SENSITIVITY = 5,
 }
 
 local CameraController = {}
@@ -33,14 +33,14 @@ function CameraController.new()
 	self._grabPoint = Vector3.new(0, 0, 0)
 	self._velocity = Vector3.new(0, 0, 0)
 	self._PlayerFolder = nil
-	self._pitch = math.rad(55)
-	self._yaw = math.rad(45)
+	self._pitch = math.rad(40)
+	self._yaw = math.rad(220)
 	self._zoom = 60
 	self._currentZoom = 60
 	self._Camera = Workspace.CurrentCamera
 
 	--Connections
-	self._CahngeConn = nil
+	self._ChangeConn = nil
 	self._BeginConn = nil
 	self._EndConn = nil
 
@@ -50,6 +50,15 @@ function CameraController.new()
 end
 function CameraController:SetDependencies(locator)
 	self._GridController = locator:Get("GridController")
+end
+
+function CameraController:SetAngles(key: string, value: number)
+	if key == "Pitch" then
+		self._pitch = math.rad(value)
+	elseif key == "Yaw" then
+		self._yaw = math.rad(value)
+	end
+	warn(`[CameraController] SetAngles: {key} = {value}`)
 end
 
 function CameraController:_ScreenToGround(screenPos: Vector2): Vector3?
@@ -63,15 +72,65 @@ function CameraController:_ScreenToGround(screenPos: Vector2): Vector3?
 end
 
 function CameraController:OnCameraChanged()
-	local dir = Vector3.new(0, math.sin(self._pitch), math.cos(self._pitch))
+	local horizontal = math.cos(self._pitch)
+	local dir = Vector3.new(math.sin(self._yaw) * horizontal, math.sin(self._pitch), math.cos(self._yaw) * horizontal)
 	local camPos = self._focus + dir * self._currentZoom
 	self._Camera.CFrame = CFrame.lookAt(camPos, self._focus)
 end
 
+function CameraController:BlindInput()
+	RunService:BindToRenderStep("CameraController", Enum.RenderPriority.Camera.Value, function(dt)
+		local zAlpha = 1 - math.exp(-CONFIG.ZOOM_DECAY * dt)
+		self._currentZoom += (self._zoom - self._currentZoom) * zAlpha
+
+		if self._isDragging then
+			self._velocity = (self._focus - self._lastFocus) / dt
+		end
+
+		if not self._isDragging then
+			self._focus += self._velocity * dt
+			self._velocity *= math.exp(-CONFIG.FRICTION * dt)
+			if self._velocity.Magnitude < CONFIG.EPSILON then
+				self._velocity = Vector3.zero
+			end
+		end
+
+		self._lastFocus = self._focus
+
+		self:OnCameraChanged()
+	end)
+
+	self._ChangeConn = UserInputService.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseWheel then
+			self._zoom =
+				math.clamp(self._zoom - (input.Position.Z * CONFIG.WHEEL_SENSITIVITY), CONFIG.ZOOM_MIN, CONFIG.ZOOM_MAX)
+		elseif self._isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+			local hitNow = self:_ScreenToGround(input.Position)
+			if not hitNow then
+				return
+			end
+			self._focus = self._focus + (self._grabPoint - hitNow)
+		end
+	end)
+
+	self._BeginConn = UserInputService.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			self._isDragging = true
+			self._grabPoint = self:_ScreenToGround(input.Position)
+		end
+	end)
+
+	self._EndConn = UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			self._isDragging = false
+		end
+	end)
+end
+
 function CameraController:Disconnect()
-	if self._CahngeConn then
-		self._CahngeConn:Disconnect()
-		self._CahngeConn = nil
+	if self._ChangeConn then
+		self._ChangeConn:Disconnect()
+		self._ChangeConn = nil
 	end
 	if self._BeginConn then
 		self._BeginConn:Disconnect()
@@ -81,6 +140,7 @@ function CameraController:Disconnect()
 		self._EndConn:Disconnect()
 		self._EndConn = nil
 	end
+	RunService:UnbindFromRenderStep("CameraController")
 end
 
 function CameraController:Init()
@@ -109,52 +169,14 @@ function CameraController:Start()
 		self:OnCameraChanged()
 	end)
 
-	RunService:BindToRenderStep("CameraController", Enum.RenderPriority.Camera.Value, function(dt)
-		local zAlpha = 1 - math.exp(-CONFIG.ZOOM_DECAY * dt)
-		self._currentZoom += (self._zoom - self._currentZoom) * zAlpha
-
-		if self._isDragging then
-			self._velocity = (self._focus - self._lastFocus) / dt
-		end
-
-		if not self._isDragging then
-			self._focus += self._velocity * dt
-			self._velocity *= math.exp(-CONFIG.FRICTION * dt)
-			if self._velocity.Magnitude < CONFIG.EPSILON then
-				self._velocity = Vector3.zero
-			end
-		end
-
-		self._lastFocus = self._focus
-
-		self:OnCameraChanged()
-	end)
-
-	self._CahngeConn = UserInputService.InputChanged:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseWheel then
-			self._zoom =
-				math.clamp(self._zoom - (input.Position.Z * CONFIG.WHELL_SENSITIVITY), CONFIG.ZOOM_MIN, CONFIG.ZOOM_MAX)
-		elseif self._isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-			local hitNow = self:_ScreenToGround(input.Position)
-			if not hitNow then
-				return
-			end
-			self._focus = self._focus + (self._grabPoint - hitNow)
-		end
-	end)
-
-	self._BeginConn = UserInputService.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			self._isDragging = true
-			self._grabPoint = self:_ScreenToGround(input.Position)
-		end
-	end)
-
-	self._EndConn = UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			self._isDragging = false
-		end
-	end)
+	-- task.spawn(function()
+	-- 	task.wait(10)
+	-- 	self:Disconnect()
+	-- 	warn("[CameraController] Auto-disconnected after 10 seconds. This is likely for testing purposes.")
+	-- 	task.wait(10)
+	-- 	warn("[CameraController] Re-blinded input after 20 seconds. This is likely for testing purposes.")
+	-- 	self:BlindInput()
+	-- end)
 end
 
 return CameraController.new()
