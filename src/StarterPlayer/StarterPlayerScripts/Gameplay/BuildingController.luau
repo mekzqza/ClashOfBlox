@@ -80,13 +80,6 @@ function BuildingController:SetDependencies(locator)
 	self._BuildingStore = locator:Get("BuildingStore")
 end
 
-function BuildingController:SetPlayerFolder(folder: Folder)
-	self._PlayerFolder = folder
-	if not self._PlayerFolder then
-		warn(`[BuildingController] Player folder {folder} not found in workspace`)
-	end
-end
-
 function BuildingController:_syncToserver(buildingId: string, gridx: number, gridz: number, position: Vector3)
 	EventBus:Emit(Events.C2S_UPDATE_BUILDING_POSITION, {
 		BuildingId = buildingId,
@@ -364,7 +357,6 @@ function BuildingController:_startPlacement(buildType: string)
 	local mouse = Player:GetMouse()
 	-- @TODO ทำใ้รองรับมือถือ
 	self._Connetion = mouse.Button1Down:Connect(function()
-		-- check builder hut availability before placing building
 		if self._currentBuilder >= self._PlayerDataController:GetAll().BuilderHutSlot then
 			warn(`[BuildingController] All builder huts are currently occupied. Cannot place new building.`)
 			return
@@ -648,7 +640,6 @@ function BuildingController:_updateMovePreview(position: Vector3)
 	local canPlace =
 		self._GridController:CanPlace(snapPos, session.dimension.Length, session.dimension.Width, session.ignoreCells)
 
-	-- เก็บตำแหน่ง + สถานะของเฟรมปัจจุบันไว้ทุกเฟรม (รวมตอนแดง) ให้ _confirmMove ตัดสินตอนปล่อยเมาส์
 	session.currentPosition = snapPos
 	session.canPlace = canPlace
 
@@ -657,7 +648,6 @@ function BuildingController:_updateMovePreview(position: Vector3)
 	model:SetPrimaryPartCFrame(CFrame.new(snapPos.X, snapPos.Y + session.halfHeight + CONFIG.HEIGHT, snapPos.Z))
 end
 
--- ปล่อยเมาส์: วางได้(เขียว) = ย้ายจริง + อัปเดตกริด/store, วางไม่ได้(แดง) = ค้างไว้รอ revert ตอนคลิกอย่างอื่น
 function BuildingController:_confirmMove()
 	local session = self._moveSession
 	if not session then
@@ -699,7 +689,6 @@ function BuildingController:_confirmMove()
 	self:_stopPlacement()
 end
 
--- คืนอาคารกลับ oldPosition — เรียกตอนผู้เล่นคลิกอย่างอื่นขณะมีอาคารค้างบนช่องแดง
 function BuildingController:_cancelMove()
 	local session = self._moveSession
 	if not session then
@@ -711,7 +700,6 @@ function BuildingController:_cancelMove()
 		CFrame.new(oldPos.X, oldPos.Y + session.halfHeight + CONFIG.HEIGHT, oldPos.Z)
 	)
 
-	-- เซลล์เดิมยัง occupied อยู่ (preview ไม่เคยแตะ grid) จึงไม่ต้องคืน/จองใหม่
 	if session.FootPrintTexture then
 		session.FootPrintTexture.Color3 = CONFIG.DEFAULT_FOOTPRINT_COLOR
 	end
@@ -728,6 +716,10 @@ function BuildingController:Init()
 end
 
 function BuildingController:Start()
+	EventBus:On(Events.LOCAL_FOLDER_READY, function(data)
+		self._PlayerFolder = data.Folder
+	end)
+
 	EventBus:On(Events.LOCAL_TEST_BUILDING, function(building: string)
 		if building == nil or building == "" then
 			self:_stopPlacement()
@@ -739,12 +731,11 @@ function BuildingController:Start()
 	end)
 
 	EventBus:On(Events.LOCAL_MOVE_BUILDING, function(buildingId: string?)
-		-- มี move ค้างอยู่ (drop บนช่องแดง) → คืน oldPosition ก่อนเสมอ
 		if self._moveSession then
 			self:_cancelMove()
 		end
 		if buildingId == nil or buildingId == "" then
-			return -- คลิกพื้น/ที่ว่าง = แค่ revert ตัวที่ค้าง
+			return
 		end
 		self:MoveBuilding(buildingId)
 	end)
