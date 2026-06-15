@@ -324,6 +324,8 @@ function BuildingController:_startPlacement(buildType: string)
 	local indicatorModelhalfHeight = primaryPart.Size.Y / 2
 	local footPrintindicatorhalfHeight = self._footPrintindicator.Size.Y / 2
 
+	-- @TODO ปรับให้ใช้ ระบบเหมือน MoveBuilding คือ มี Session เก็บข้อมูลการวาง และ อัพเดทใน RenderStepped แทนการเชื่อมต่อใหม่ทุกครั้งที่เริ่มวาง
+	-- ใช้ MoveBuilding แล้วใช้ UpdateMovePreview แทนการทำซ้ำโค้ดในนี้
 	self._renderConnection = RunService.RenderStepped:Connect(function()
 		local mouse = Player:GetMouse()
 		local target = mouse.Target
@@ -340,14 +342,8 @@ function BuildingController:_startPlacement(buildType: string)
 
 		local CanPlace = self._GridController:CanPlace(snapPos, dimension.Length, dimension.Width)
 		local color = if CanPlace then Color3.new(0, 1, 0) else Color3.new(1, 0, 0)
-		for _, child in ipairs(self._indicatorModel:GetDescendants()) do
-			if child:IsA("BasePart") then
-				if child:IsA("UnionOperation") then
-					child.UsePartColor = true
-				end
-				child.Color = color
-			end
-		end
+		self._footPrintindicator.Color = color
+
 		self._indicatorModel:SetPrimaryPartCFrame(
 			CFrame.new(snapPos.X, snapPos.Y + indicatorModelhalfHeight, snapPos.Z) * templateRotation
 		)
@@ -355,7 +351,7 @@ function BuildingController:_startPlacement(buildType: string)
 	end)
 
 	local mouse = Player:GetMouse()
-	-- @TODO ทำใ้รองรับมือถือ
+	-- @TODO ทำใ้รองรับมือถือ และ กด Billderbord เพื่อยืนยันการวาง ไม่ใช่แค่กดที่พื้น
 	self._Connetion = mouse.Button1Down:Connect(function()
 		if self._currentBuilder >= self._PlayerDataController:GetAll().BuilderHutSlot then
 			warn(`[BuildingController] All builder huts are currently occupied. Cannot place new building.`)
@@ -422,6 +418,9 @@ function BuildingController:_startPlacement(buildType: string)
 			)
 			model.Name = nextbuildingId
 		end
+
+		--@ TODO ปุ่มกดแล้วก็ self:StopPlacement() เลย
+		self:_stopPlacement()
 	end)
 end
 
