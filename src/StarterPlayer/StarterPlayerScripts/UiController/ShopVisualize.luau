@@ -119,6 +119,10 @@ function ShopVisualize:_setupBuildingCard(frameName: Frame, modelTemplate: Model
 			--@TODO logic check currencry
 
 			EventBus:Emit(Events.LOCAL_TEST_BUILDING, frameName.Name)
+
+			--@TODO ปิดหน้าต่าง Shop หลังจากกดซื้อ
+			self._MainFrame.Visible = false
+
 			warn("Emitted event to test building: " .. frameName.Name)
 		end),
 		DetailBtn = DetailBtn.MouseButton1Click:Connect(function()
@@ -128,7 +132,6 @@ function ShopVisualize:_setupBuildingCard(frameName: Frame, modelTemplate: Model
 	}
 end
 
--- @ หาโมเดลจาก Frame name ที่ Asset Constucture และ Level ที่กำหนด
 function ShopVisualize:_getModelByName(frameName: string, level: number)
 	local lv = level or CONFIG.START_LEVEL
 	local modelFloder = self._StructureModel:FindFirstChild(frameName, true)

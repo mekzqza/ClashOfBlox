@@ -14,6 +14,9 @@ local BuildingTypeById: { [number]: string } = {
 	[11] = "CrystalVault",
 	[12] = "Crystal",
 	[13] = "Stump",
+	[14] = "RockStone",
+	[15] = "Mushroom",
+	[16] = "Log",
 }
 
 local BuildingTypeIdByName: { [string]: number } = {}

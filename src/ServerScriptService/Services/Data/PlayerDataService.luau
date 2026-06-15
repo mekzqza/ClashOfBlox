@@ -18,11 +18,12 @@ export type PlayerData = {
 	_version: number,
 	PlayerBuildings: { [string]: { number } },
 	BuildingCount: number,
-	Crystal: number,
-	Aether: number,
+	Crystals: number,
+	Aethers: number,
 	Gems: number,
 	Level: number,
 	Experience: number,
+	BuilderHutSlot: number,
 }
 
 local PlayerDataService = {}
