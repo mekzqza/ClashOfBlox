@@ -214,21 +214,6 @@ end
 Players.PlayerRemoving:Connect(function(player)
 	player_map[player] = nil
 end)
-export type DataKey = ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot")
-export type BuildingEntry = ({
-	["BuildingId"]: (string),
-	["Gridx"]: (number),
-	["Gridz"]: (number),
-	["BuildingEnum"]: (number),
-	["BuildingLevel"]: (number),
-	["EndTime"]: (number),
-	["LastCollectedTime"]: (number),
-})
-export type CollectorData = ({
-	["Timestamp"]: (number),
-	["ProductionRate"]: (number),
-	["Capacity"]: (number),
-})
 export type Collector = ({
 	["CrystalCollector"]: ({
 		["Timestamp"]: (number),
@@ -240,6 +225,21 @@ export type Collector = ({
 		["ProductionRate"]: (number),
 		["Capacity"]: (number),
 	}),
+})
+export type DataKey = ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot" | "MapSkin")
+export type CollectorData = ({
+	["Timestamp"]: (number),
+	["ProductionRate"]: (number),
+	["Capacity"]: (number),
+})
+export type BuildingEntry = ({
+	["BuildingId"]: (string),
+	["Gridx"]: (number),
+	["Gridz"]: (number),
+	["BuildingEnum"]: (number),
+	["BuildingLevel"]: (number),
+	["EndTime"]: (number),
+	["LastCollectedTime"]: (number),
 })
 
 local function SendEvents()
@@ -736,14 +736,14 @@ local returns = {
 	},
 	PlayerDataUpdate = {
 		Fire = function(Player: Player, Value: ({
-			["Key"]: ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot"),
+			["Key"]: ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot" | "MapSkin"),
 			["Value"]: ((unknown)),
 		}))
 			load_player(Player)
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_1 = 0
-			local bool_1_pos_1 = alloc(1)
+			local bool_1_pos_1 = alloc(2)
 			if Value["Key"] == "Crystals" then
 				bool_1 = bit32.bor(bool_1, 0b0000000000000001)
 			elseif Value["Key"] == "Aethers" then
@@ -758,25 +758,27 @@ local returns = {
 				bool_1 = bit32.bor(bool_1, 0b0000000000100000)
 			elseif Value["Key"] == "BuilderHutSlot" then
 				bool_1 = bit32.bor(bool_1, 0b0000000001000000)
+			elseif Value["Key"] == "MapSkin" then
+				bool_1 = bit32.bor(bool_1, 0b0000000010000000)
 			else
 				error("Invalid enumerator")
 			end
 			if Value["Value"] ~= nil then
-				bool_1 = bit32.bor(bool_1, 0b0000000010000000)
+				bool_1 = bit32.bor(bool_1, 0b0000000100000000)
 				table.insert(outgoing_inst, Value["Value"])
 			end
-			buffer.writeu8(outgoing_buff, bool_1_pos_1, bool_1)
+			buffer.writeu16(outgoing_buff, bool_1_pos_1, bool_1)
 			player_map[Player] = save()
 		end,
 		FireAll = function(Value: ({
-			["Key"]: ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot"),
+			["Key"]: ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot" | "MapSkin"),
 			["Value"]: ((unknown)),
 		}))
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_2 = 0
-			local bool_2_pos_1 = alloc(1)
+			local bool_2_pos_1 = alloc(2)
 			if Value["Key"] == "Crystals" then
 				bool_2 = bit32.bor(bool_2, 0b0000000000000001)
 			elseif Value["Key"] == "Aethers" then
@@ -791,14 +793,16 @@ local returns = {
 				bool_2 = bit32.bor(bool_2, 0b0000000000100000)
 			elseif Value["Key"] == "BuilderHutSlot" then
 				bool_2 = bit32.bor(bool_2, 0b0000000001000000)
+			elseif Value["Key"] == "MapSkin" then
+				bool_2 = bit32.bor(bool_2, 0b0000000010000000)
 			else
 				error("Invalid enumerator")
 			end
 			if Value["Value"] ~= nil then
-				bool_2 = bit32.bor(bool_2, 0b0000000010000000)
+				bool_2 = bit32.bor(bool_2, 0b0000000100000000)
 				table.insert(outgoing_inst, Value["Value"])
 			end
-			buffer.writeu8(outgoing_buff, bool_2_pos_1, bool_2)
+			buffer.writeu16(outgoing_buff, bool_2_pos_1, bool_2)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				load_player(player)
@@ -809,14 +813,14 @@ local returns = {
 			end
 		end,
 		FireExcept = function(Except: Player, Value: ({
-			["Key"]: ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot"),
+			["Key"]: ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot" | "MapSkin"),
 			["Value"]: ((unknown)),
 		}))
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_3 = 0
-			local bool_3_pos_1 = alloc(1)
+			local bool_3_pos_1 = alloc(2)
 			if Value["Key"] == "Crystals" then
 				bool_3 = bit32.bor(bool_3, 0b0000000000000001)
 			elseif Value["Key"] == "Aethers" then
@@ -831,14 +835,16 @@ local returns = {
 				bool_3 = bit32.bor(bool_3, 0b0000000000100000)
 			elseif Value["Key"] == "BuilderHutSlot" then
 				bool_3 = bit32.bor(bool_3, 0b0000000001000000)
+			elseif Value["Key"] == "MapSkin" then
+				bool_3 = bit32.bor(bool_3, 0b0000000010000000)
 			else
 				error("Invalid enumerator")
 			end
 			if Value["Value"] ~= nil then
-				bool_3 = bit32.bor(bool_3, 0b0000000010000000)
+				bool_3 = bit32.bor(bool_3, 0b0000000100000000)
 				table.insert(outgoing_inst, Value["Value"])
 			end
-			buffer.writeu8(outgoing_buff, bool_3_pos_1, bool_3)
+			buffer.writeu16(outgoing_buff, bool_3_pos_1, bool_3)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				if player ~= Except then
@@ -851,14 +857,14 @@ local returns = {
 			end
 		end,
 		FireList = function(List: { [unknown]: Player }, Value: ({
-			["Key"]: ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot"),
+			["Key"]: ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot" | "MapSkin"),
 			["Value"]: ((unknown)),
 		}))
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_4 = 0
-			local bool_4_pos_1 = alloc(1)
+			local bool_4_pos_1 = alloc(2)
 			if Value["Key"] == "Crystals" then
 				bool_4 = bit32.bor(bool_4, 0b0000000000000001)
 			elseif Value["Key"] == "Aethers" then
@@ -873,14 +879,16 @@ local returns = {
 				bool_4 = bit32.bor(bool_4, 0b0000000000100000)
 			elseif Value["Key"] == "BuilderHutSlot" then
 				bool_4 = bit32.bor(bool_4, 0b0000000001000000)
+			elseif Value["Key"] == "MapSkin" then
+				bool_4 = bit32.bor(bool_4, 0b0000000010000000)
 			else
 				error("Invalid enumerator")
 			end
 			if Value["Value"] ~= nil then
-				bool_4 = bit32.bor(bool_4, 0b0000000010000000)
+				bool_4 = bit32.bor(bool_4, 0b0000000100000000)
 				table.insert(outgoing_inst, Value["Value"])
 			end
-			buffer.writeu8(outgoing_buff, bool_4_pos_1, bool_4)
+			buffer.writeu16(outgoing_buff, bool_4_pos_1, bool_4)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in List do
 				load_player(player)
@@ -891,14 +899,14 @@ local returns = {
 			end
 		end,
 		FireSet = function(Set: { [Player]: any }, Value: ({
-			["Key"]: ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot"),
+			["Key"]: ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot" | "MapSkin"),
 			["Value"]: ((unknown)),
 		}))
 			load_empty()
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
 			local bool_5 = 0
-			local bool_5_pos_1 = alloc(1)
+			local bool_5_pos_1 = alloc(2)
 			if Value["Key"] == "Crystals" then
 				bool_5 = bit32.bor(bool_5, 0b0000000000000001)
 			elseif Value["Key"] == "Aethers" then
@@ -913,14 +921,16 @@ local returns = {
 				bool_5 = bit32.bor(bool_5, 0b0000000000100000)
 			elseif Value["Key"] == "BuilderHutSlot" then
 				bool_5 = bit32.bor(bool_5, 0b0000000001000000)
+			elseif Value["Key"] == "MapSkin" then
+				bool_5 = bit32.bor(bool_5, 0b0000000010000000)
 			else
 				error("Invalid enumerator")
 			end
 			if Value["Value"] ~= nil then
-				bool_5 = bit32.bor(bool_5, 0b0000000010000000)
+				bool_5 = bit32.bor(bool_5, 0b0000000100000000)
 				table.insert(outgoing_inst, Value["Value"])
 			end
-			buffer.writeu8(outgoing_buff, bool_5_pos_1, bool_5)
+			buffer.writeu16(outgoing_buff, bool_5_pos_1, bool_5)
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for player in Set do
 				load_player(player)
@@ -959,6 +969,7 @@ local returns = {
 			}) }),
 			["BuildingCount"]: (number),
 			["BuilderHutSlot"]: (number),
+			["MapSkin"]: (number),
 		}))
 			load_player(Player)
 			alloc(1)
@@ -1001,6 +1012,8 @@ local returns = {
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["BuildingCount"])
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["BuilderHutSlot"])
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, Value["MapSkin"])
 			player_map[Player] = save()
 		end,
 		FireAll = function(Value: ({
@@ -1020,6 +1033,7 @@ local returns = {
 			}) }),
 			["BuildingCount"]: (number),
 			["BuilderHutSlot"]: (number),
+			["MapSkin"]: (number),
 		}))
 			load_empty()
 			alloc(1)
@@ -1062,6 +1076,8 @@ local returns = {
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["BuildingCount"])
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["BuilderHutSlot"])
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, Value["MapSkin"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				load_player(player)
@@ -1088,6 +1104,7 @@ local returns = {
 			}) }),
 			["BuildingCount"]: (number),
 			["BuilderHutSlot"]: (number),
+			["MapSkin"]: (number),
 		}))
 			load_empty()
 			alloc(1)
@@ -1130,6 +1147,8 @@ local returns = {
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["BuildingCount"])
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["BuilderHutSlot"])
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, Value["MapSkin"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in Players:GetPlayers() do
 				if player ~= Except then
@@ -1158,6 +1177,7 @@ local returns = {
 			}) }),
 			["BuildingCount"]: (number),
 			["BuilderHutSlot"]: (number),
+			["MapSkin"]: (number),
 		}))
 			load_empty()
 			alloc(1)
@@ -1200,6 +1220,8 @@ local returns = {
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["BuildingCount"])
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["BuilderHutSlot"])
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, Value["MapSkin"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for _, player in List do
 				load_player(player)
@@ -1226,6 +1248,7 @@ local returns = {
 			}) }),
 			["BuildingCount"]: (number),
 			["BuilderHutSlot"]: (number),
+			["MapSkin"]: (number),
 		}))
 			load_empty()
 			alloc(1)
@@ -1268,6 +1291,8 @@ local returns = {
 			buffer.writeu32(outgoing_buff, outgoing_apos, Value["BuildingCount"])
 			alloc(1)
 			buffer.writeu8(outgoing_buff, outgoing_apos, Value["BuilderHutSlot"])
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, Value["MapSkin"])
 			local buff, used, inst = outgoing_buff, outgoing_used, outgoing_inst
 			for player in Set do
 				load_player(player)

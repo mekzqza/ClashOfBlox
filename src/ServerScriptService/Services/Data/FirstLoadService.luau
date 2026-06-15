@@ -82,6 +82,7 @@ function FirstLoadService:Start()
 					Buildings = ArrayBuilding or {},
 					BuildingCount = playerData.BuildingCount or 0,
 					BuilderHutSlot = playerData.BuilderHutSlot or 2,
+					MapSkin = playerData.MapSkin or 1,
 					-- Storage = storage,
 					-- Collectors = collectors,
 				}

@@ -169,21 +169,6 @@ local remotes = ReplicatedStorage:WaitForChild("ZAP")
 local reliable = remotes:WaitForChild("ZAP_RELIABLE")
 assert(reliable:IsA("RemoteEvent"), "Expected ZAP_RELIABLE to be a RemoteEvent")
 
-export type DataKey = ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot")
-export type BuildingEntry = ({
-	["BuildingId"]: (string),
-	["Gridx"]: (number),
-	["Gridz"]: (number),
-	["BuildingEnum"]: (number),
-	["BuildingLevel"]: (number),
-	["EndTime"]: (number),
-	["LastCollectedTime"]: (number),
-})
-export type CollectorData = ({
-	["Timestamp"]: (number),
-	["ProductionRate"]: (number),
-	["Capacity"]: (number),
-})
 export type Collector = ({
 	["CrystalCollector"]: ({
 		["Timestamp"]: (number),
@@ -195,6 +180,21 @@ export type Collector = ({
 		["ProductionRate"]: (number),
 		["Capacity"]: (number),
 	}),
+})
+export type DataKey = ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot" | "MapSkin")
+export type CollectorData = ({
+	["Timestamp"]: (number),
+	["ProductionRate"]: (number),
+	["Capacity"]: (number),
+})
+export type BuildingEntry = ({
+	["BuildingId"]: (string),
+	["Gridx"]: (number),
+	["Gridz"]: (number),
+	["BuildingEnum"]: (number),
+	["BuildingLevel"]: (number),
+	["EndTime"]: (number),
+	["LastCollectedTime"]: (number),
 })
 
 local function SendEvents()
@@ -277,7 +277,7 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 			end
 		elseif id == 4 then -- PlayerDataUpdate
 			local value
-			local bool_1 = buffer.readu8(incoming_buff, read(1))
+			local bool_1 = buffer.readu16(incoming_buff, read(2))
 			value = {  }
 			if bit32.btest(bool_1, 0b0000000000000001) then
 				value["Key"] = "Crystals"
@@ -293,8 +293,10 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 				value["Key"] = "BuildingCount"
 			elseif bit32.btest(bool_1, 0b0000000001000000) then
 				value["Key"] = "BuilderHutSlot"
+			elseif bit32.btest(bool_1, 0b0000000010000000) then
+				value["Key"] = "MapSkin"
 			end
-			if bit32.btest(bool_1, 0b0000000010000000) then
+			if bit32.btest(bool_1, 0b0000000100000000) then
 				incoming_ipos = incoming_ipos + 1
 				value["Value"] = incoming_inst[incoming_ipos]
 			else
@@ -336,6 +338,7 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 			end
 			value["BuildingCount"] = buffer.readu32(incoming_buff, read(4))
 			value["BuilderHutSlot"] = buffer.readu8(incoming_buff, read(1))
+			value["MapSkin"] = buffer.readu8(incoming_buff, read(1))
 			if reliable_events[0] then
 				task.spawn(reliable_events[0], value)
 			else
@@ -458,7 +461,7 @@ local returns = {
 	},
 	PlayerDataUpdate = {
 		On = function(Callback: (Value: ({
-			["Key"]: ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot"),
+			["Key"]: ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot" | "MapSkin"),
 			["Value"]: ((unknown)),
 		})) -> ())
 			table.insert(reliable_events[4], Callback)
@@ -503,6 +506,7 @@ local returns = {
 			}) }),
 			["BuildingCount"]: (number),
 			["BuilderHutSlot"]: (number),
+			["MapSkin"]: (number),
 		})) -> ()): () -> ()
 			reliable_events[0] = Callback
 			for _, value in reliable_event_queue[0] do

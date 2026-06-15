@@ -24,6 +24,7 @@ export type PlayerData = {
 	Level: number,
 	Experience: number,
 	BuilderHutSlot: number,
+	MapSkin: number,
 }
 
 local PlayerDataService = {}
@@ -74,6 +75,7 @@ function PlayerDataService.new()
 		Gems = 0,
 		Level = 1,
 		Experience = 0,
+		MapSkin = 1, --1 = Default, 2 = Desert, 3 = Snow, 4 = Lava
 		BuilderHutSlot = 2,
 	} :: PlayerData
 	self._ProfileStore = nil

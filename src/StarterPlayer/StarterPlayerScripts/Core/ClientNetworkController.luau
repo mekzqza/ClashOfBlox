@@ -55,6 +55,7 @@ local function DataLayer()
 			Buildings = buildingsMap,
 			BuildingCount = data.BuildingCount,
 			BuilderHutSlot = data.BuilderHutSlot,
+			MapSkin = data.MapSkin,
 		}
 		EventBus:Emit(Events.LOCAL_PLAYER_DATA_FIRST_LOAD, playload)
 	end)
