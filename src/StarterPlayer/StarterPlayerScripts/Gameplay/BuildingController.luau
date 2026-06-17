@@ -71,6 +71,7 @@ function BuildingController.new()
 	self._ResourceController = nil
 	self._BuilderHutController = nil
 	self._BuildingStore = nil
+	self._MainDisplayController = nil
 
 	self._playerGui = nil
 	self._placeBillderboards = nil
@@ -87,6 +88,7 @@ function BuildingController:SetDependencies(locator)
 	self._GridController = locator:Get("GridController")
 	self._BuilderHutController = locator:Get("BuilderHutController")
 	self._BuildingStore = locator:Get("BuildingStore")
+	self._MainDisplayController = locator:Get("MainDisplayController")
 end
 
 function BuildingController:_syncToserver(buildingId: string, gridx: number, gridz: number, position: Vector3)
@@ -150,6 +152,10 @@ function BuildingController:BuildingComplete(buildingId: string)
 	})
 
 	self._currentBuilder -= 1
+	self._MainDisplayController:UpdateBuilderHutSlots(
+		self._currentBuilder,
+		self._PlayerDataController:GetAll().BuilderHutSlot
+	)
 	warn(`[BuildingController] Building construction complete for buildingId {buildingId}`)
 end
 
@@ -262,6 +268,10 @@ function BuildingController:_RegisterBuilderStore(
 	self._BuilderHutController:RegisterBuildingProgressBar(model, endtime, startTime)
 
 	self._currentBuilder += 1
+	self._MainDisplayController:UpdateBuilderHutSlots(
+		self._currentBuilder,
+		self._PlayerDataController:GetAll().BuilderHutSlot
+	)
 
 	self:_ensureRuntimeChecker()
 end
@@ -418,6 +428,11 @@ function BuildingController:_confirmPlacement()
 		warn(`[BuildingController] All builder huts are currently occupied. Cannot place new building.`)
 		return
 	end
+
+	self._MainDisplayController:UpdateBuilderHutSlots(
+		self._currentBuilder + 1,
+		self._PlayerDataController:GetAll().BuilderHutSlot
+	)
 
 	local dimension = session.dimension
 	local snapPos = session.currentPosition :: Vector3
@@ -740,13 +755,10 @@ function BuildingController:_confirmMove()
 		return
 	end
 
-	-- placement ยืนยันด้วยปุ่ม Confirm ไม่ใช่การปล่อยเมาส์ → ปล่อยเมาส์แค่หยุดลาก
 	if session.isPlacement then
 		return
 	end
 
-	-- ปล่อยบนช่องแดง → ไม่ commit ไม่ revert ปล่อยให้อาคารค้างที่เดิม(แดง)
-	-- การกลับ oldPosition จะเกิดตอนผู้เล่นคลิกอย่างอื่น (ดู handler LOCAL_MOVE_BUILDING)
 	if not session.canPlace then
 		return
 	end
@@ -898,6 +910,10 @@ function BuildingController:Start()
 				buildingdata[CONFIG.KEYSTORE["LastCollectedTime"]]
 			)
 		end
+		self._MainDisplayController:UpdateBuilderHutSlots(
+			self._currentBuilder,
+			self._PlayerDataController:GetAll().BuilderHutSlot
+		)
 	end)
 end
 

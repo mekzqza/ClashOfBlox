@@ -17,6 +17,7 @@ function MainDisplayController.new()
 	self._ProfileContainer = nil
 	self._LevelCount = nil
 	self._LevelFillBar = nil
+	self._BuilderHutSlotFrame = nil
 
 	self._AethersContainer = nil
 	self._GemContainer = nil
@@ -98,9 +99,29 @@ function MainDisplayController:_updateExperience(experience: number)
 		return
 	end
 	local fillAmount = math.clamp(experience / 1000, 0, 1)
-	fillExperience.AnchorPoint = Vector2.new(1, 0)
-	fillExperience.Position = UDim2.new(1, 0, 0, 0)
+	fillExperience.AnchorPoint = Vector2.new(0, 0)
+	fillExperience.Position = UDim2.new(0, 0, 0, 0)
 	fillExperience.Size = UDim2.new(fillAmount, 0, 1, 0)
+end
+
+function MainDisplayController:UpdateBuilderHutSlots(unlockedSlots: number, totalSlots: number)
+	if not self._BuilderHutSlotFrame then
+		warn("[MainDisplayController] BuilderHutSlotFrame is not initialized")
+		return
+	end
+
+	local frame = self._BuilderHutSlotFrame:FindFirstChild("Frame")
+	if not frame then
+		warn("[MainDisplayController] Cannot find Frame in BuilderHutSlotFrame")
+		return
+	end
+
+	local slotValue = frame:FindFirstChild("Value")
+	if not slotValue then
+		warn("[MainDisplayController] Cannot find Value label in BuilderHutSlotFrame")
+		return
+	end
+	slotValue.Text = `{unlockedSlots} / {totalSlots}`
 end
 
 function MainDisplayController:Init()
@@ -112,6 +133,7 @@ function MainDisplayController:Init()
 	self._ProfileContainer = self._ProfileFrame:WaitForChild("ProfileContainer")
 	self._LevelCount = self._ProfileContainer:WaitForChild("LevelCount")
 	self._LevelFillBar = self._ProfileContainer:WaitForChild("LevelFillBar")
+	self._BuilderHutSlotFrame = self._MainFrame:FindFirstChild("BuilderHutSlotFrame")
 
 	self._CrystalsContainer = self._ResourceFrame:WaitForChild("Crystals")
 	self._AethersContainer = self._ResourceFrame:WaitForChild("Aethers")

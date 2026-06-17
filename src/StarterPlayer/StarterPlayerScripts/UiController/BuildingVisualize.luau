@@ -11,7 +11,7 @@ local Camera = workspace.CurrentCamera
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Events = require(ReplicatedStorage.Shared.Events)
 local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
-
+local GameEnum = require(ReplicatedStorage.Shared.GameEnum)
 local BuildingConfig = require(ReplicatedStorage.Shared.BuildingConfig)
 
 local CONFIG = {
@@ -20,6 +20,9 @@ local CONFIG = {
 	INSET_OFFSET = Vector2.new(0, 36),
 	DEBUG_HIT = true,
 	DEBUG_HIT_SIZE = 1,
+
+	HOLD_TIME = 0.2,
+	MOVE_TOLERANCE = 12,
 }
 
 local BuildingVisualize = {}
@@ -30,13 +33,18 @@ function BuildingVisualize.new()
 	self._MainDisPlay = nil
 	self._MainInfoFrame = nil
 	self._BuildingInfo = nil
-	self._PlaceBillderboards = nil
 
 	self._currentBuildingId = nil
 	self._connInputBegan = nil
 	self._connInputChanged = nil
 	self._connInputEnded = nil
 	self._isDragging = false
+
+	self._holdThread = nil
+	self._pressing = false
+	self._holdFired = false
+	self._pressStartPos = nil
+	self._pendingBuildingId = nil
 
 	self._mouse = nil
 	self._raycastParams = nil
@@ -46,40 +54,28 @@ function BuildingVisualize.new()
 	return self
 end
 
-function BuildingVisualize:_ondetectBuilding(buildingId: string)
+function BuildingVisualize:_buildingInfo(buildingId: string?)
+	if buildingId == nil then
+		self._MainInfoFrame.Visible = false
+		return
+	end
+
 	local buildingCache = self._BuildingStore:GetBuildingData(buildingId)
 	if not buildingCache then
 		warn("Building data not found for ID:", buildingId)
 		return
 	end
 
-	-- local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingCache.BuildingEnum, buildingCache.BuildingLevel)
-	-- local buildingLevelt = self._BuildingInfo:FindFirstChild("BuildingLevel")
-	-- local buildingNameT = self._BuildingInfo:FindFirstChild("BuildingName")
+	self._MainInfoFrame.Visible = true
 
-	EventBus:Emit(Events.LOCAL_MOVE_BUILDING, buildingId)
-end
+	local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingCache.BuildingEnum, buildingCache.BuildingLevel)
+	local buildingTypeName = GameEnum:GetBuildingTypeById(buildingCache.BuildingEnum)
 
-function BuildingVisualize:_showPlaceBillderboards(buildingId: string)
-	local buildingData = self._BuildingStore:GetBuildingData(buildingId)
-	if not buildingData then
-		warn("Building data not found for ID:", buildingId)
-		return
-	end
-	local buildingModel = buildingData.BuildingModel
-	if not buildingModel then
-		warn("Building model not found for ID:", buildingId)
-		return
-	end
+	local buildingLevel = self._BuildingInfo:FindFirstChild("BuildingLevel")
+	local buildingName = self._BuildingInfo:FindFirstChild("BuildingName")
 
-	local attachPart = buildingModel:FindFirstChild("Attachment", true) :: BasePart
-	if not attachPart then
-		warn("Attachment part not found in building model for ID:", buildingId)
-		return
-	end
-
-	self._PlaceBillderboards.Enabled = true
-	self._PlaceBillderboards.Adornee = attachPart
+	buildingLevel.Text = "Level: " .. buildingCache.BuildingLevel
+	buildingName.Text = buildingTypeName
 end
 
 function BuildingVisualize:_raycastFromInput(input: InputObject): RaycastResult?
@@ -152,6 +148,19 @@ function BuildingVisualize:_stopConnections()
 	end
 end
 
+function BuildingVisualize:_cancelPress()
+	if self._holdThread then
+		task.cancel(self._holdThread)
+		self._holdThread = nil
+	end
+	self._pressing = false
+	self._holdFired = false
+	self._pendingBuildingId = nil
+	self._pressStartPos = nil
+	self._isDragging = false
+	self._currentBuildingId = nil
+end
+
 function BuildingVisualize:SetDependencies(locator)
 	self._BuildingStore = locator:Get("BuildingStore")
 end
@@ -159,7 +168,6 @@ end
 function BuildingVisualize:Init()
 	self._playerGui = Player:WaitForChild("PlayerGui")
 	self._MainDisPlay = self._playerGui:WaitForChild("MainDisPlay")
-	self._PlaceBillderboards = self._playerGui:WaitForChild("PlaceBillderboards")
 	self._MainInfoFrame = self._MainDisPlay:WaitForChild("MainInfoFrame")
 	self._BuildingInfo = self._MainInfoFrame:WaitForChild("BuildingInfo")
 
@@ -172,7 +180,6 @@ function BuildingVisualize:Init()
 end
 
 function BuildingVisualize:Start()
-	-- หาโมเดลของอาคารที่ถูกสร้างในเกม และเชื่อมต่อกับ Event ของการคลิกเพื่อแสดงข้อมูลของอาคารนั้น
 	self._connInputBegan = UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		if gameProcessed then
 			return
@@ -182,45 +189,64 @@ function BuildingVisualize:Start()
 		end
 
 		local raycastResult = self:_raycastFromInput(input)
-		local buildId = if raycastResult then self:_resolveBuildingId(raycastResult.Instance) else nil
-
-		if buildId then
-			self._isDragging = true
-			self._currentBuildingId = buildId
-			self:_ondetectBuilding(buildId)
-		else
-			-- คลิกพื้น/ที่ว่าง → ยกเลิก move ที่ค้างแดงไว้ (ถ้ามี) controller เช็ค session เอง
-			EventBus:Emit(Events.LOCAL_MOVE_BUILDING, nil)
+		local buildId = raycastResult and self:_resolveBuildingId(raycastResult.Instance)
+		if not buildId then
+			self:_buildingInfo(buildId)
+			return
 		end
+
+		self._pressing = true
+		self._holdFired = false
+		self._pressStartPos = input.Position
+		self._pendingBuildingId = buildId
+		self:_buildingInfo(buildId)
+
+		self._holdThread = task.delay(CONFIG.HOLD_TIME, function()
+			self._holdThread = nil
+			if not self._pressing then
+				return
+			end
+
+			self._holdFired = true
+			self._isDragging = true
+			self._currentBuildingId = self._pendingBuildingId
+			EventBus:Emit(Events.LOCAL_MOVE_BUILDING, self._currentBuildingId)
+		end)
 	end)
 
 	self._connInputChanged = UserInputService.InputChanged:Connect(function(input)
-		if not self._isDragging or not self._currentBuildingId then
-			return
-		end
 		if input.UserInputType ~= Enum.UserInputType.MouseMovement then
 			return
 		end
+		if not self._pressing then
+			return
+		end
 
-		local raycastResult = self:_raycastFromInput(input)
-		if raycastResult then
-			EventBus:Emit(Events.LOCAL_MOVE_BUILDING_UPDATE, raycastResult.Position)
+		if not self._holdFired then -- เฟสรอ: เลื่อนไกล = ยกเลิก
+			local p, s = input.Position, self._pressStartPos
+			if (Vector2.new(p.X, p.Y) - Vector2.new(s.X, s.Y)).Magnitude > CONFIG.MOVE_TOLERANCE then
+				self:_cancelPress()
+			end
+			return
+		end
+
+		local r = self:_raycastFromInput(input)
+		if r then
+			EventBus:Emit(Events.LOCAL_MOVE_BUILDING_UPDATE, r.Position)
 		end
 	end)
 
-	-- @TODO เปลี่ยนเป็นการกด ปุ่มอื่นยกเว้นการลากต่อจะ cancel การวางอาคาร
 	self._connInputEnded = UserInputService.InputEnded:Connect(function(input)
 		if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
 			return
 		end
-		if not self._isDragging then
+		if not self._pressing then
 			return
 		end
-
-		self._isDragging = false
-		self._currentBuildingId = nil
-
-		EventBus:Emit(Events.LOCAL_MOVE_BUILDING_CONFIRM)
+		if self._holdFired then
+			EventBus:Emit(Events.LOCAL_MOVE_BUILDING_CONFIRM)
+		end
+		self:_cancelPress()
 	end)
 end
 
