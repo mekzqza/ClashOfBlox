@@ -12,6 +12,7 @@ local CONFIG = {
 	FOOTPRINTS_TEMPLATE = "FootPrints",
 	CREATE_BUILDING_TEMPLATE = "CreatingBuilding",
 	UPGRADE_BUILDING_TEMPLATE = "UpgradingBuilding",
+	MOVE_INDICATOR_TEMPLATE = "MoveIndicator",
 
 	HEIGHT = 0.5,
 	DEFAULT_FOOTPRINT_COLOR = Color3.fromRGB(117, 161, 37),
@@ -57,14 +58,12 @@ function BuildingController.new()
 
 	self._currentBuilder = 0
 	self._isPlacing = false
-	self._renderConnection = nil
-	self._indicatorModel = nil
+	self._moveIndicator = nil
 	self._Connetion = nil
 	self._moveSession = nil
 	self._PlayerFolder = nil
 	self._RuntimeChecker = nil
 
-	self._footPrintindicator = nil
 	self._BuildingTemplate = nil
 	self._GridController = nil
 	self._PlayerDataController = nil
@@ -208,6 +207,33 @@ function BuildingController:_CloneConstructionVisual(
 	local haft = primaryPart1.Size.Y / 2
 	model:PivotTo(CFrame.new(worldPos.X, worldPos.Y + haft + CONFIG.HEIGHT, worldPos.Z))
 	return model
+end
+
+function BuildingController:_createMoveIndicator(position: Vector3, seize: number): Model?
+	local Template = self._BuildingTemplate:FindFirstChild(CONFIG.MOVE_INDICATOR_TEMPLATE, true)
+	if not Template then
+		warn(`[BuildingController] Move indicator template not found in BuildingTemplate`)
+		return nil
+	end
+
+	local moveIndicatorTemplate = Template:FindFirstChild(tostring(CONFIG.GRID_KEY[seize]), true)
+	if not moveIndicatorTemplate then
+		warn(`[BuildingController] Move indicator model with grid size {seize} not found in BuildingTemplate`)
+		return nil
+	end
+
+	local moveIndicator = moveIndicatorTemplate:Clone() :: BasePart
+
+	local primaryPart = moveIndicator.PrimaryPart
+	if not primaryPart then
+		warn(`[BuildingController] Move indicator model does not have a PrimaryPart`)
+		return nil
+	end
+
+	local half = primaryPart.Size.Y / 2
+	moveIndicator:SetPrimaryPartCFrame(CFrame.new(position.X, position.Y + half + CONFIG.HEIGHT, position.Z))
+
+	return moveIndicator
 end
 
 function BuildingController:_RegisterBuilderStore(
@@ -576,10 +602,6 @@ end
 
 function BuildingController:_stopPlacement()
 	self._isPlacing = false
-	if self._renderConnection then
-		self._renderConnection:Disconnect()
-		self._renderConnection = nil
-	end
 
 	if self._Connetion then
 		self._Connetion:Disconnect()
@@ -588,14 +610,9 @@ function BuildingController:_stopPlacement()
 
 	self._moveSession = nil
 
-	if self._indicatorModel then
-		self._indicatorModel:Destroy()
-		self._indicatorModel = nil
-	end
-
-	if self._footPrintindicator then
-		self._footPrintindicator:Destroy()
-		self._footPrintindicator = nil
+	if self._moveIndicator then
+		self._moveIndicator:Destroy()
+		self._moveIndicator = nil
 	end
 
 	if self._confirmConn then
@@ -698,6 +715,12 @@ function BuildingController:_updateMovePreview(position: Vector3)
 		self._GridController:SnapToGrid(position, session.dimension.Length, session.dimension.Width) :: Vector3
 	local canPlace =
 		self._GridController:CanPlace(snapPos, session.dimension.Length, session.dimension.Width, session.ignoreCells)
+
+	if not self._moveIndicator then
+		self._moveIndicator =
+			self:_createMoveIndicator(session.oldPosition, session.dimension.Length * session.dimension.Width)
+		self._moveIndicator.Parent = session.buildingData.BuildingModel.PrimaryPart
+	end
 
 	session.currentPosition = snapPos
 	session.canPlace = canPlace
