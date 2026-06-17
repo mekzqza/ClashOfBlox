@@ -15,6 +15,7 @@ local CONFIG = {
 	MOVE_INDICATOR_TEMPLATE = "MoveIndicator",
 
 	HEIGHT = 0.5,
+	GROUND_Y = -0.159,
 	DEFAULT_FOOTPRINT_COLOR = Color3.fromRGB(117, 161, 37),
 	STARTER_LEVEL = 0,
 	NEXT_LEVEL = 1,
@@ -328,7 +329,7 @@ function BuildingController:_startPlacement(buildType: string)
 	self:_stopPlacement()
 
 	-- ตำแหน่งเริ่มต้นของ preview (จากนี้ผู้เล่นกดลากย้ายเอง)
-	local position = Vector3.new(-261.6, -0.159, -287.30)
+	local position = Vector3.new(-261.6, CONFIG.GROUND_Y, -287.30)
 	local snapPos = self._GridController:SnapToGrid(position, dimension.Length, dimension.Width) :: Vector3
 
 	local previewBuilding = self:_createBuilding(buildType, snapPos, CONFIG.NEXT_LEVEL)
@@ -713,6 +714,7 @@ function BuildingController:_updateMovePreview(position: Vector3)
 
 	local snapPos =
 		self._GridController:SnapToGrid(position, session.dimension.Length, session.dimension.Width) :: Vector3
+	snapPos = Vector3.new(snapPos.X, CONFIG.GROUND_Y, snapPos.Z)
 	local canPlace =
 		self._GridController:CanPlace(snapPos, session.dimension.Length, session.dimension.Width, session.ignoreCells)
 
