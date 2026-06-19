@@ -1,6 +1,5 @@
 --!strict
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
 local Events = require(ReplicatedStorage.Shared.Events)
@@ -13,8 +12,10 @@ local CONFIG = {
 	FOOTPRINTS_TEMPLATE = "FootPrints",
 	CREATE_BUILDING_TEMPLATE = "CreatingBuilding",
 	UPGRADE_BUILDING_TEMPLATE = "UpgradingBuilding",
+	MOVE_INDICATOR_TEMPLATE = "MoveIndicator",
 
 	HEIGHT = 0.5,
+	GROUND_Y = -0.159,
 	DEFAULT_FOOTPRINT_COLOR = Color3.fromRGB(117, 161, 37),
 	STARTER_LEVEL = 0,
 	NEXT_LEVEL = 1,
@@ -33,8 +34,11 @@ local CONFIG = {
 		["LastCollectedTime"] = 6,
 	},
 
+	ATTACHMENT = "Attachment",
+	FAKE_ID = "fake_building_id_for_preview",
+	FAKE_BUILDING_TIME = 60, -- 1 นาทีสำหรับการทดสอบการวางอาคาร
 	-- @TODO
-	-- HARD_CODE Building Position เพื่อให้ สามารถทดสอบการย้ายได้ง่ายขึ้น อาคารไม่ทับกับตอนเข้า buildingMove mode
+	-- HARD_CODE Building Position แกน Y เพื่อให้ สามารถทดสอบการย้ายได้ง่ายขึ้น อาคารไม่ทับกับตอนเข้า buildingMove mode
 }
 
 export type BuilderRecord = {
@@ -55,20 +59,26 @@ function BuildingController.new()
 
 	self._currentBuilder = 0
 	self._isPlacing = false
-	self._renderConnection = nil
-	self._indicatorModel = nil
+	self._moveIndicator = nil
 	self._Connetion = nil
 	self._moveSession = nil
 	self._PlayerFolder = nil
 	self._RuntimeChecker = nil
 
-	self._footPrintindicator = nil
 	self._BuildingTemplate = nil
 	self._GridController = nil
 	self._PlayerDataController = nil
 	self._ResourceController = nil
 	self._BuilderHutController = nil
 	self._BuildingStore = nil
+	self._MainDisplayController = nil
+
+	self._playerGui = nil
+	self._placeBillderboards = nil
+	self._placePreviewModel = nil
+
+	self._confirmConn = nil
+	self._cancelConn = nil
 	return self
 end
 
@@ -78,6 +88,7 @@ function BuildingController:SetDependencies(locator)
 	self._GridController = locator:Get("GridController")
 	self._BuilderHutController = locator:Get("BuilderHutController")
 	self._BuildingStore = locator:Get("BuildingStore")
+	self._MainDisplayController = locator:Get("MainDisplayController")
 end
 
 function BuildingController:_syncToserver(buildingId: string, gridx: number, gridz: number, position: Vector3)
@@ -141,6 +152,10 @@ function BuildingController:BuildingComplete(buildingId: string)
 	})
 
 	self._currentBuilder -= 1
+	self._MainDisplayController:UpdateBuilderHutSlots(
+		self._currentBuilder,
+		self._PlayerDataController:GetAll().BuilderHutSlot
+	)
 	warn(`[BuildingController] Building construction complete for buildingId {buildingId}`)
 end
 
@@ -201,6 +216,71 @@ function BuildingController:_CloneConstructionVisual(
 	return model
 end
 
+function BuildingController:_createMoveIndicator(buildingId: string)
+	if self._moveIndicator then
+		self._moveIndicator:Destroy()
+		self._moveIndicator = nil
+	end
+
+	local buildingData = self._BuildingStore:GetBuildingData(buildingId)
+	if not buildingData then
+		warn(`[BuildingController] No building data found for buildingId {buildingId} on move indicator creation`)
+		return
+	end
+
+	local builDingModel = buildingData.BuildingModel
+	if not builDingModel then
+		warn(`[BuildingController] No building model found for buildingId {buildingId} on move indicator creation`)
+		return
+	end
+
+	local modelPrimaryPart = builDingModel.PrimaryPart
+	if not modelPrimaryPart then
+		warn(`[BuildingController] No primary part found for buildingId {buildingId} on move indicator creation`)
+		return
+	end
+
+	local position = modelPrimaryPart.Position
+
+	local Template = self._BuildingTemplate:FindFirstChild(CONFIG.MOVE_INDICATOR_TEMPLATE, true)
+	if not Template then
+		warn(`[BuildingController] Move indicator template not found in BuildingTemplate`)
+		return
+	end
+
+	local buildingType = GameEnum:GetBuildingTypeById(buildingData.BuildingEnum)
+	if not buildingType then
+		warn(`[BuildingController] Invalid building enum {buildingData.BuildingEnum} for buildingId {buildingId}`)
+		return
+	end
+
+	local dimenSion = BuildingConfig:GetBuildingDimensions(buildingType)
+	if not dimenSion then
+		warn(`[BuildingController] Building config for {buildingType} not found on move indicator creation`)
+		return
+	end
+	local size = dimenSion.Length * dimenSion.Width
+
+	local moveIndicatorTemplate = Template:FindFirstChild(tostring(CONFIG.GRID_KEY[size]), true)
+	if not moveIndicatorTemplate then
+		warn(`[BuildingController] Move indicator model with grid size {size} not found in BuildingTemplate`)
+		return
+	end
+
+	self._moveIndicator = moveIndicatorTemplate:Clone()
+
+	local primaryPart = self._moveIndicator.PrimaryPart
+	if not primaryPart then
+		warn(`[BuildingController] Move indicator model does not have a PrimaryPart`)
+		return
+	end
+
+	local half = primaryPart.Size.Y / 2
+	self._moveIndicator:SetPrimaryPartCFrame(CFrame.new(position.X, position.Y + half + CONFIG.HEIGHT, position.Z))
+	self._moveIndicator.Parent = builDingModel
+	return
+end
+
 function BuildingController:_RegisterBuilderStore(
 	buildingId: string,
 	gridx: number,
@@ -226,6 +306,10 @@ function BuildingController:_RegisterBuilderStore(
 	self._BuilderHutController:RegisterBuildingProgressBar(model, endtime, startTime)
 
 	self._currentBuilder += 1
+	self._MainDisplayController:UpdateBuilderHutSlots(
+		self._currentBuilder,
+		self._PlayerDataController:GetAll().BuilderHutSlot
+	)
 
 	self:_ensureRuntimeChecker()
 end
@@ -283,146 +367,186 @@ function BuildingController:_createBuilding(buildingType: string, snapPosition: 
 end
 
 function BuildingController:_startPlacement(buildType: string)
-	local buildingFolder = self._BuildingTemplate:FindFirstChild(buildType, true)
-	if not buildingFolder then
-		warn(`[BuildingController] Building {buildType} not found`)
-		return
-	end
-
-	local Template = buildingFolder:FindFirstChild(tostring(CONFIG.NEXT_LEVEL))
-	if not Template then
-		warn(`[BuildingController] Level {CONFIG.NEXT_LEVEL} not found in {buildType}`)
-		return
-	end
-
 	local dimension = BuildingConfig:GetBuildingDimensions(buildType)
 	if not dimension then
 		warn(`[BuildingController] Building config with id {buildType} not found in BuildingConfig`)
 		return
 	end
 
-	if not Template:IsA("Model") then
+	-- เคลียร์ preview/move ที่อาจค้างก่อน
+	self:_stopPlacement()
+
+	-- ตำแหน่งเริ่มต้นของ preview (จากนี้ผู้เล่นกดลากย้ายเอง)
+	local position = Vector3.new(-261.6, CONFIG.GROUND_Y, -287.30)
+	local snapPos = self._GridController:SnapToGrid(position, dimension.Length, dimension.Width) :: Vector3
+
+	local previewBuilding = self:_createBuilding(buildType, snapPos, CONFIG.NEXT_LEVEL)
+	local previewFootprint = self:_createFootPrints(snapPos, dimension.Length * dimension.Width)
+	if not previewBuilding or not previewFootprint then
+		warn(`[BuildingController] Failed to build placement preview for {buildType}`)
+		if previewBuilding then
+			previewBuilding:Destroy()
+		end
+		if previewFootprint then
+			previewFootprint:Destroy()
+		end
 		return
 	end
 
-	self._indicatorModel = Template:Clone()
-	self._footPrintindicator = self._BuildingTemplate
-		:FindFirstChild(CONFIG.FOOTPRINTS_TEMPLATE, true)
-		:FindFirstChild(CONFIG.GRID_KEY[dimension.Length * dimension.Width], true)
-		:Clone()
-	self._footPrintindicator.Parent = self._indicatorModel
-	local templateRotation = Template:GetPivot().Rotation
+	local startX, startZ = self._GridController:GetFootPrintStart(snapPos, dimension.Length, dimension.Width)
+	local buildingEnum = GameEnum:GetBuildingTypeIdByName(buildType)
 
-	self._indicatorModel.Parent = self._PlayerFolder
+	local previewModel = Instance.new("Model")
+	previewFootprint.Parent = previewModel
+	previewBuilding.Parent = previewModel
+	previewModel.PrimaryPart = previewFootprint
+	previewModel.Name = CONFIG.FAKE_ID
+	previewModel.Parent = self._PlayerFolder
+	self._placePreviewModel = previewModel
+
+	self._BuildingStore:AddBuilding(
+		CONFIG.FAKE_ID,
+		startX,
+		startZ,
+		buildingEnum,
+		CONFIG.STARTER_LEVEL,
+		CONFIG.FAKE_BUILDING_TIME,
+		0,
+		previewModel
+	)
+
+	local halfHeight = previewFootprint.Size.Y / 2
+	previewModel:SetPrimaryPartCFrame(CFrame.new(snapPos.X, snapPos.Y + halfHeight + CONFIG.HEIGHT, snapPos.Z))
+
 	self._isPlacing = true
+	self._moveSession = {
+		buildingId = CONFIG.FAKE_ID,
+		buildingModel = previewModel,
+		buildingData = self._BuildingStore:GetBuildingData(CONFIG.FAKE_ID),
+		dimension = dimension,
+		oldPosition = snapPos,
+		currentPosition = snapPos,
+		canPlace = self._GridController:CanPlace(snapPos, dimension.Length, dimension.Width),
+		ignoreCells = nil,
+		halfHeight = halfHeight,
+		PrimaryPart = previewFootprint,
+		FootPrintTexture = previewFootprint:FindFirstChild("Texture"),
+		isPlacement = true,
+		buildType = buildType,
+	}
 
-	local primaryPart: BasePart? = self._indicatorModel.PrimaryPart
-	if not primaryPart then
+	self:_showPlaceBillderboards(CONFIG.FAKE_ID)
+
+	local mainFrame = self._placeBillderboards:FindFirstChild("MainFrame", true)
+	local ConfirmFrame = mainFrame and mainFrame:FindFirstChild("Confirm", true)
+	local CancelFrame = mainFrame and mainFrame:FindFirstChild("Cancel", true)
+
+	local ConfirmBtn = ConfirmFrame and ConfirmFrame:FindFirstChild("ConfirmBnt", true)
+	local CancelBtn = CancelFrame and CancelFrame:FindFirstChild("CancelBnt", true)
+
+	self._confirmConn = ConfirmBtn and ConfirmBtn.MouseButton1Click:Connect(function()
+		self:_confirmPlacement()
+	end)
+
+	self._cancelConn = CancelBtn
+		and CancelBtn.MouseButton1Click:Connect(function()
+			warn("[BuildingController] Building placement cancelled by player")
+			self:_stopPlacement()
+		end)
+end
+
+function BuildingController:_confirmPlacement()
+	local session = self._moveSession
+	if not session or not session.isPlacement then
 		return
 	end
 
-	local indicatorModelhalfHeight = primaryPart.Size.Y / 2
-	local footPrintindicatorhalfHeight = self._footPrintindicator.Size.Y / 2
+	if self._currentBuilder >= self._PlayerDataController:GetAll().BuilderHutSlot then
+		warn(`[BuildingController] All builder huts are currently occupied. Cannot place new building.`)
+		return
+	end
 
-	self._renderConnection = RunService.RenderStepped:Connect(function()
-		local mouse = Player:GetMouse()
-		local target = mouse.Target
-		if not target then
-			return
+	self._MainDisplayController:UpdateBuilderHutSlots(
+		self._currentBuilder + 1,
+		self._PlayerDataController:GetAll().BuilderHutSlot
+	)
+
+	local dimension = session.dimension
+	local snapPos = session.currentPosition :: Vector3
+	if not self._GridController:CanPlace(snapPos, dimension.Length, dimension.Width) then
+		warn("[BuildingController] Cannot place building on occupied cells")
+		return
+	end
+
+	local startX, startZ = self._GridController:GetFootPrintStart(snapPos, dimension.Length, dimension.Width)
+	local buildingEnum = GameEnum:GetBuildingTypeIdByName(session.buildType)
+
+	local footPrint = self:_createFootPrints(snapPos, dimension.Length * dimension.Width)
+	local modelUpgrade = self:_CloneConstructionVisual(
+		CONFIG.UPGRADE_BUILDING_TEMPLATE,
+		startX,
+		startZ,
+		dimension.Length,
+		dimension.Width
+	)
+	local modelCreate = self:_CloneConstructionVisual(
+		CONFIG.CREATE_BUILDING_TEMPLATE,
+		startX,
+		startZ,
+		dimension.Length,
+		dimension.Width
+	)
+	if not footPrint or not modelUpgrade or not modelCreate then
+		warn("[BuildingController] Failed to build construction visuals on confirm placement")
+		if footPrint then
+			footPrint:Destroy()
 		end
-
-		if not self._indicatorModel then
-			return
+		if modelUpgrade then
+			modelUpgrade:Destroy()
 		end
-
-		local snapPos =
-			self._GridController:SnapToGrid(mouse.Hit.Position, dimension.Length, dimension.Width) :: Vector3
-
-		local CanPlace = self._GridController:CanPlace(snapPos, dimension.Length, dimension.Width)
-		local color = if CanPlace then Color3.new(0, 1, 0) else Color3.new(1, 0, 0)
-		for _, child in ipairs(self._indicatorModel:GetDescendants()) do
-			if child:IsA("BasePart") then
-				if child:IsA("UnionOperation") then
-					child.UsePartColor = true
-				end
-				child.Color = color
-			end
+		if modelCreate then
+			modelCreate:Destroy()
 		end
-		self._indicatorModel:SetPrimaryPartCFrame(
-			CFrame.new(snapPos.X, snapPos.Y + indicatorModelhalfHeight, snapPos.Z) * templateRotation
-		)
-		self._footPrintindicator.CFrame = CFrame.new(snapPos.X, snapPos.Y + footPrintindicatorhalfHeight, snapPos.Z)
-	end)
+		return
+	end
 
-	local mouse = Player:GetMouse()
-	-- @TODO ทำใ้รองรับมือถือ
-	self._Connetion = mouse.Button1Down:Connect(function()
-		if self._currentBuilder >= self._PlayerDataController:GetAll().BuilderHutSlot then
-			warn(`[BuildingController] All builder huts are currently occupied. Cannot place new building.`)
-			return
-		end
+	local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.NEXT_LEVEL)
+	if not buildingData then
+		warn(`[BuildingController] Building data for enum {buildingEnum} not found on confirm placement`)
+		footPrint:Destroy()
+		modelUpgrade:Destroy()
+		modelCreate:Destroy()
+		return
+	end
 
-		local snapPos =
-			self._GridController:SnapToGrid(mouse.Hit.Position, dimension.Length, dimension.Width) :: Vector3
-		if self._GridController:CanPlace(snapPos, dimension.Length, dimension.Width) then
-			local startX, startZ = self._GridController:GetFootPrintStart(snapPos, dimension.Length, dimension.Width)
-			local buildingEnum = GameEnum:GetBuildingTypeIdByName(buildType)
-			local footPrint = self:_createFootPrints(snapPos, dimension.Length * dimension.Width)
+	local model = Instance.new("Model")
+	footPrint.Parent = model
+	modelUpgrade.Parent = model
+	modelCreate.Parent = model
+	model.PrimaryPart = footPrint
+	model.Parent = self._PlayerFolder
 
-			local model = Instance.new("Model")
-			local modelUpgrade = self:_CloneConstructionVisual(
-				CONFIG.UPGRADE_BUILDING_TEMPLATE,
-				startX,
-				startZ,
-				dimension.Length,
-				dimension.Width
-			)
-			local modelCreate = self:_CloneConstructionVisual(
-				CONFIG.CREATE_BUILDING_TEMPLATE,
-				startX,
-				startZ,
-				dimension.Length,
-				dimension.Width
-			)
+	self:_requestPlaceBuilding(startX, startZ, buildingEnum, snapPos)
+	self._GridController:occupyCell(snapPos, dimension.Length, dimension.Width)
 
-			footPrint.Parent = model
-			modelUpgrade.Parent = model
-			modelCreate.Parent = model
-			model.PrimaryPart = footPrint
-			model.Parent = self._PlayerFolder
+	local buildingCount = self._BuildingStore:GetbuildingCount() :: number
+	local nextbuildingId = `n{buildingCount + 1}`
+	local builTime = os.time() + buildingData.UpgradeTime
 
-			self:_requestPlaceBuilding(startX, startZ, buildingEnum, snapPos)
-			self._GridController:occupyCell(snapPos, dimension.Length, dimension.Width)
+	self._BuildingStore:AddBuilding(
+		nextbuildingId,
+		startX,
+		startZ,
+		buildingEnum,
+		CONFIG.STARTER_LEVEL,
+		builTime,
+		0,
+		model
+	)
+	self:_RegisterBuilderStore(nextbuildingId, startX, startZ, buildingEnum, CONFIG.STARTER_LEVEL, builTime, 0, model)
+	model.Name = nextbuildingId
 
-			local buildingCount = self._BuildingStore:GetbuildingCount() :: number
-			local nextbuildingId = `n{buildingCount + 1}`
-			local BuildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, CONFIG.NEXT_LEVEL)
-			local builTime = os.time() + BuildingData.UpgradeTime
-
-			self._BuildingStore:AddBuilding(
-				nextbuildingId,
-				startX,
-				startZ,
-				buildingEnum,
-				CONFIG.STARTER_LEVEL,
-				builTime,
-				0,
-				model
-			)
-
-			self:_RegisterBuilderStore(
-				nextbuildingId,
-				startX,
-				startZ,
-				buildingEnum,
-				CONFIG.STARTER_LEVEL,
-				builTime,
-				0,
-				model
-			)
-			model.Name = nextbuildingId
-		end
-	end)
+	self:_stopPlacement()
 end
 
 function BuildingController:RecreateBuildings(
@@ -531,10 +655,6 @@ end
 
 function BuildingController:_stopPlacement()
 	self._isPlacing = false
-	if self._renderConnection then
-		self._renderConnection:Disconnect()
-		self._renderConnection = nil
-	end
 
 	if self._Connetion then
 		self._Connetion:Disconnect()
@@ -543,14 +663,24 @@ function BuildingController:_stopPlacement()
 
 	self._moveSession = nil
 
-	if self._indicatorModel then
-		self._indicatorModel:Destroy()
-		self._indicatorModel = nil
+	if self._confirmConn then
+		self._confirmConn:Disconnect()
+		self._confirmConn = nil
 	end
 
-	if self._footPrintindicator then
-		self._footPrintindicator:Destroy()
-		self._footPrintindicator = nil
+	if self._cancelConn then
+		self._cancelConn:Disconnect()
+		self._cancelConn = nil
+	end
+
+	if self._placeBillderboards then
+		self._placeBillderboards.Enabled = false
+	end
+
+	if self._placePreviewModel then
+		self._placePreviewModel:Destroy()
+		self._placePreviewModel = nil
+		self._BuildingStore:RemoveBuilding(CONFIG.FAKE_ID) -- ถ้ามีเมธอดนี้
 	end
 end
 
@@ -566,10 +696,6 @@ function BuildingController:MoveBuilding(buildingId: string)
 		warn(`[BuildingController] No building model found for buildingId {buildingId} on move request`)
 		return
 	end
-
-	self:_stopPlacement()
-
-	self._isPlacing = true
 
 	local primaryPart: BasePart? = buildingModel.PrimaryPart
 	if not primaryPart then
@@ -596,6 +722,9 @@ function BuildingController:MoveBuilding(buildingId: string)
 		dimension.Width
 	) :: Vector3
 
+	self:_stopPlacement()
+	self._isPlacing = true
+
 	self._moveSession = {
 		buildingId = buildingId,
 		buildingModel = buildingModel,
@@ -608,6 +737,7 @@ function BuildingController:MoveBuilding(buildingId: string)
 		halfHeight = primaryPart.Size.Y / 2,
 		PrimaryPart = primaryPart,
 		FootPrintTexture = texture,
+		isPlacement = false,
 	}
 end
 
@@ -628,22 +758,19 @@ function BuildingController:_updateMovePreview(position: Vector3)
 	end
 
 	local texture = session.FootPrintTexture
-	if not texture then
-		warn(
-			`[BuildingController] No texture found in move session for buildingId {session.buildingId} during move preview update`
-		)
-		return
-	end
 
 	local snapPos =
 		self._GridController:SnapToGrid(position, session.dimension.Length, session.dimension.Width) :: Vector3
+	snapPos = Vector3.new(snapPos.X, CONFIG.GROUND_Y, snapPos.Z)
 	local canPlace =
 		self._GridController:CanPlace(snapPos, session.dimension.Length, session.dimension.Width, session.ignoreCells)
 
 	session.currentPosition = snapPos
 	session.canPlace = canPlace
 
-	texture.Color3 = if canPlace then Color3.new(0, 1, 0) else Color3.new(1, 0, 0)
+	if texture then
+		texture.Color3 = if canPlace then Color3.new(0, 1, 0) else Color3.new(1, 0, 0)
+	end
 
 	model:SetPrimaryPartCFrame(CFrame.new(snapPos.X, snapPos.Y + session.halfHeight + CONFIG.HEIGHT, snapPos.Z))
 end
@@ -654,8 +781,10 @@ function BuildingController:_confirmMove()
 		return
 	end
 
-	-- ปล่อยบนช่องแดง → ไม่ commit ไม่ revert ปล่อยให้อาคารค้างที่เดิม(แดง)
-	-- การกลับ oldPosition จะเกิดตอนผู้เล่นคลิกอย่างอื่น (ดู handler LOCAL_MOVE_BUILDING)
+	if session.isPlacement then
+		return
+	end
+
 	if not session.canPlace then
 		return
 	end
@@ -695,6 +824,11 @@ function BuildingController:_cancelMove()
 		return
 	end
 
+	-- preview ของ placement ยกเลิกผ่านปุ่ม Cancel (ไม่ revert/teardown ที่นี่)
+	if session.isPlacement then
+		return
+	end
+
 	local oldPos = session.oldPosition :: Vector3
 	session.buildingModel:SetPrimaryPartCFrame(
 		CFrame.new(oldPos.X, oldPos.Y + session.halfHeight + CONFIG.HEIGHT, oldPos.Z)
@@ -707,10 +841,39 @@ function BuildingController:_cancelMove()
 	self:_stopPlacement()
 end
 
+function BuildingController:_showPlaceBillderboards(buildingId: string)
+	local buildingData = self._BuildingStore:GetBuildingData(buildingId)
+	if not buildingData then
+		warn("Building data not found for ID:", buildingId)
+		return
+	end
+	local buildingModel = buildingData.BuildingModel
+	if not buildingModel then
+		warn("Building model not found for ID:", buildingId)
+		return
+	end
+
+	local attachPart = buildingModel:FindFirstChild(CONFIG.ATTACHMENT, true) :: BasePart
+	if not attachPart then
+		warn("Attachment part not found in building model for ID:", buildingId)
+		return
+	end
+
+	self._placeBillderboards.Enabled = true
+	self._placeBillderboards.Adornee = attachPart
+end
+
 function BuildingController:Init()
 	self._BuildingTemplate = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("Structure")
 	if not self._BuildingTemplate then
 		warn("[BuildingController] Building template folder not found in ReplicatedStorage.Assets")
+		return
+	end
+
+	self._playerGui = Player:WaitForChild("PlayerGui")
+	self._placeBillderboards = self._playerGui:WaitForChild("PlaceBillderboards")
+	if not self._placeBillderboards then
+		warn("[BuildingController] PlaceBillderboards not found in PlayerGui")
 		return
 	end
 end
@@ -722,21 +885,34 @@ function BuildingController:Start()
 
 	EventBus:On(Events.LOCAL_TEST_BUILDING, function(building: string)
 		if building == nil or building == "" then
+			if self._moveIndicator then
+				self._moveIndicator:Destroy()
+				self._moveIndicator = nil
+			end
 			self:_stopPlacement()
 			return
 		end
-		warn(`[BuildingController] Test building: {building}`)
+
 		self:_stopPlacement()
 		self:_startPlacement(building)
+		self:_createMoveIndicator(CONFIG.FAKE_ID)
 	end)
 
 	EventBus:On(Events.LOCAL_MOVE_BUILDING, function(buildingId: string?)
+		if buildingId == CONFIG.FAKE_ID then
+			return
+		end
 		if self._moveSession then
 			self:_cancelMove()
 		end
 		if buildingId == nil or buildingId == "" then
+			if self._moveIndicator then
+				self._moveIndicator:Destroy()
+				self._moveIndicator = nil
+			end
 			return
 		end
+		self:_createMoveIndicator(buildingId)
 		self:MoveBuilding(buildingId)
 	end)
 
@@ -770,6 +946,10 @@ function BuildingController:Start()
 				buildingdata[CONFIG.KEYSTORE["LastCollectedTime"]]
 			)
 		end
+		self._MainDisplayController:UpdateBuilderHutSlots(
+			self._currentBuilder,
+			self._PlayerDataController:GetAll().BuilderHutSlot
+		)
 	end)
 end
 

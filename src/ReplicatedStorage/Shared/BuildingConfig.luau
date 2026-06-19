@@ -194,7 +194,44 @@ local Buildings: BuildingData = {
 
             Description = "A crystal that can be harvested for resources.",
         }
+	},
+	["RockStone"] = {
+	    Width = 2,
+        Length = 2,
+
+        [1] = {
+            UpgradeCost = 0,
+            UpgradeTime = 0,
+            MaxHp = 100,
+
+            Description = "A rock stone that can be mined for resources.",
+        }
+	},
+	["Mushroom"] ={
+	    Width = 1,
+        Length = 1,
+
+        [1] = {
+            UpgradeCost = 0,
+            UpgradeTime = 0,
+            MaxHp = 100,
+
+            Description = "A mushroom that can be harvested for resources.",
+        }
+    },
+    ["Log"] = {
+        Width = 3,
+        Length = 3,
+
+        [1] = {
+            UpgradeCost = 0,
+            UpgradeTime = 0,
+            MaxHp = 100,
+
+            Description = "A log that can be harvested for resources.",
+        }
 	}
+
 
 }
 

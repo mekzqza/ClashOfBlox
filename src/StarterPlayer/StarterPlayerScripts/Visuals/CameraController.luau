@@ -25,6 +25,7 @@ function CameraController.new()
 
 	--state
 	self._isDragging = false
+	self._isMoveBuildingMode = false
 
 	--references
 	self._focus = Vector3.new(0, 0, 0)
@@ -33,8 +34,8 @@ function CameraController.new()
 	self._grabPoint = Vector3.new(0, 0, 0)
 	self._velocity = Vector3.new(0, 0, 0)
 	self._PlayerFolder = nil
-	self._pitch = math.rad(40)
-	self._yaw = math.rad(220)
+	self._pitch = math.rad(61)
+	self._yaw = math.rad(225)
 	self._zoom = 60
 	self._currentZoom = 60
 	self._Camera = Workspace.CurrentCamera
@@ -114,6 +115,9 @@ function CameraController:BlindInput()
 	end)
 
 	self._BeginConn = UserInputService.InputBegan:Connect(function(input)
+		if self._isMoveBuildingMode then
+			return
+		end
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			self._isDragging = true
 			self._grabPoint = self:_ScreenToGround(input.Position)
@@ -169,14 +173,19 @@ function CameraController:Start()
 		self:OnCameraChanged()
 	end)
 
-	-- task.spawn(function()
-	-- 	task.wait(10)
-	-- 	self:Disconnect()
-	-- 	warn("[CameraController] Auto-disconnected after 10 seconds. This is likely for testing purposes.")
-	-- 	task.wait(10)
-	-- 	warn("[CameraController] Re-blinded input after 20 seconds. This is likely for testing purposes.")
-	-- 	self:BlindInput()
-	-- end)
+	self:BlindInput()
+
+	EventBus:On(Events.LOCAL_MOVE_BUILDING, function(data)
+		self._isMoveBuildingMode = data ~= nil
+		if self._isMoveBuildingMode then
+			self._isDragging = false
+			self._velocity = Vector3.zero
+		end
+	end)
+
+	EventBus:On(Events.LOCAL_MOVE_BUILDING_CONFIRM, function()
+		self._isMoveBuildingMode = false
+	end)
 end
 
 return CameraController.new()

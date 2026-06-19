@@ -50,6 +50,15 @@ function BuildingStore:AddBuilding(
 	self._buildingCount += 1
 end
 
+function BuildingStore:RemoveBuilding(buildingId: string)
+	if self.buildings[buildingId] then
+		self.buildings[buildingId] = nil
+		self._buildingCount -= 1
+	else
+		warn("Attempted to remove non-existent building with ID:", buildingId)
+	end
+end
+
 function BuildingStore:SetBuildingData(buildingId: string, buildingData: BuildingRecord)
 	self.buildings[buildingId] = buildingData
 end

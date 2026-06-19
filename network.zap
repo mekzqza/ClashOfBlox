@@ -19,7 +19,8 @@ type DataKey = enum {
     Level,
     Experience,
     BuildingCount,
-    BuilderHutSlot
+    BuilderHutSlot,
+    MapSkin
 }
 
 type CollectorData = struct {
@@ -46,6 +47,7 @@ event LoadSnapshot = {
         Buildings: BuildingEntry[],
         BuildingCount: u32,
         BuilderHutSlot: u8,
+        MapSkin: u8,
     }
 }
 
