@@ -216,31 +216,69 @@ function BuildingController:_CloneConstructionVisual(
 	return model
 end
 
-function BuildingController:_createMoveIndicator(position: Vector3, seize: number): Model?
+function BuildingController:_createMoveIndicator(buildingId: string)
+	if self._moveIndicator then
+		self._moveIndicator:Destroy()
+		self._moveIndicator = nil
+	end
+
+	local buildingData = self._BuildingStore:GetBuildingData(buildingId)
+	if not buildingData then
+		warn(`[BuildingController] No building data found for buildingId {buildingId} on move indicator creation`)
+		return
+	end
+
+	local builDingModel = buildingData.BuildingModel
+	if not builDingModel then
+		warn(`[BuildingController] No building model found for buildingId {buildingId} on move indicator creation`)
+		return
+	end
+
+	local modelPrimaryPart = builDingModel.PrimaryPart
+	if not modelPrimaryPart then
+		warn(`[BuildingController] No primary part found for buildingId {buildingId} on move indicator creation`)
+		return
+	end
+
+	local position = modelPrimaryPart.Position
+
 	local Template = self._BuildingTemplate:FindFirstChild(CONFIG.MOVE_INDICATOR_TEMPLATE, true)
 	if not Template then
 		warn(`[BuildingController] Move indicator template not found in BuildingTemplate`)
-		return nil
+		return
 	end
 
-	local moveIndicatorTemplate = Template:FindFirstChild(tostring(CONFIG.GRID_KEY[seize]), true)
+	local buildingType = GameEnum:GetBuildingTypeById(buildingData.BuildingEnum)
+	if not buildingType then
+		warn(`[BuildingController] Invalid building enum {buildingData.BuildingEnum} for buildingId {buildingId}`)
+		return
+	end
+
+	local dimenSion = BuildingConfig:GetBuildingDimensions(buildingType)
+	if not dimenSion then
+		warn(`[BuildingController] Building config for {buildingType} not found on move indicator creation`)
+		return
+	end
+	local size = dimenSion.Length * dimenSion.Width
+
+	local moveIndicatorTemplate = Template:FindFirstChild(tostring(CONFIG.GRID_KEY[size]), true)
 	if not moveIndicatorTemplate then
-		warn(`[BuildingController] Move indicator model with grid size {seize} not found in BuildingTemplate`)
-		return nil
+		warn(`[BuildingController] Move indicator model with grid size {size} not found in BuildingTemplate`)
+		return
 	end
 
-	local moveIndicator = moveIndicatorTemplate:Clone() :: BasePart
+	self._moveIndicator = moveIndicatorTemplate:Clone()
 
-	local primaryPart = moveIndicator.PrimaryPart
+	local primaryPart = self._moveIndicator.PrimaryPart
 	if not primaryPart then
 		warn(`[BuildingController] Move indicator model does not have a PrimaryPart`)
-		return nil
+		return
 	end
 
 	local half = primaryPart.Size.Y / 2
-	moveIndicator:SetPrimaryPartCFrame(CFrame.new(position.X, position.Y + half + CONFIG.HEIGHT, position.Z))
-
-	return moveIndicator
+	self._moveIndicator:SetPrimaryPartCFrame(CFrame.new(position.X, position.Y + half + CONFIG.HEIGHT, position.Z))
+	self._moveIndicator.Parent = builDingModel
+	return
 end
 
 function BuildingController:_RegisterBuilderStore(
@@ -380,7 +418,6 @@ function BuildingController:_startPlacement(buildType: string)
 	local halfHeight = previewFootprint.Size.Y / 2
 	previewModel:SetPrimaryPartCFrame(CFrame.new(snapPos.X, snapPos.Y + halfHeight + CONFIG.HEIGHT, snapPos.Z))
 
-	-- สร้าง session แบบเดียวกับ move เพื่อให้ "ลากย้าย + เขียว/แดง" ทำงานผ่าน _updateMovePreview เดิม
 	self._isPlacing = true
 	self._moveSession = {
 		buildingId = CONFIG.FAKE_ID,
@@ -626,11 +663,6 @@ function BuildingController:_stopPlacement()
 
 	self._moveSession = nil
 
-	if self._moveIndicator then
-		self._moveIndicator:Destroy()
-		self._moveIndicator = nil
-	end
-
 	if self._confirmConn then
 		self._confirmConn:Disconnect()
 		self._confirmConn = nil
@@ -732,12 +764,6 @@ function BuildingController:_updateMovePreview(position: Vector3)
 	snapPos = Vector3.new(snapPos.X, CONFIG.GROUND_Y, snapPos.Z)
 	local canPlace =
 		self._GridController:CanPlace(snapPos, session.dimension.Length, session.dimension.Width, session.ignoreCells)
-
-	if not self._moveIndicator then
-		self._moveIndicator =
-			self:_createMoveIndicator(session.oldPosition, session.dimension.Length * session.dimension.Width)
-		self._moveIndicator.Parent = session.buildingData.BuildingModel.PrimaryPart
-	end
 
 	session.currentPosition = snapPos
 	session.canPlace = canPlace
@@ -859,12 +885,17 @@ function BuildingController:Start()
 
 	EventBus:On(Events.LOCAL_TEST_BUILDING, function(building: string)
 		if building == nil or building == "" then
+			if self._moveIndicator then
+				self._moveIndicator:Destroy()
+				self._moveIndicator = nil
+			end
 			self:_stopPlacement()
 			return
 		end
 
 		self:_stopPlacement()
 		self:_startPlacement(building)
+		self:_createMoveIndicator(CONFIG.FAKE_ID)
 	end)
 
 	EventBus:On(Events.LOCAL_MOVE_BUILDING, function(buildingId: string?)
@@ -875,8 +906,13 @@ function BuildingController:Start()
 			self:_cancelMove()
 		end
 		if buildingId == nil or buildingId == "" then
+			if self._moveIndicator then
+				self._moveIndicator:Destroy()
+				self._moveIndicator = nil
+			end
 			return
 		end
+		self:_createMoveIndicator(buildingId)
 		self:MoveBuilding(buildingId)
 	end)
 

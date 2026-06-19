@@ -21,7 +21,7 @@ local CONFIG = {
 	DEBUG_HIT = true,
 	DEBUG_HIT_SIZE = 1,
 
-	HOLD_TIME = 0.2,
+	HOLD_TIME = 0.1,
 	MOVE_TOLERANCE = 12,
 }
 
@@ -192,6 +192,7 @@ function BuildingVisualize:Start()
 		local buildId = raycastResult and self:_resolveBuildingId(raycastResult.Instance)
 		if not buildId then
 			self:_buildingInfo(buildId)
+			EventBus:Emit(Events.LOCAL_MOVE_BUILDING, nil) -- คลิกไม่โดนไร
 			return
 		end
 
@@ -210,7 +211,7 @@ function BuildingVisualize:Start()
 			self._holdFired = true
 			self._isDragging = true
 			self._currentBuildingId = self._pendingBuildingId
-			EventBus:Emit(Events.LOCAL_MOVE_BUILDING, self._currentBuildingId)
+			EventBus:Emit(Events.LOCAL_MOVE_BUILDING, self._currentBuildingId) -- คลิกโดนและถือครบเวลา = เริ่มลาก
 		end)
 	end)
 
