@@ -145,7 +145,7 @@ function BuildingController:BuildingComplete(buildingId: string)
 	if collectorType then
 		self._ResourceController:RegisterclickDetector(collectorType, model)
 	end
-	self._ResourceController:RegisterColector(buildingId, building.BuildingEnum, nextlevel)
+	self._ResourceController:RegisterColector(buildingId, building.BuildingEnum, nextlevel, model)
 
 	EventBus:Emit(Events.C2S_BUILDING_CONSTRUCTION_COMPLETE, {
 		BuildingId = buildingId,
@@ -590,6 +590,18 @@ function BuildingController:RecreateBuildings(
 			dimension.Length,
 			dimension.Width
 		)
+
+		if not modelCrate or not modelUpgrade then
+			warn("[BuildingController] Failed to build construction visuals on recreate building")
+			if modelCrate then
+				modelCrate:Destroy()
+			end
+			if modelUpgrade then
+				modelUpgrade:Destroy()
+			end
+			return
+		end
+
 		modelCrate.Parent = model
 		modelUpgrade.Parent = model
 
@@ -603,6 +615,16 @@ function BuildingController:RecreateBuildings(
 			dimension.Length,
 			dimension.Width
 		)
+		if not modelCrate or not modelUpgrade then
+			warn("[BuildingController] Failed to build construction visuals on recreate building with upgrade")
+			if modelCrate then
+				modelCrate:Destroy()
+			end
+			if modelUpgrade then
+				modelUpgrade:Destroy()
+			end
+			return
+		end
 
 		self:_RegisterBuilderStore(
 			buildingId,
@@ -619,18 +641,16 @@ function BuildingController:RecreateBuildings(
 		modelCrate.Parent = model
 	else
 		modelCrate = self:_createBuilding(buildingType, worldPos, buildingLevel)
+		if not modelCrate then
+			warn("[BuildingController] Failed to build building model on recreate building")
+			return
+		end
+
 		local collectorType = BuildingConfig:GetCollectorType(buildingType)
 		if collectorType then
-			self._ResourceController:RegisterclickDetector(collectorType, modelCrate)
+			self._ResourceController:RegisterColector(buildingId, buildingEnum, buildingLevel, model)
 		end
-		self._ResourceController:RegisterColector(buildingId, buildingEnum, buildingLevel)
-
 		modelCrate.Parent = model
-	end
-
-	if not model then
-		warn(`[BuildingController] Failed to create building model for {buildingType} at position {worldPos}`)
-		return
 	end
 
 	local footPrint = self:_createFootPrints(worldPos, dimension.Length * dimension.Width) :: BasePart

@@ -14,6 +14,7 @@ export type Collectors = {
 local CONFIG = {
 	ACTION_PART_NAME = "ActionPart",
 	DISAPPEAR_DELAY = 5,
+	COLECCTOR_COOL_DOWN = 10,
 }
 
 local ResourceController = {}
@@ -34,27 +35,24 @@ function ResourceController.new()
 		["Aethers"] = 0,
 	} :: { [string]: number }
 
-	-- เก็บ Building Id เข้ากับ _Collectors,_ResourceStorage
+	self._CollectorModels = {
+		["AetherCollector"] = {},
+		["CrystalCollector"] = {},
+	} :: { [string]: { Model } }
 
-	self._CollectorModels = {} :: { [string]: { Model } }
-	self._Connections = {} :: { [Model]: { Connection: RBXScriptConnection, CollectorType: string } }
+	self._lastClickTime = nil :: number?
 	return self
 end
 
-function ResourceController:_CreateclickDetector(model: Model): ClickDetector
-	local clickDetector = model:FindFirstChild("ClickDetector", true) :: ClickDetector
-	if clickDetector then
-		return clickDetector
-	end
-
-	local newclickDetector = Instance.new("ClickDetector")
-	newclickDetector.Parent = model.PrimaryPart
-	return newclickDetector
-end
-
-function ResourceController:_UiCollectorIsActive(collectorType: string, visible: boolean)
+function ResourceController:_uiCollectorIsActive(collectorType: string, visible: boolean)
 	local models = self._CollectorModels[collectorType]
 	if not models then
+		warn("[ResourceController] No models found for collector type: " .. collectorType)
+		return
+	end
+
+	if #models == 0 then
+		warn("[ResourceController] No models registered for collector type: " .. collectorType)
 		return
 	end
 
@@ -66,36 +64,37 @@ function ResourceController:_UiCollectorIsActive(collectorType: string, visible:
 	end
 end
 
-function ResourceController:RegisterclickDetector(collectorType: string, model: Model)
-	local clickDetector = self:_CreateclickDetector(model)
-	self._Connections[model] = {
-		Connection = clickDetector.MouseClick:Connect(function(_player)
-			self:_OnClickCollecResource({ CollectorType = collectorType })
-		end),
-		CollectorType = collectorType,
-	}
-
-	if not self._CollectorModels[collectorType] then
-		self._CollectorModels[collectorType] = {}
-	end
-	table.insert(self._CollectorModels[collectorType], model)
-end
-
-function ResourceController:_OnClickCollecResource(data)
-	EventBus:Emit(Events.C2S_PLAYER_CLICK_COLLECTOR, { CollectorType = data.CollectorType })
-	self:_UiCollectorIsActive(data.CollectorType, false)
+function ResourceController:_updateIcon(collectorType: string)
+	self:_uiCollectorIsActive(collectorType, false)
 	Async.doAfter(CONFIG.DISAPPEAR_DELAY, function()
-		self:_UiCollectorIsActive(data.CollectorType, true)
+		warn("[ResourceController] Hiding collector icon for " .. collectorType)
+		self:_uiCollectorIsActive(collectorType, true)
 	end)
 end
 
-function ResourceController:_onPlayerClickCollector(CollectorType, buildingId: string)
+function ResourceController:_OnClickCollecResource(collectorType: string)
+	local now = os.time()
+	if self._lastClickTime and (now - self._lastClickTime) < CONFIG.COLECCTOR_COOL_DOWN then
+		return
+	end
+
+	EventBus:Emit(Events.C2S_PLAYER_CLICK_COLLECTOR, { CollectorType = collectorType }) -- ส่งข้อมูล CollectorType ไปยัง Server
+	self:_updateIcon(collectorType)
+	self._lastClickTime = now
+end
+
+function ResourceController:_disPlayerCollectorInfo(CollectorType, buildingId: string)
 	--[[
 	    เชื่อต่อกับ MoreInfoFrame เพื่อแสดงข้อมูลของ Collector ที่ถูกคลิก
 	]]
 end
 
-function ResourceController:RegisterColector(buildingId: string, buildingEnum: number, buildingLevel: number)
+function ResourceController:RegisterColector(
+	buildingId: string,
+	buildingEnum: number,
+	buildingLevel: number,
+	model: Model
+)
 	local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, buildingLevel)
 	if not buildingData then
 		warn(
@@ -103,16 +102,19 @@ function ResourceController:RegisterColector(buildingId: string, buildingEnum: n
 		)
 		return
 	end
+
 	if buildingEnum == 9 then
 		self._Collectors["AetherCollector"][buildingId] = {
 			ProductionRate = buildingData.ProductionRate,
 			Capacity = buildingData.Capacity,
 		}
+		table.insert(self._CollectorModels["AetherCollector"], model)
 	elseif buildingEnum == 10 then
 		self._Collectors["CrystalCollector"][buildingId] = {
 			ProductionRate = buildingData.ProductionRate,
 			Capacity = buildingData.Capacity,
 		}
+		table.insert(self._CollectorModels["CrystalCollector"], model)
 	elseif buildingEnum == 8 then
 		self._ResourceStorage["Aethers"][buildingId] = {
 			Capacity = buildingData.Capacity,
@@ -145,6 +147,14 @@ end
 
 function ResourceController:Init() end
 
-function ResourceController:Start() end
+function ResourceController:Start()
+	EventBus:On(Events.LOCAL_PLAYER_CLICK_BUILDING, function(buildId)
+		if self._Collectors["AetherCollector"][buildId] then
+			self:_OnClickCollecResource("AetherCollector")
+		elseif self._Collectors["CrystalCollector"][buildId] then
+			self:_OnClickCollecResource("CrystalCollector")
+		end
+	end)
+end
 
 return ResourceController.new()

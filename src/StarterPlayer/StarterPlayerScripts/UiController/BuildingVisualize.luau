@@ -202,6 +202,8 @@ function BuildingVisualize:Start()
 		self._pendingBuildingId = buildId
 		self:_buildingInfo(buildId)
 
+		EventBus:Emit(Events.LOCAL_PLAYER_CLICK_BUILDING, buildId)
+
 		self._holdThread = task.delay(CONFIG.HOLD_TIME, function()
 			self._holdThread = nil
 			if not self._pressing then
