@@ -118,18 +118,25 @@ function BuildingController:BuildingComplete(buildingId: string)
 	local worldPos =
 		self._GridController:GridCoordsToWorld(building.Gridx, building.Gridz, dimension.Length, dimension.Width)
 
+	local newModel = Instance.new("Model")
+
 	local model = self:_createBuilding(buildingType, worldPos, nextlevel)
 	if not model then
 		warn(`[BuildingController] Failed to create completed building model for buildingId {buildingId}`)
 		return
 	end
-	model.Name = buildingId
 
 	local footPrint = self:_createFootPrints(worldPos, dimension.Length * dimension.Width)
-	if footPrint then
-		footPrint.Parent = model
-		model.PrimaryPart = footPrint
+	if not footPrint then
+		warn(`[BuildingController] Failed to create footprint for completed building model for buildingId {buildingId}`)
+		return
 	end
+
+	newModel.Parent = self._PlayerFolder
+	newModel.Name = buildingId
+	model.Parent = newModel
+	footPrint.Parent = newModel
+	newModel.PrimaryPart = footPrint
 
 	self._BuilderStore[buildingId] = nil
 	self._BuilderHutController:BuildingComplated(building.BuildingModel)
@@ -141,10 +148,6 @@ function BuildingController:BuildingComplete(buildingId: string)
 	building.BuildingLevel = nextlevel
 	building.BuildingModel = model
 
-	local collectorType = BuildingConfig:GetCollectorType(buildingType)
-	if collectorType then
-		self._ResourceController:RegisterclickDetector(collectorType, model)
-	end
 	self._ResourceController:RegisterColector(buildingId, building.BuildingEnum, nextlevel, model)
 
 	EventBus:Emit(Events.C2S_BUILDING_CONSTRUCTION_COMPLETE, {
