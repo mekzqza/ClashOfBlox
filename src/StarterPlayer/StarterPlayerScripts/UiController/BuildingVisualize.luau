@@ -7,8 +7,9 @@
 -- ]]
 local Player = game:GetService("Players").LocalPlayer
 local UserInputService = game:GetService("UserInputService")
-local Camera = workspace.CurrentCamera
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local Camera = workspace.CurrentCamera
 local Events = require(ReplicatedStorage.Shared.Events)
 local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
 local GameEnum = require(ReplicatedStorage.Shared.GameEnum)
@@ -23,6 +24,8 @@ local CONFIG = {
 
 	HOLD_TIME = 0.1,
 	MOVE_TOLERANCE = 12,
+
+	TWENN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out, 0, true),
 }
 
 local BuildingVisualize = {}
@@ -33,6 +36,7 @@ function BuildingVisualize.new()
 	self._MainDisPlay = nil
 	self._MainInfoFrame = nil
 	self._BuildingInfo = nil
+	self._BuildingDataBill = nil
 
 	self._currentBuildingId = nil
 	self._connInputBegan = nil
@@ -50,8 +54,98 @@ function BuildingVisualize.new()
 	self._raycastParams = nil
 	self._debugPart = nil
 
+	--Visulaize
+	self._modelIspoping = false
+
 	self._BuildingStore = nil
 	return self
+end
+
+function BuildingVisualize:_updateBuildingDataBill(buildingId: string)
+	local mainFrame = self._BuildingDataBill:FindFirstChild("MainFrame")
+	if not mainFrame then
+		warn("MainFrame not found in BuildingDataBill")
+		return
+	end
+	mainFrame.Visible = true
+	if not buildingId then
+		mainFrame.Visible = false
+		return
+	end
+
+	local building = self._BuildingStore:GetBuildingData(buildingId)
+	if not building then
+		warn("Building data not found for ID:", buildingId)
+		mainFrame.Visible = false
+		return
+	end
+
+	local buildingModel = building.BuildingModel
+	if not buildingModel then
+		warn("Building model not found for ID:", buildingId)
+		mainFrame.Visible = false
+		return
+	end
+
+	local attachment = buildingModel:FindFirstChild("Attachment", true)
+	if not attachment then
+		warn("Attachment not found in building model for ID:", buildingId)
+		mainFrame.Visible = false
+		return
+	end
+
+	local buildingLevelT = mainFrame:FindFirstChild("BuildingLevel")
+	local buildingNameT = mainFrame:FindFirstChild("BuildingName")
+
+	local buildingName = GameEnum:GetBuildingTypeById(building.BuildingEnum)
+	buildingLevelT.Text = "Level: " .. building.BuildingLevel
+	buildingNameT.Text = buildingName
+	self._BuildingDataBill.Adornee = attachment
+end
+
+function BuildingVisualize:_updateBuildingDataBillVisibility(buildingId: string)
+	if not buildingId then
+		return
+	end
+	local buildingData = self._BuildingStore:GetBuildingData(buildingId)
+	if not buildingData then
+		warn("Building data not found for ID:", buildingId)
+		return
+	end
+
+	local buildingModel = buildingData.BuildingModel
+	if not buildingModel then
+		warn("Building model not found for ID:", buildingId)
+		return
+	end
+
+	local tweenTarget = buildingModel:FindFirstChild(tostring(buildingData.BuildingLevel))
+	if not tweenTarget or not tweenTarget:IsA("Model") then
+		warn("Tween target not found in building model for ID:", buildingId)
+		return
+	end
+
+	if self._modelIspoping then
+		return
+	end
+	self._modelIspoping = true
+
+	local base = tweenTarget:GetScale()
+	local nv = Instance.new("NumberValue")
+	nv.Value = base
+	nv:GetPropertyChangedSignal("Value"):Connect(function()
+		tweenTarget:ScaleTo(nv.Value)
+	end)
+
+	local info = CONFIG.TWENN_INFO
+	local popInfo = TweenInfo.new(info.Time, info.EasingStyle, info.EasingDirection, 0, true) -- reverses = กลับมาเท่าเดิม
+	local tween = TweenService:Create(nv, popInfo, { Value = base * 1.15 })
+	tween.Completed:Connect(function()
+		tweenTarget:ScaleTo(base) -- restore เป๊ะ กัน float drift
+		self._modelIspoping = false
+		nv:Destroy()
+	end)
+	tween:Play()
 end
 
 function BuildingVisualize:_buildingInfo(buildingId: string?)
@@ -170,6 +264,7 @@ function BuildingVisualize:Init()
 	self._MainDisPlay = self._playerGui:WaitForChild("MainDisPlay")
 	self._MainInfoFrame = self._MainDisPlay:WaitForChild("MainInfoFrame")
 	self._BuildingInfo = self._MainInfoFrame:WaitForChild("BuildingInfo")
+	self._BuildingDataBill = self._playerGui:WaitForChild("BuildingData")
 
 	self._mouse = Player:GetMouse()
 
@@ -192,6 +287,8 @@ function BuildingVisualize:Start()
 		local buildId = raycastResult and self:_resolveBuildingId(raycastResult.Instance)
 		if not buildId then
 			self:_buildingInfo(buildId)
+			self:_updateBuildingDataBill(buildId)
+			self:_updateBuildingDataBillVisibility(buildId)
 			EventBus:Emit(Events.LOCAL_MOVE_BUILDING, nil) -- คลิกไม่โดนไร
 			return
 		end
@@ -201,6 +298,9 @@ function BuildingVisualize:Start()
 		self._pressStartPos = input.Position
 		self._pendingBuildingId = buildId
 		self:_buildingInfo(buildId)
+		self:_updateBuildingDataBill(buildId)
+		self:_updateBuildingDataBillVisibility(buildId)
+		EventBus:Emit(Events.LOCAL_PLAYER_CLICK_BUILDING, buildId)
 
 		self._holdThread = task.delay(CONFIG.HOLD_TIME, function()
 			self._holdThread = nil
