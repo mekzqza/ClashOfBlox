@@ -33,6 +33,7 @@ function BuildingVisualize.new()
 	self._MainDisPlay = nil
 	self._MainInfoFrame = nil
 	self._BuildingInfo = nil
+	self._BuildingDataBill = nil
 
 	self._currentBuildingId = nil
 	self._connInputBegan = nil
@@ -52,6 +53,48 @@ function BuildingVisualize.new()
 
 	self._BuildingStore = nil
 	return self
+end
+
+function BuildingVisualize:_updateBuildingDataBill(buildingId: string)
+	local mainFrame = self._BuildingDataBill:FindFirstChild("MainFrame")
+	if not mainFrame then
+		warn("MainFrame not found in BuildingDataBill")
+		return
+	end
+	mainFrame.Visible = true
+	if not buildingId then
+		mainFrame.Visible = false
+		return
+	end
+
+	local building = self._BuildingStore:GetBuildingData(buildingId)
+	if not building then
+		warn("Building data not found for ID:", buildingId)
+		mainFrame.Visible = false
+		return
+	end
+
+	local buildingModel = building.BuildingModel
+	if not buildingModel then
+		warn("Building model not found for ID:", buildingId)
+		mainFrame.Visible = false
+		return
+	end
+
+	local attachment = buildingModel:FindFirstChild("Attachment", true)
+	if not attachment then
+		warn("Attachment not found in building model for ID:", buildingId)
+		mainFrame.Visible = false
+		return
+	end
+
+	local buildingLevelT = mainFrame:FindFirstChild("BuildingLevel")
+	local buildingNameT = mainFrame:FindFirstChild("BuildingName")
+
+	local buildingName = GameEnum:GetBuildingTypeById(building.BuildingEnum)
+	buildingLevelT.Text = "Level: " .. building.BuildingLevel
+	buildingNameT.Text = buildingName
+	self._BuildingDataBill.Adornee = attachment
 end
 
 function BuildingVisualize:_buildingInfo(buildingId: string?)
@@ -170,6 +213,7 @@ function BuildingVisualize:Init()
 	self._MainDisPlay = self._playerGui:WaitForChild("MainDisPlay")
 	self._MainInfoFrame = self._MainDisPlay:WaitForChild("MainInfoFrame")
 	self._BuildingInfo = self._MainInfoFrame:WaitForChild("BuildingInfo")
+	self._BuildingDataBill = self._playerGui:WaitForChild("BuildingData")
 
 	self._mouse = Player:GetMouse()
 
@@ -192,6 +236,7 @@ function BuildingVisualize:Start()
 		local buildId = raycastResult and self:_resolveBuildingId(raycastResult.Instance)
 		if not buildId then
 			self:_buildingInfo(buildId)
+			self:_updateBuildingDataBill(buildId)
 			EventBus:Emit(Events.LOCAL_MOVE_BUILDING, nil) -- คลิกไม่โดนไร
 			return
 		end
@@ -201,7 +246,7 @@ function BuildingVisualize:Start()
 		self._pressStartPos = input.Position
 		self._pendingBuildingId = buildId
 		self:_buildingInfo(buildId)
-
+		self:_updateBuildingDataBill(buildId)
 		EventBus:Emit(Events.LOCAL_PLAYER_CLICK_BUILDING, buildId)
 
 		self._holdThread = task.delay(CONFIG.HOLD_TIME, function()
