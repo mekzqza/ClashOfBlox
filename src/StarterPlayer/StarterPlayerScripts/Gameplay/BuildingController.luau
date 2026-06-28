@@ -16,6 +16,7 @@ local CONFIG = {
 
 	HEIGHT = 0.5,
 	GROUND_Y = -0.159,
+	HIDE_MODEL = 500,
 	DEFAULT_FOOTPRINT_COLOR = Color3.fromRGB(117, 161, 37),
 	STARTER_LEVEL = 0,
 	NEXT_LEVEL = 1,
@@ -89,6 +90,24 @@ function BuildingController:SetDependencies(locator)
 	self._BuilderHutController = locator:Get("BuilderHutController")
 	self._BuildingStore = locator:Get("BuildingStore")
 	self._MainDisplayController = locator:Get("MainDisplayController")
+end
+
+function BuildingController:HideAllBuilding()
+	for _, building in pairs(self._BuildingStore:GetBuildings()) do
+		local model = building.BuildingModel
+		if model then
+			model:PivotTo(model:GetPivot() + Vector3.new(0, CONFIG.HIDE_MODEL, 0))
+		end
+	end
+end
+
+function BuildingController:CancelAllBuildingMove()
+	for _, building in pairs(self._BuildingStore:GetBuildings()) do
+		local model = building.BuildingModel
+		if model then
+			model:PivotTo(model:GetPivot() - Vector3.new(0, CONFIG.HIDE_MODEL, 0))
+		end
+	end
 end
 
 function BuildingController:_syncToserver(buildingId: string, gridx: number, gridz: number, position: Vector3)
@@ -973,6 +992,13 @@ function BuildingController:Start()
 			self._currentBuilder,
 			self._PlayerDataController:GetAll().BuilderHutSlot
 		)
+	end)
+
+	task.spawn(function()
+		wait(10)
+		self:HideAllBuilding()
+		wait(5)
+		self:CancelAllBuildingMove()
 	end)
 end
 
