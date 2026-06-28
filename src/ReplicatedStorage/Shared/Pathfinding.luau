@@ -6,7 +6,7 @@ export type GridPosition = {
 }
 
 export type FlowField = {
-	[string]: number,
+	[number]: number,
 }
 
 --ขอบสนาม
@@ -19,7 +19,7 @@ export type Bounds = {
 
 --ช่องที่เดินไม่ได้
 export type Occupied = {
-	[string]: boolean,
+	[number]: boolean,
 }
 
 local Pathfinding = {}
@@ -38,8 +38,18 @@ local OPPOSITE_DIRECTION = {
 	[4] = 3,
 }
 
-local function key(position: GridPosition): string
-	return `{position.GridX},{position.GridZ}`
+local STRIDE = 100 -- ponytail: bounds เป็น 0-based (พิกัด 0..99/แกน) เลยไม่ต้อง offset; ถ้าวันไหน Min ติดลบ ใช้ (x-MinX)
+
+function Pathfinding.key(gridX: number, gridZ: number): number
+	return gridX * STRIDE + gridZ
+end
+
+function Pathfinding.decode(hash: number): (number, number)
+	return math.floor(hash / STRIDE), hash % STRIDE
+end
+
+local function key(position: GridPosition): number
+	return Pathfinding.key(position.GridX, position.GridZ)
 end
 
 --สร้างสนามจากเป้าหมาย คือนค่าสนามที่มี Gridx, Girdz ที่มีค่าของตัวเลขติดกำกับ
