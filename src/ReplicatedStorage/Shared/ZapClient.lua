@@ -135,11 +135,11 @@ if not RunService:IsRunning() then
 		UpdateBuildingPosition = table.freeze({
 			Fire = noop
 		}),
-		SnapshotBuildings = table.freeze({
-			SetCallback = noop
-		}),
 		PlayersCreateBuilding = table.freeze({
 			On = noop
+		}),
+		PlayerRquestRaid = table.freeze({
+			Fire = noop
 		}),
 		PlayerRequestPalceBulidings = table.freeze({
 			Fire = noop
@@ -151,6 +151,9 @@ if not RunService:IsRunning() then
 			Fire = noop
 		}),
 		LoadSnapshot = table.freeze({
+			SetCallback = noop
+		}),
+		FoundRaid = table.freeze({
 			SetCallback = noop
 		}),
 		ConstructionComplete = table.freeze({
@@ -169,6 +172,21 @@ local remotes = ReplicatedStorage:WaitForChild("ZAP")
 local reliable = remotes:WaitForChild("ZAP_RELIABLE")
 assert(reliable:IsA("RemoteEvent"), "Expected ZAP_RELIABLE to be a RemoteEvent")
 
+export type BuildingEntry = ({
+	["BuildingId"]: (string),
+	["Gridx"]: (number),
+	["Gridz"]: (number),
+	["BuildingEnum"]: (number),
+	["BuildingLevel"]: (number),
+	["EndTime"]: (number),
+	["LastCollectedTime"]: (number),
+})
+export type CollectorData = ({
+	["Timestamp"]: (number),
+	["ProductionRate"]: (number),
+	["Capacity"]: (number),
+})
+export type DataKey = ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot" | "MapSkin")
 export type Collector = ({
 	["CrystalCollector"]: ({
 		["Timestamp"]: (number),
@@ -180,21 +198,6 @@ export type Collector = ({
 		["ProductionRate"]: (number),
 		["Capacity"]: (number),
 	}),
-})
-export type DataKey = ("Crystals" | "Aethers" | "Gems" | "Level" | "Experience" | "BuildingCount" | "BuilderHutSlot" | "MapSkin")
-export type CollectorData = ({
-	["Timestamp"]: (number),
-	["ProductionRate"]: (number),
-	["Capacity"]: (number),
-})
-export type BuildingEntry = ({
-	["BuildingId"]: (string),
-	["Gridx"]: (number),
-	["Gridz"]: (number),
-	["BuildingEnum"]: (number),
-	["BuildingLevel"]: (number),
-	["EndTime"]: (number),
-	["LastCollectedTime"]: (number),
 })
 
 local function SendEvents()
@@ -215,12 +218,12 @@ RunService.Heartbeat:Connect(SendEvents)
 
 local reliable_events = table.create(5)
 local reliable_event_queue: { [number]: { any } } = table.create(5)
-reliable_event_queue[1] = {}
 reliable_events[2] = {}
 reliable_event_queue[2] = {}
 reliable_events[4] = {}
 reliable_event_queue[4] = {}
 reliable_event_queue[0] = {}
+reliable_event_queue[1] = {}
 reliable_event_queue[3] = {}
 reliable.OnClientEvent:Connect(function(buff, inst)
 	incoming_buff = buff
@@ -230,37 +233,7 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 	local len = buffer.len(buff)
 	while incoming_read < len do
 		local id = buffer.readu8(buff, read(1))
-		if id == 1 then -- SnapshotBuildings
-			local value
-			value = {  }
-			local len_1 = buffer.readu16(incoming_buff, read(2))
-			value["FolderName"] = buffer.readstring(incoming_buff, read(len_1), len_1)
-			assert(utf8.len(value["FolderName"]) ~= nil, "value is not valid utf-8")
-			local len_2 = buffer.readu16(incoming_buff, read(2))
-			value["Buildings"] = table.create(len_2)
-			for i_1 = 1, len_2 do
-				local val_1
-				val_1 = {  }
-				local len_3 = buffer.readu16(incoming_buff, read(2))
-				val_1["BuildingId"] = buffer.readstring(incoming_buff, read(len_3), len_3)
-				assert(utf8.len(val_1["BuildingId"]) ~= nil, "value is not valid utf-8")
-				val_1["Gridx"] = buffer.readu16(incoming_buff, read(2))
-				val_1["Gridz"] = buffer.readu16(incoming_buff, read(2))
-				val_1["BuildingEnum"] = buffer.readu8(incoming_buff, read(1))
-				val_1["BuildingLevel"] = buffer.readu8(incoming_buff, read(1))
-				val_1["EndTime"] = buffer.readu32(incoming_buff, read(4))
-				val_1["LastCollectedTime"] = buffer.readu32(incoming_buff, read(4))
-				value["Buildings"][i_1] = val_1
-			end
-			if reliable_events[1] then
-				task.spawn(reliable_events[1], value)
-			else
-				table.insert(reliable_event_queue[1], value)
-				if #reliable_event_queue[1] > 64 then
-					warn(`[ZAP] {#reliable_event_queue[1]} events in queue for SnapshotBuildings. Did you forget to attach a listener?`)
-				end
-			end
-		elseif id == 2 then -- PlayersCreateBuilding
+		if id == 2 then -- PlayersCreateBuilding
 			local value
 			value = {  }
 			value["BuildingTypeEnum"] = buffer.readu8(incoming_buff, read(1))
@@ -320,21 +293,21 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 			value["Gems"] = buffer.readu32(incoming_buff, read(4))
 			value["Level"] = buffer.readu32(incoming_buff, read(4))
 			value["Experience"] = buffer.readu32(incoming_buff, read(4))
-			local len_4 = buffer.readu16(incoming_buff, read(2))
-			value["Buildings"] = table.create(len_4)
-			for i_2 = 1, len_4 do
-				local val_2
-				val_2 = {  }
-				local len_5 = buffer.readu16(incoming_buff, read(2))
-				val_2["BuildingId"] = buffer.readstring(incoming_buff, read(len_5), len_5)
-				assert(utf8.len(val_2["BuildingId"]) ~= nil, "value is not valid utf-8")
-				val_2["Gridx"] = buffer.readu16(incoming_buff, read(2))
-				val_2["Gridz"] = buffer.readu16(incoming_buff, read(2))
-				val_2["BuildingEnum"] = buffer.readu8(incoming_buff, read(1))
-				val_2["BuildingLevel"] = buffer.readu8(incoming_buff, read(1))
-				val_2["EndTime"] = buffer.readu32(incoming_buff, read(4))
-				val_2["LastCollectedTime"] = buffer.readu32(incoming_buff, read(4))
-				value["Buildings"][i_2] = val_2
+			local len_1 = buffer.readu16(incoming_buff, read(2))
+			value["Buildings"] = table.create(len_1)
+			for i_1 = 1, len_1 do
+				local val_1
+				val_1 = {  }
+				local len_2 = buffer.readu16(incoming_buff, read(2))
+				val_1["BuildingId"] = buffer.readstring(incoming_buff, read(len_2), len_2)
+				assert(utf8.len(val_1["BuildingId"]) ~= nil, "value is not valid utf-8")
+				val_1["Gridx"] = buffer.readu16(incoming_buff, read(2))
+				val_1["Gridz"] = buffer.readu16(incoming_buff, read(2))
+				val_1["BuildingEnum"] = buffer.readu8(incoming_buff, read(1))
+				val_1["BuildingLevel"] = buffer.readu8(incoming_buff, read(1))
+				val_1["EndTime"] = buffer.readu32(incoming_buff, read(4))
+				val_1["LastCollectedTime"] = buffer.readu32(incoming_buff, read(4))
+				value["Buildings"][i_1] = val_1
 			end
 			value["BuildingCount"] = buffer.readu32(incoming_buff, read(4))
 			value["BuilderHutSlot"] = buffer.readu8(incoming_buff, read(1))
@@ -347,11 +320,39 @@ reliable.OnClientEvent:Connect(function(buff, inst)
 					warn(`[ZAP] {#reliable_event_queue[0]} events in queue for LoadSnapshot. Did you forget to attach a listener?`)
 				end
 			end
+		elseif id == 1 then -- FoundRaid
+			local value
+			value = {  }
+			value["MapSkin"] = buffer.readu8(incoming_buff, read(1))
+			local len_3 = buffer.readu16(incoming_buff, read(2))
+			value["Buildings"] = table.create(len_3)
+			for i_2 = 1, len_3 do
+				local val_2
+				val_2 = {  }
+				local len_4 = buffer.readu16(incoming_buff, read(2))
+				val_2["BuildingId"] = buffer.readstring(incoming_buff, read(len_4), len_4)
+				assert(utf8.len(val_2["BuildingId"]) ~= nil, "value is not valid utf-8")
+				val_2["Gridx"] = buffer.readu16(incoming_buff, read(2))
+				val_2["Gridz"] = buffer.readu16(incoming_buff, read(2))
+				val_2["BuildingEnum"] = buffer.readu8(incoming_buff, read(1))
+				val_2["BuildingLevel"] = buffer.readu8(incoming_buff, read(1))
+				val_2["EndTime"] = buffer.readu32(incoming_buff, read(4))
+				val_2["LastCollectedTime"] = buffer.readu32(incoming_buff, read(4))
+				value["Buildings"][i_2] = val_2
+			end
+			if reliable_events[1] then
+				task.spawn(reliable_events[1], value)
+			else
+				table.insert(reliable_event_queue[1], value)
+				if #reliable_event_queue[1] > 64 then
+					warn(`[ZAP] {#reliable_event_queue[1]} events in queue for FoundRaid. Did you forget to attach a listener?`)
+				end
+			end
 		elseif id == 3 then -- AssingZoneOwner
 			local value
 			value = {  }
-			local len_6 = buffer.readu16(incoming_buff, read(2))
-			value["FolderName"] = buffer.readstring(incoming_buff, read(len_6), len_6)
+			local len_5 = buffer.readu16(incoming_buff, read(2))
+			value["FolderName"] = buffer.readstring(incoming_buff, read(len_5), len_5)
 			assert(utf8.len(value["FolderName"]) ~= nil, "value is not valid utf-8")
 			if reliable_events[3] then
 				task.spawn(reliable_events[3], value)
@@ -379,13 +380,13 @@ local returns = {
 			["Position"]: (Vector3),
 		}))
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
-			local len_7 = #Value["BuildingId"]
+			buffer.writeu8(outgoing_buff, outgoing_apos, 5)
+			local len_6 = #Value["BuildingId"]
 			assert(utf8.len(Value["BuildingId"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_7)
-			alloc(len_7)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["BuildingId"], len_7)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_6)
+			alloc(len_6)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["BuildingId"], len_6)
 			alloc(2)
 			buffer.writeu16(outgoing_buff, outgoing_apos, Value["Gridx"])
 			alloc(2)
@@ -396,29 +397,6 @@ local returns = {
 			buffer.writef32(outgoing_buff, outgoing_apos, Value["Position"].Y)
 			alloc(4)
 			buffer.writef32(outgoing_buff, outgoing_apos, Value["Position"].Z)
-		end,
-	},
-	SnapshotBuildings = {
-		SetCallback = function(Callback: (Value: ({
-			["FolderName"]: (string),
-			["Buildings"]: ({ ({
-				["BuildingId"]: (string),
-				["Gridx"]: (number),
-				["Gridz"]: (number),
-				["BuildingEnum"]: (number),
-				["BuildingLevel"]: (number),
-				["EndTime"]: (number),
-				["LastCollectedTime"]: (number),
-			}) }),
-		})) -> ()): () -> ()
-			reliable_events[1] = Callback
-			for _, value in reliable_event_queue[1] do
-				task.spawn(Callback, value)
-			end
-			reliable_event_queue[1] = {}
-			return function()
-				reliable_events[1] = nil
-			end
 		end,
 	},
 	PlayersCreateBuilding = {
@@ -434,6 +412,12 @@ local returns = {
 			return function()
 				table.remove(reliable_events[2], table.find(reliable_events[2], Callback))
 			end
+		end,
+	},
+	PlayerRquestRaid = {
+		Fire = function()
+			alloc(1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
 		end,
 	},
 	PlayerRequestPalceBulidings = {
@@ -479,13 +463,13 @@ local returns = {
 			["CollectorType"]: (string),
 		}))
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
-			local len_8 = #Value["CollectorType"]
+			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
+			local len_7 = #Value["CollectorType"]
 			assert(utf8.len(Value["CollectorType"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_8)
-			alloc(len_8)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["CollectorType"], len_8)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_7)
+			alloc(len_7)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["CollectorType"], len_7)
 		end,
 	},
 	LoadSnapshot = {
@@ -518,24 +502,47 @@ local returns = {
 			end
 		end,
 	},
+	FoundRaid = {
+		SetCallback = function(Callback: (Value: ({
+			["MapSkin"]: (number),
+			["Buildings"]: ({ ({
+				["BuildingId"]: (string),
+				["Gridx"]: (number),
+				["Gridz"]: (number),
+				["BuildingEnum"]: (number),
+				["BuildingLevel"]: (number),
+				["EndTime"]: (number),
+				["LastCollectedTime"]: (number),
+			}) }),
+		})) -> ()): () -> ()
+			reliable_events[1] = Callback
+			for _, value in reliable_event_queue[1] do
+				task.spawn(Callback, value)
+			end
+			reliable_event_queue[1] = {}
+			return function()
+				reliable_events[1] = nil
+			end
+		end,
+	},
 	ConstructionComplete = {
 		Fire = function(Value: ({
 			["BuildingId"]: (string),
 		}))
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 3)
-			local len_9 = #Value["BuildingId"]
+			buffer.writeu8(outgoing_buff, outgoing_apos, 4)
+			local len_8 = #Value["BuildingId"]
 			assert(utf8.len(Value["BuildingId"]) ~= nil, "value is not valid utf-8")
 			alloc(2)
-			buffer.writeu16(outgoing_buff, outgoing_apos, len_9)
-			alloc(len_9)
-			buffer.writestring(outgoing_buff, outgoing_apos, Value["BuildingId"], len_9)
+			buffer.writeu16(outgoing_buff, outgoing_apos, len_8)
+			alloc(len_8)
+			buffer.writestring(outgoing_buff, outgoing_apos, Value["BuildingId"], len_8)
 		end,
 	},
 	ClientReady = {
 		Fire = function()
 			alloc(1)
-			buffer.writeu8(outgoing_buff, outgoing_apos, 1)
+			buffer.writeu8(outgoing_buff, outgoing_apos, 2)
 		end,
 	},
 	AssingZoneOwner = {

@@ -1,5 +1,10 @@
 --!strict
 
+--[[
+    -- เก็บ current vision ของผู้เล่นที่กำจะถูกโจมตี
+    -- ถ้ากดอะรก็ตาม จะเข้าสู่ Battlemode เพื่อจัดการ Simulation ของการโจมตี
+
+]]
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
@@ -12,6 +17,7 @@ local Simulation = require(ReplicatedStorage.Shared.Simulation)
 
 local CONFIG = {
 	CELL_SIZE = 4,
+	STRIDE = 100,
 	KEYSTORE = {
 		["Gridx"] = 1,
 		["Gridz"] = 2,
@@ -37,8 +43,8 @@ function BattleController.new()
 
 	-- FlowField ของBuildingแต่ละตัว
 	self._flowFields = {} :: { [string]: Pathfinding.FlowField }
-	self._validCells = {} :: { [string]: true }
-	self._occupiedCells = {} :: { [string]: true }
+	self._validCells = {} :: { [number]: true }
+	self._occupiedCells = {} :: { [number]: true }
 
 	self._isReady = false
 	self._onReadyCallback = nil :: ((BasePart) -> ())?
@@ -48,8 +54,8 @@ function BattleController.new()
 	return self
 end
 
-function BattleController:_gridKeyfromCoords(gridx: number, gridz: number): string
-	return `{gridx},{gridz}`
+function BattleController:_gridKeyfromCoords(gridx: number, gridz: number): number
+	return gridx * CONFIG.STRIDE + gridz
 end
 
 function BattleController:GridCoordsToWorld(startX: number, startZ: number, sizeX: number, sizeZ: number): Vector3
@@ -86,12 +92,12 @@ function BattleController:GetFootPrintStart(position: Vector3, sizeX: number?, s
 	return startX, startZ
 end
 
-function BattleController:GetFootPrintCells(position: Vector3, sizeX: number?, sizeZ: number?): { [string]: true }
+function BattleController:GetFootPrintCells(position: Vector3, sizeX: number?, sizeZ: number?): { [number]: true }
 	local sx = sizeX or 1
 	local sz = sizeZ or 1
 	local startX, startZ = self:GetFootPrintStart(position, sx, sz)
 
-	local cells: { [string]: true } = {}
+	local cells: { [number]: true } = {}
 	for x = 0, sx - 1 do
 		for z = 0, sz - 1 do
 			cells[self:_gridKeyfromCoords(startX + x, startZ + z)] = true
@@ -161,6 +167,9 @@ function BattleController:RegisterBuildings(
 
 	self._buildings[buildingId] = Simulation.RegisterBuilding(buildingId, buildingPosition, buildingData.MaxHp)
 
+	warn(
+		`[BattleController] Registered building {buildingId} at grid ({gridX}, {gridZ}) with enum {buildingEnum} level {buildingLevel}`
+	)
 	--[[
 	    @TODO
 		จัดการ endTime เพื่อเช็คว่ากำลังสร้างอยู่หรือไม่ ถ้าใช่ให้ spawn เป็น building under construction
@@ -183,20 +192,23 @@ function BattleController:RegisterUnit(unitTypeEnum: number, unitLevel: number, 
 end
 
 -- หลังจากวาง unit แล้วให้หา target ที่ใกล้ที่สุดจาก unit นั้น
+-- [[
+--  @TODO After place unit in the raid, find the nearest target from that unit. If there is no target, the unit will wait until a target appears.
+-- ]]
 function BattleController:UnitfindindTarget(unitId: string) end
 
 -- ponytail: เดโม่ wow ล้วนๆ ลบทิ้งได้
 function BattleController:_TestPathfindingWow()
 	local BOUNDS = { MinX = 0, MaxX = 50, MinZ = 0, MaxZ = 50 }
-	local GOAL = { GridX = 7, GridZ = 7 }
+	local GOAL = { GridX = 25, GridZ = 25 }
 
 	-- กำแพงตั้ง 2 ท่อน เว้นช่อง → บังคับให้ฝูงไหลคดเคี้ยว
 	local occupied: Pathfinding.Occupied = {}
 	for z = 5, 20 do
-		occupied[`5,{z}`] = true
+		occupied[Pathfinding.key(5, z)] = true
 	end
 	for z = 15, 40 do
-		occupied[`11,{z}`] = true
+		occupied[Pathfinding.key(11, z)] = true
 	end
 
 	local old = Workspace:FindFirstChild("PathfindingTest")
@@ -214,9 +226,8 @@ function BattleController:_TestPathfindingWow()
 	local flow = Pathfinding.buildFlowField(GOAL, BOUNDS, occupied)
 
 	-- กำแพง(แดง) + goal(เขียวใหญ่)
-	for keyStr in occupied do
-		local sx, sz = keyStr:match("^(%d+),(%d+)$")
-		local gx, gz = tonumber(sx), tonumber(sz)
+	for hash in occupied do
+		local gx, gz = Pathfinding.decode(hash)
 		if gx and gz then
 			local w = Instance.new("Part")
 			w.Anchored, w.CanCollide = true, false
@@ -236,9 +247,8 @@ function BattleController:_TestPathfindingWow()
 	goalPart.Parent = folder
 
 	-- ★ วาดลูกศรทั้ง field (ใช้ nextStep หาทิศ ไม่ต้องแตะภายใน Pathfinding)
-	for keyStr in flow do
-		local sx, sz = keyStr:match("^(%d+),(%d+)$")
-		local gx, gz = tonumber(sx), tonumber(sz)
+	for hash in flow do
+		local gx, gz = Pathfinding.decode(hash)
 		if gx and gz then
 			local nxt = Pathfinding.nextStep(flow, { GridX = gx, GridZ = gz })
 			if nxt then
@@ -256,10 +266,9 @@ function BattleController:_TestPathfindingWow()
 	end
 
 	-- ★ ปล่อยฝูงทหาร (checkerboard เว้นช่อง) ทุกตัวใช้ field เดียวกัน
-	for keyStr in flow do
-		local sx, sz = keyStr:match("^(%d+),(%d+)$")
-		local gx, gz = tonumber(sx), tonumber(sz)
-		if gx and gz and (gx + gz) % 2 == 0 then
+	for hash in flow do
+		local gx, gz = Pathfinding.decode(hash)
+		if (gx + gz) % 2 == 0 then
 			local ball = Instance.new("Part")
 			ball.Shape = Enum.PartType.Ball
 			ball.Anchored, ball.CanCollide = true, false
@@ -283,8 +292,7 @@ function BattleController:_TestPathfindingWow()
 					ball.Position = world(pos.GridX, pos.GridZ, 2.5)
 					task.wait(0.18)
 				end
-				warn(`[BattleController] Ball reached goal at {pos.GridX},{pos.GridZ}`)
-				ball:Destroy() -- ถึง goal แล้วถูกดูดหาย
+				ball:Destroy()
 			end)
 		end
 	end
@@ -293,35 +301,35 @@ end
 function BattleController:Init() end
 
 function BattleController:Start()
-	-- EventBus:On(Events.LOCAL_PLAYER_RAID_START, function(data)
-	-- 	if not data then
-	-- 		warn("[BattleController] No player data received (timeout)")
-	-- 		return
-	-- 	end
+	EventBus:On(Events.LOCAL_FOUND_RAID_TARGET, function(data)
+		if not data then
+			warn("[BattleController] No player data received (timeout)")
+			return
+		end
 
-	-- 	-- local Mapskin = data.MapSkin
-	-- 	-- if not Mapskin then
-	-- 	-- warn("[BattleController] No map skin data found for player")
-	-- 	-- return
-	-- 	-- end
+		local Mapskin = data.MapSkin
+		if not Mapskin then
+			warn("[BattleController] No map skin data found for player")
+			return
+		end
 
-	-- 	local buildings = data.Buildings
-	-- 	if not buildings then
-	-- 		warn("[BattleController] No building data found for player")
-	-- 		return
-	-- 	end
-	-- 	for buildingId, buildingdata in buildings do
-	-- 		self:RegisterBuildings(
-	-- 			buildingId,
-	-- 			buildingdata[CONFIG.KEYSTORE["Gridx"]],
-	-- 			buildingdata[CONFIG.KEYSTORE["Gridz"]],
-	-- 			buildingdata[CONFIG.KEYSTORE["BuildingEnum"]],
-	-- 			buildingdata[CONFIG.KEYSTORE["BuildingLevel"]],
-	-- 			buildingdata[CONFIG.KEYSTORE["EndTime"]],
-	-- 			buildingdata[CONFIG.KEYSTORE["LastCollectedTime"]]
-	-- 		)
-	-- 	end
-	-- end)
+		local buildings = data.Buildings
+		if not buildings then
+			warn("[BattleController] No building data found for player")
+			return
+		end
+		for buildingId, buildingdata in buildings do
+			self:RegisterBuildings(
+				buildingId,
+				buildingdata[CONFIG.KEYSTORE["Gridx"]],
+				buildingdata[CONFIG.KEYSTORE["Gridz"]],
+				buildingdata[CONFIG.KEYSTORE["BuildingEnum"]],
+				buildingdata[CONFIG.KEYSTORE["BuildingLevel"]],
+				buildingdata[CONFIG.KEYSTORE["EndTime"]],
+				buildingdata[CONFIG.KEYSTORE["LastCollectedTime"]]
+			)
+		end
+	end)
 
 	-- EventBus:On(Events.LOCAL_DEPLOY_UNIT, function(data)
 	-- 	-- self:RegisterUnit(data.UnitTypeEnum, data.UnitLevel, data.Position)
@@ -340,6 +348,12 @@ function BattleController:Start()
 
 	EventBus:On(Events.TEST_PATH_FINDING, function(data)
 		self:_TestPathfindingWow()
+	end)
+
+	EventBus:On(Events.LOCAL_TOGGLE_UI, function(targetWindow)
+		if targetWindow == "Test_Raid" then
+			EventBus:Emit(Events.C2S_REQUEST_FINDING_RAID)
+		end
 	end)
 end
 

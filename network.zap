@@ -63,14 +63,21 @@ event PlayerRequestPalceBulidings = {
     }
 }
 
-event SnapshotBuildings = {
+event FoundRaid = {
     from: Server,
     type: Reliable,
     call: SingleAsync,
     data: struct {
-        FolderName: string.utf8,
+        MapSkin: u8,
         Buildings: BuildingEntry[],
+
     }
+}
+
+event PlayerRquestRaid = {
+    from: Client,
+    type: Reliable,
+    call: SingleAsync,
 }
 
 event PlayersCreateBuilding = {

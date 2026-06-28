@@ -30,6 +30,10 @@ local BuildingService = require(Defrens.BuildingService).new()
 local Economy = Gameplay:FindFirstChild("Economy")
 local ResourceService = require(Economy.ResourceService).new()
 
+local Match = Gameplay:FindFirstChild("Match")
+local BattleService = require(Match.BattleService).new()
+local RaidService = require(Match.RaidService).new()
+
 local TIMEOUTS = {
 	ServiceInit = 15,
 	ServiceStart = 15,
@@ -105,6 +109,8 @@ Promise
 
 		ServiceLocator:Register("GridService", GridService)
 		ServiceLocator:Register("BuildingService", BuildingService)
+		ServiceLocator:Register("BattleService", BattleService)
+		ServiceLocator:Register("RaidService", RaidService)
 
 		ServiceLocator:Register("ResourceService", ResourceService)
 	end)
@@ -131,6 +137,8 @@ Promise
 	:andThen(function()
 		print("[Init] GameplayLayer initialized")
 		return Promise.all({
+			initService(BattleService, "BattleService"),
+			initService(RaidService, "RaidService"),
 			initService(GridService, "GridService"),
 			initService(BuildingService, "BuildingService"),
 		}):timeout(TIMEOUTS.LayerInit)
@@ -159,6 +167,8 @@ Promise
 	:andThen(function()
 		print("[Init] GameplayLayer started")
 		return Promise.all({
+			startService(BattleService, "BattleService"),
+			startService(RaidService, "RaidService"),
 			startService(GridService, "GridService"),
 			startService(BuildingService, "BuildingService"),
 		}):timeout(TIMEOUTS.LayerStart)

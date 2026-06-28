@@ -26,6 +26,10 @@ function BuildingStore.new()
 	return self
 end
 
+function BuildingStore:GetBuildings(): { [string]: BuildingRecord }
+	return self.buildings
+end
+
 function BuildingStore:AddBuilding(
 	buildingId: string,
 	gridX: number,
