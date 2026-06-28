@@ -165,7 +165,7 @@ function BuildingController:BuildingComplete(buildingId: string)
 
 	building.EndTime = 0
 	building.BuildingLevel = nextlevel
-	building.BuildingModel = model
+	building.BuildingModel = newModel -- เก็บ wrapper (PrimaryPart = footprint ที่มี Texture) ไม่ใช่ตัวอาคารข้างใน
 
 	self._ResourceController:RegisterColector(buildingId, building.BuildingEnum, nextlevel, model)
 
@@ -966,6 +966,14 @@ function BuildingController:Start()
 		self:_confirmMove()
 	end)
 
+	EventBus:On(Events.LOCAL_PLAYER_RAID_START, function()
+		self:HideAllBuilding()
+	end)
+
+	EventBus:On(Events.LOCAL_PLAYER_RAID_END, function()
+		self:CancelAllBuildingMove()
+	end)
+
 	self._PlayerDataController:WaitForDataReady():andThen(function(data)
 		if not data then
 			warn("[BuildingController] No player data received (timeout)")
@@ -992,13 +1000,6 @@ function BuildingController:Start()
 			self._currentBuilder,
 			self._PlayerDataController:GetAll().BuilderHutSlot
 		)
-	end)
-
-	task.spawn(function()
-		wait(10)
-		self:HideAllBuilding()
-		wait(5)
-		self:CancelAllBuildingMove()
 	end)
 end
 
