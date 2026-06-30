@@ -203,13 +203,7 @@ function BattleController:_TestPathfindingWow()
 	local GOAL = { GridX = 25, GridZ = 25 }
 
 	-- กำแพงตั้ง 2 ท่อน เว้นช่อง → บังคับให้ฝูงไหลคดเคี้ยว
-	local occupied: Pathfinding.Occupied = {}
-	for z = 5, 20 do
-		occupied[Pathfinding.key(5, z)] = true
-	end
-	for z = 15, 40 do
-		occupied[Pathfinding.key(11, z)] = true
-	end
+	local occupied: Pathfinding.Occupied = self._occupiedCells
 
 	local old = Workspace:FindFirstChild("PathfindingTest")
 	if old then
@@ -298,6 +292,113 @@ function BattleController:_TestPathfindingWow()
 	end
 end
 
+-- ponytail: เดโม่ combat ล้วนๆ ลบทิ้งได้ — รันครั้งเดียวเห็น ranged attack ทำงานจริง
+function BattleController:_TestCombatWow()
+	local BOUNDS = { MinX = 0, MaxX = 50, MinZ = 0, MaxZ = 50 }
+
+	-- ตึกเป้าหมายตรงกลาง + flow field พาทหารวิ่งเข้าหา
+	local building = Simulation.RegisterBuilding("b1", { GridX = 25, GridZ = 25 }, 1500)
+	local flow = Pathfinding.buildFlowField({ GridX = 25, GridZ = 25 }, BOUNDS, {})
+	local flowFields: { [string]: Pathfinding.FlowField } = { b1 = flow }
+
+	-- ทหาร 2 แบบใช้ field เดียวกัน: melee (range 1, แดง) แถวล่าง + ranged (range 6, ฟ้า) แถวบน
+	local units: { Simulation.UnitState } = {}
+	local nextId = 0
+	local function spawn(gx: number, gz: number, range: number)
+		nextId += 1
+		local u = Simulation.RegisterUnit(`u{nextId}`, { GridX = gx, GridZ = gz }, 50, 5, 5, range, 6)
+		u.TargetId = "b1"
+		table.insert(units, u)
+	end
+	for i = 0, 50, 5 do
+		spawn(i, 0, 1)
+		spawn(i, 50, 6)
+	end
+
+	local state: Simulation.State = { Tick = 0, Units = units, Buildings = { building }, Spells = {} }
+
+	-- ── ภาพ ────────────────────────────────────────────────
+	local old = Workspace:FindFirstChild("CombatTest")
+	if old then
+		old:Destroy()
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "CombatTest"
+	folder.Parent = Workspace
+
+	local function world(gridX: number, gridZ: number, y: number): Vector3
+		return self:GridCoordsToWorld(gridX, gridZ, 1, 1) + Vector3.new(0, y, 0)
+	end
+
+	local buildPart = Instance.new("Part")
+	buildPart.Anchored, buildPart.CanCollide = true, false
+	buildPart.Material = Enum.Material.Neon
+	buildPart.Color = Color3.fromRGB(60, 230, 90)
+	buildPart.Size = Vector3.new(8, 10, 8)
+	buildPart.Position = world(25, 25, 5)
+	buildPart.Parent = folder
+
+	local unitParts: { [string]: BasePart } = {}
+	for _, u in units do
+		local ball = Instance.new("Part")
+		ball.Shape = Enum.PartType.Ball
+		ball.Anchored, ball.CanCollide = true, false
+		ball.Material = Enum.Material.Neon
+		ball.Color = if u.Range > 1 then Color3.fromRGB(70, 160, 255) else Color3.fromRGB(255, 90, 70)
+		ball.Size = Vector3.new(1.8, 1.8, 1.8)
+		ball.Position = world(u.Position.GridX, u.Position.GridZ, 2.5)
+		ball.Parent = folder
+		unitParts[u.UnitId] = ball
+	end
+
+	local lasers = Instance.new("Folder")
+	lasers.Name = "Lasers"
+	lasers.Parent = folder
+
+	-- ── เดิน sim ───────────────────────────────────────────
+	task.spawn(function()
+		for _ = 1, 1000 do
+			if building.Hp <= 0 then
+				break
+			end
+			Simulation.stepTick(state, flowFields)
+			lasers:ClearAllChildren()
+
+			for _, u in units do
+				local ball = unitParts[u.UnitId]
+				ball.Position = world(u.Position.GridX, u.Position.GridZ, 2.5)
+
+				-- เข้าระยะ → ยิงเลเซอร์ไปที่ตึก (สีตามชนิดทหาร)
+				local dx = u.Position.GridX - building.Position.GridX
+				local dz = u.Position.GridZ - building.Position.GridZ
+				if dx * dx + dz * dz <= u.Range * u.Range then
+					local from = world(u.Position.GridX, u.Position.GridZ, 2.5)
+					local to = world(25, 25, 5)
+					local len = (from - to).Magnitude
+					local beam = Instance.new("Part")
+					beam.Anchored, beam.CanCollide = true, false
+					beam.Material = Enum.Material.Neon
+					beam.Color = ball.Color
+					beam.Size = Vector3.new(0.15, 0.15, len)
+					beam.CFrame = CFrame.lookAt((from + to) / 2, to)
+					beam.Parent = lasers
+				end
+			end
+
+			-- ตึกเปลี่ยนสีตาม Hp (เขียว → แดง)
+			local ratio = building.Hp / building.MaxHp
+			buildPart.Color =
+				Color3.fromRGB(math.floor(60 + (1 - ratio) * 195), math.floor(230 * ratio), math.floor(90 * ratio))
+
+			task.wait(0.1)
+		end
+
+		buildPart:Destroy()
+		lasers:Destroy()
+		warn(`[BattleController] 🏚️ ตึกพังที่ tick {state.Tick}`)
+	end)
+end
+
 function BattleController:Init() end
 
 function BattleController:Start()
@@ -344,10 +445,6 @@ function BattleController:Start()
 			return
 		end
 		self:RegisterZone(GridPart)
-	end)
-
-	EventBus:On(Events.TEST_PATH_FINDING, function(data)
-		self:_TestPathfindingWow()
 	end)
 
 	EventBus:On(Events.LOCAL_TOGGLE_UI, function(targetWindow)

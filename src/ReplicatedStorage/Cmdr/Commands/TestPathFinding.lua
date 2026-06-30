@@ -7,25 +7,28 @@ return {
         {
             Type = "string",
             Name = "Goal",
-            Description = "Target goal for pathfinding",
+            Description = "Type 1 to  for test _TestPathfindingWow, 2 to _TestCombatWow",
             Optional = true,
         },
-        {
-            Type = "string",
-            Name = "Start",
-            Description = "Starting point for pathfinding",
-            Optional = true,
-        }
+
     },
 
-    ClientRun = function(context, Goal, Start)
+    ClientRun = function(context, Goal)
         local ReplicatedStorage = game:GetService("ReplicatedStorage")
         local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
         local Events = require(ReplicatedStorage.Shared.Events)
 
-        if not Goal or not Start then
-            EventBus:Emit(Events.TEST_PATH_FINDING)
-            return "Testing pathfinding with default parameters."
+        local BattleController = _G.ControllerLocator:Get("BattleController")
+        if not BattleController then
+            return "❌ BattleController not found"
+        end
+
+        if Goal == "1" then
+            BattleController:_TestPathfindingWow()
+            return
+        elseif Goal == "2" then
+            BattleController:_TestCombatWow()
+            return
         end
     end,
 }
