@@ -12,6 +12,7 @@ local Events = require(ReplicatedStorage.Shared.Events)
 local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
 local Pathfinding = require(ReplicatedStorage.Shared.Pathfinding)
 local Simulation = require(ReplicatedStorage.Shared.Simulation)
+local GameEnum = require(ReplicatedStorage.Shared.GameEnum)
 
 local CONFIG = {
 	CELL_SIZE = 4,
@@ -59,7 +60,26 @@ function BattleController.new()
 	self._gridOriginX = 0 :: number
 	self._gridOriginZ = 0 :: number
 	self._gridSurfaceY = 0 :: number
+
+	--Visualization
+	self._UnitsTemplate = nil
+	self._unitModels = {} :: { [string]: Model }
+	self._buildingModels = {} :: { [string]: Model }
 	return self
+end
+
+function BattleController:_creatUnitModel(unitType: string, unitLevel: number): Model?
+	local unitFolder = self._UnitsTemplate:FindFirstChild(unitType)
+	if not unitFolder then
+		warn("[BattleController] Unit type not found: " .. unitType)
+		return nil
+	end
+	local unitModel = unitFolder:FindFirstChild(tostring(unitLevel))
+	if not unitModel then
+		warn("[BattleController] Unit level not found: " .. unitLevel .. " for type: " .. unitType)
+		return nil
+	end
+	return unitModel:Clone()
 end
 
 function BattleController:_gridKeyfromCoords(gridx: number, gridz: number): number
@@ -246,8 +266,6 @@ function BattleController:_TestPathfindingWow()
 end
 
 function BattleController:StartRiding()
-	-- Match start
-
 	if not self._state.Tick or not self._state.Buildings or not self._state.Spells then
 		self._state.Buildings = self._state.Buildings or {}
 		self._state.Tick = 0
@@ -261,13 +279,28 @@ function BattleController:StartRiding()
 		local endTime = startTime + CONFIG.MATCH_TIMEOUT
 		while self._isRaiding and tick() < endTime do
 			Simulation.stepTick(self._state, self._flowFields)
-			warn("[BattleController] Match tick: " .. self._state.Tick)
 
+			for _, unit in self._state.Units do
+				local unitId = unit.UnitId
+				if not unitId then
+					warn("[BattleController] Unit has no UnitId, skipping")
+					continue
+				end
+				local unitState = self._units[unitId]
+				if not unitState or unit.Hp <= 0 then
+					continue
+				end
+
+				self._unitModels[unitId]:PivotTo(
+					CFrame.new(self:GridCoordsToWorld(unit.Position.GridX, unit.Position.GridZ, 1, 1))
+				)
+			end
 			task.wait(CONFIG.INTERVAL)
 		end
 		-- self:MatchEnd()
 	end)
 end
+
 function BattleController:MatchEnd()
 	self._isRaiding = false
 	if self._macthConnection then
@@ -287,7 +320,19 @@ function BattleController:MatchEnd()
 	end
 end
 
-function BattleController:Init() end
+function BattleController:Init()
+	local Assets = ReplicatedStorage:WaitForChild("Assets")
+	if not Assets then
+		warn("[BattleController] Assets folder not found in ReplicatedStorage")
+		return
+	end
+
+	self._UnitsTemplate = Assets:WaitForChild("Units")
+	if not self._UnitsTemplate then
+		warn("[BattleController] Units template not found in Assets")
+		return
+	end
+end
 
 function BattleController:Start()
 	EventBus:On(Events.LOCAL_FOUND_RAID_TARGET, function(data)
@@ -393,9 +438,22 @@ function BattleController:Start()
 			warn("[BattleController] Failed to register unit with ID: " .. unitId)
 			return
 		end
+
+		local unitModel = self:_creatUnitModel(GameEnum:GetUnitTypeById(unitEnum), unitLevel)
+		if not unitModel then
+			warn("[BattleController] Failed to create unit model for unitId: " .. unitId)
+			return
+		end
+		unitModel.Name = unitId
+		unitModel.Parent = self._BattleFolder
+		local worldPos = self:GridCoordsToWorld(test_Unit_position.GridX, test_Unit_position.GridZ, 1, 1)
+		unitModel:PivotTo(CFrame.new(worldPos))
+		self._unitModels[unitId] = unitModel
+
 		self._units[unitId] = unit
 		self._units[unitId].TargetId = test_nestest_building
 		table.insert(self._state.Units, self._units[unitId])
+
 		self._currentUnitId += 1
 	end)
 
@@ -409,6 +467,12 @@ function BattleController:Start()
 		local logicPart = gridPart:WaitForChild("LogicPart", 30)
 		if not logicPart or not logicPart:IsA("BasePart") then
 			warn(`[BattleController] Logic part not found or not a BasePart for folder: {data.FolderName}`)
+			return
+		end
+
+		self._BattleFolder = folder:WaitForChild("BattleFolder", 30)
+		if not self._BattleFolder or not self._BattleFolder:IsA("Folder") then
+			warn(`[BattleController] Battle folder not found or not a Folder for folder: {data.FolderName}`)
 			return
 		end
 		self:RegisterZone(logicPart)
