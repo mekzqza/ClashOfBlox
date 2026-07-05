@@ -8,6 +8,21 @@ local ZapClient = require(ReplicatedStorage.Shared.ZapClient)
 
 local ClientNetworkController = {}
 
+local function ArrayTOMap(arr: { any }): { [string]: { any } }
+	local Map = {}
+	for _, entry in arr do
+		Map[entry.BuildingId] = {
+			entry.Gridx,
+			entry.Gridz,
+			entry.BuildingEnum,
+			entry.BuildingLevel,
+			entry.EndTime,
+			entry.LastCollectedTime,
+		} :: { any }
+	end
+	return Map
+end
+
 local function DataLayer()
 	EventBus:On(Events.C2S_CLIENT_READY, function()
 		ZapClient.ClientReady.Fire()
@@ -19,32 +34,8 @@ local function DataLayer()
 		})
 	end)
 
-	-- ZapClient.SnapshotBuildings.SetCallback(function(data)
-	-- 	local buildingsMap = {}
-	-- 	for _, entry in data.Buildings do
-	-- 		buildingsMap[entry.SnapToString] = GameEnum:GetBuildingTypeById(entry.BuildingTypeEnum)
-	-- 	end
-	-- 	EventBus:Emit(Events.LOCAL_PLAYER_DATA_UPDATE, {
-	-- 		--[[
-	-- 		@Bug Hard Code Key Name
-	-- 		--]]
-	-- 		Key = "Buildings",
-	-- 		Value = buildingsMap,
-	-- 	})
-	-- end)
-
 	ZapClient.LoadSnapshot.SetCallback(function(data)
-		local buildingsMap = {}
-		for _, entry in data.Buildings do
-			buildingsMap[entry.BuildingId] = {
-				entry.Gridx,
-				entry.Gridz,
-				entry.BuildingEnum,
-				entry.BuildingLevel,
-				entry.EndTime,
-				entry.LastCollectedTime,
-			} :: { any }
-		end
+		local buildingsMap = ArrayTOMap(data.Buildings)
 
 		local playload = {
 			Crystals = data.Crystals,
@@ -90,6 +81,17 @@ local function BuildingSystem()
 			Gridx = data.Gridx,
 			Gridz = data.Gridz,
 			Position = data.Position,
+		})
+	end)
+
+	EventBus:On(Events.C2S_REQUEST_FINDING_RAID, function()
+		ZapClient.PlayerRquestRaid.Fire()
+	end)
+
+	ZapClient.FoundRaid.SetCallback(function(data)
+		EventBus:Emit(Events.LOCAL_FOUND_RAID_TARGET, {
+			Buildings = ArrayTOMap(data.Buildings),
+			MapSkin = data.MapSkin,
 		})
 	end)
 

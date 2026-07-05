@@ -16,6 +16,7 @@ local CONFIG = {
 
 	HEIGHT = 0.5,
 	GROUND_Y = -0.159,
+	HIDE_MODEL = 500,
 	DEFAULT_FOOTPRINT_COLOR = Color3.fromRGB(117, 161, 37),
 	STARTER_LEVEL = 0,
 	NEXT_LEVEL = 1,
@@ -91,6 +92,24 @@ function BuildingController:SetDependencies(locator)
 	self._MainDisplayController = locator:Get("MainDisplayController")
 end
 
+function BuildingController:HideAllBuilding()
+	for _, building in pairs(self._BuildingStore:GetBuildings()) do
+		local model = building.BuildingModel
+		if model then
+			model:PivotTo(model:GetPivot() + Vector3.new(0, CONFIG.HIDE_MODEL, 0))
+		end
+	end
+end
+
+function BuildingController:CancelAllBuildingMove()
+	for _, building in pairs(self._BuildingStore:GetBuildings()) do
+		local model = building.BuildingModel
+		if model then
+			model:PivotTo(model:GetPivot() - Vector3.new(0, CONFIG.HIDE_MODEL, 0))
+		end
+	end
+end
+
 function BuildingController:_syncToserver(buildingId: string, gridx: number, gridz: number, position: Vector3)
 	EventBus:Emit(Events.C2S_UPDATE_BUILDING_POSITION, {
 		BuildingId = buildingId,
@@ -146,7 +165,7 @@ function BuildingController:BuildingComplete(buildingId: string)
 
 	building.EndTime = 0
 	building.BuildingLevel = nextlevel
-	building.BuildingModel = model
+	building.BuildingModel = newModel -- เก็บ wrapper (PrimaryPart = footprint ที่มี Texture) ไม่ใช่ตัวอาคารข้างใน
 
 	self._ResourceController:RegisterColector(buildingId, building.BuildingEnum, nextlevel, model)
 
@@ -945,6 +964,14 @@ function BuildingController:Start()
 
 	EventBus:On(Events.LOCAL_MOVE_BUILDING_CONFIRM, function()
 		self:_confirmMove()
+	end)
+
+	EventBus:On(Events.LOCAL_PLAYER_RAID_START, function()
+		self:HideAllBuilding()
+	end)
+
+	EventBus:On(Events.LOCAL_PLAYER_RAID_END, function()
+		self:CancelAllBuildingMove()
 	end)
 
 	self._PlayerDataController:WaitForDataReady():andThen(function(data)

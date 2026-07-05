@@ -251,6 +251,15 @@ function BuildingConfig:GetBuildingDimensions(buildingType: string): { Width: nu
 	}
 end
 
+function BuildingConfig:GetBuildingDimensionByEnum(buildingEnum): { Width: number, Length: number }?
+    local buildingType = GameEnum:GetBuildingTypeById(buildingEnum)
+    if not buildingType then
+        return nil
+    end
+    return BuildingConfig:GetBuildingDimensions(buildingType)
+end
+
+
 function BuildingConfig:GetBuildingData(buildingType: string, level: number): BuildingLevelData?
 	local building = Buildings[buildingType]
 	if not building then

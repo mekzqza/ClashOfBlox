@@ -15,12 +15,16 @@ local function DataLayer()
 		EventBus:Emit(Events.LOCAL_CLIENT_READY, player)
 	end)
 
-	EventBus:On(Events.S2C_SEND_BUILDING_SNAP_PLAYER, function(player, Arraybuildings)
-		--[=[
-		@BUG
-		Hard Code Folder Name ,will fix in mutiplae folder now have noly 1
-	]=]
-		ZapServer.SnapshotBuildings.Fire(player, { FolderName = "IN TEST ", Buildings = Arraybuildings })
+	-- Finding Target Player but not attack yet
+	ZapServer.PlayerRquestRaid.SetCallback(function(player: Player)
+		EventBus:Emit(Events.LOCAL_REQUEST_FINDING_RAID, player)
+	end)
+
+	EventBus:On(Events.S2C_FOUND_RAID_TARGET, function(data)
+		ZapServer.FoundRaid.Fire(data.Player, {
+			Buildings = data.Buildings,
+			MapSkin = data.MapSkin,
+		})
 	end)
 
 	EventBus:On(Events.S2C_PLAYER_DATA_FIRST_LOAD, function(data)

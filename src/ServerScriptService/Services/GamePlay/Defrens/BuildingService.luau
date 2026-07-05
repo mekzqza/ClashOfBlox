@@ -61,7 +61,6 @@ function BuildingService.new()
 	}
 
 	self._BuildingTemplate = nil
-	self._GridService = nil
 	self._PlayerDataService = nil
 	self._ResourceService = nil
 
@@ -260,11 +259,6 @@ function BuildingService:_UpdateBuilding() end
 
 function BuildingService:Init()
 	if not guard:MarkInitialized() then
-		return
-	end
-	self._GridService = ServiceLocaltor:Get("GridService")
-	if not self._GridService then
-		warn("[BuildingService] ❌ ERROR: GridService not found in ServiceLocator")
 		return
 	end
 
