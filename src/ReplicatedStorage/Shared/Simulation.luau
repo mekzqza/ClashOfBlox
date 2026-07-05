@@ -11,6 +11,7 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local BuildingConfig = require(ReplicatedStorage.Shared.BuildingConfig)
+local UnitConfig = require(ReplicatedStorage.Shared.UnitConfig)
 local Pathfinding = require(ReplicatedStorage.Shared.Pathfinding)
 
 export type GridPosition = {
@@ -61,13 +62,6 @@ export type State = {
 	Spells: { SpellState },
 }
 
-local CONFIG = {
-	TICK_RATE = 1 / 30,
-
-	-- Distance between each grid cell in studs
-	GRID_DISTANCE_INSTUD = 1000,
-}
-
 local Simulation = {}
 
 function Simulation.RegisterBuilding(
@@ -112,22 +106,24 @@ function Simulation.RegisterBuilding(
 end
 function Simulation.RegisterUnit(
 	unitId: string,
-	position: GridPosition,
-	maxHp: number,
-	damage: number,
-	walkSpeed: number,
-	range: number,
-	attackCooldown: number
-): UnitState
+	unitEnum: number,
+	unitLevel: number,
+	position: GridPosition
+): UnitState?
+	local unitData = UnitConfig:GetUnitLevelDataByEnum(unitEnum, unitLevel)
+	if not unitData then
+		warn("[Simulation] Unit data not found for unitId: " .. unitId)
+		return nil
+	end
 	return {
 		UnitId = unitId,
-		MaxHp = maxHp,
-		Hp = maxHp,
-		Damage = damage,
-		WalkSpeed = walkSpeed,
-		Range = range,
-		AttackCooldown = attackCooldown,
-		CooldownLeft = 0, -- 0 = ตีได้ทันทีที่เข้าระยะครั้งแรก
+		MaxHp = unitData.MaxHp,
+		Hp = unitData.MaxHp,
+		Damage = unitData.Damage,
+		WalkSpeed = unitData.WalkSpeed,
+		Range = unitData.Range,
+		AttackCooldown = unitData.AttackCooldown,
+		CooldownLeft = 0,
 		Position = position,
 	}
 end
