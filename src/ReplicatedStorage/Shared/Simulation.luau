@@ -10,6 +10,7 @@
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local BuildingConfig = require(ReplicatedStorage.Shared.BuildingConfig)
 local Pathfinding = require(ReplicatedStorage.Shared.Pathfinding)
 
 export type GridPosition = {
@@ -19,10 +20,16 @@ export type GridPosition = {
 
 export type BuildingState = {
 	BuildingId: string,
+	Position: GridPosition,
+	BuildingEnum: number,
+	BuildingLevel: number,
+	EndTime: number,
+	LastCollectedTime: number,
+
 	MaxHp: number,
 	Hp: number,
 
-	Position: GridPosition,
+	Dimensions: { Width: number, Length: number },
 }
 
 export type UnitState = {
@@ -63,12 +70,44 @@ local CONFIG = {
 
 local Simulation = {}
 
-function Simulation.RegisterBuilding(buildingId: string, position: GridPosition, maxHp: number): BuildingState
+function Simulation.RegisterBuilding(
+	buildingId: string,
+	gridx: number,
+	gridz: number,
+	buildingEnum: number,
+	buildingLevel: number,
+	endTime: number,
+	lastCollectedTime: number
+): BuildingState?
+	local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, buildingLevel)
+	if not buildingData then
+		warn("Building data not found for buildingEnum: " .. buildingEnum .. ", level: " .. buildingLevel)
+		return nil
+	end
+	local dimensions = BuildingConfig:GetBuildingDimensionByEnum(buildingEnum)
+	if not dimensions then
+		warn("Building dimensions not found for buildingEnum: " .. buildingEnum)
+		return nil
+	end
+
 	return {
 		BuildingId = buildingId,
-		MaxHp = maxHp,
-		Hp = maxHp,
-		Position = position,
+		Position = {
+			GridX = gridx,
+			GridZ = gridz,
+		},
+		BuildingEnum = buildingEnum,
+		BuildingLevel = buildingLevel,
+		EndTime = endTime,
+		LastCollectedTime = lastCollectedTime,
+
+		MaxHp = buildingData.MaxHp,
+		Hp = buildingData.MaxHp,
+
+		Dimensions = {
+			Width = dimensions.Width,
+			Length = dimensions.Length,
+		},
 	}
 end
 function Simulation.RegisterUnit(

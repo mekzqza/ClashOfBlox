@@ -8,8 +8,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
-local BuildingConfig = require(ReplicatedStorage.Shared.BuildingConfig)
-local GameEnum = require(ReplicatedStorage.Shared.GameEnum)
 local Events = require(ReplicatedStorage.Shared.Events)
 local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
 local Pathfinding = require(ReplicatedStorage.Shared.Pathfinding)
@@ -26,6 +24,9 @@ local CONFIG = {
 		["EndTime"] = 5,
 		["LastCollectedTime"] = 6,
 	},
+	INTERVAL = 0.1, -- วินาที
+	MAX_QUEUE_SIZE = 1000,
+	MATCH_TIMEOUT = 300, -- วินาที
 }
 
 local BattleController = {}
@@ -45,6 +46,12 @@ function BattleController.new()
 	self._flowFields = {} :: { [string]: Pathfinding.FlowField }
 	self._validCells = {} :: { [number]: true }
 	self._occupiedCells = {} :: { [number]: true }
+
+	self._isFindingMatch = false
+	self._isRaidStarted = false
+	self._isRaiding = false
+	self._macthConnection = nil
+	self._matchStartTime = 0 :: number
 
 	self._isReady = false
 	self._onReadyCallback = nil :: ((BasePart) -> ())?
@@ -134,47 +141,6 @@ function BattleController:freeCell(position: Vector3, sizeX: number?, sizeZ: num
 			end
 		end
 	end
-end
-
-function BattleController:RegisterBuildings(
-	buildingId: string,
-	gridX: number,
-	gridZ: number,
-	buildingEnum: number,
-	buildingLevel: number,
-	endTime: number,
-	lastCollectedTime: number
-)
-	local buildingData = BuildingConfig:GetBuildingDataByEnum(buildingEnum, buildingLevel)
-	if not buildingData then
-		warn(`[BattleController] No building data found for enum {buildingEnum} level {buildingLevel}`)
-		return
-	end
-
-	local buildingType = GameEnum:GetBuildingTypeById(buildingEnum)
-	if not buildingType then
-		warn(`[BattleController] No building type found for enum {buildingEnum}`)
-		return
-	end
-
-	local dimensions = BuildingConfig:GetBuildingDimensions(buildingType)
-	if not dimensions then
-		warn(`[BattleController] No dimensions found for building enum {buildingEnum}`)
-		return
-	end
-	local buildingPosition = self:GridCoordsToWorld(gridX, gridZ, dimensions.Width, dimensions.Length)
-	self:occupyCell(buildingPosition, dimensions.Width, dimensions.Length)
-
-	self._buildings[buildingId] = Simulation.RegisterBuilding(buildingId, buildingPosition, buildingData.MaxHp)
-
-	warn(
-		`[BattleController] Registered building {buildingId} at grid ({gridX}, {gridZ}) with enum {buildingEnum} level {buildingLevel}`
-	)
-	--[[
-	    @TODO
-		จัดการ endTime เพื่อเช็คว่ากำลังสร้างอยู่หรือไม่ ถ้าใช่ให้ spawn เป็น building under construction
-		จัดการ lastCollectedTime เพื่อเช็คว่ามี resource ที่ยังไม่ได้เก็บหรือไม่ เพื่อให้ผู้เล่นปล้นเอา resource ได้
-	]]
 end
 
 function BattleController:RegisterUnit(unitTypeEnum: number, unitLevel: number, position: Vector3)
@@ -292,110 +258,19 @@ function BattleController:_TestPathfindingWow()
 	end
 end
 
--- ponytail: เดโม่ combat ล้วนๆ ลบทิ้งได้ — รันครั้งเดียวเห็น ranged attack ทำงานจริง
-function BattleController:_TestCombatWow()
-	local BOUNDS = { MinX = 0, MaxX = 50, MinZ = 0, MaxZ = 50 }
+function BattleController:StartRiding()
+	-- Match start
+	--
 
-	-- ตึกเป้าหมายตรงกลาง + flow field พาทหารวิ่งเข้าหา
-	local building = Simulation.RegisterBuilding("b1", { GridX = 25, GridZ = 25 }, 1500)
-	local flow = Pathfinding.buildFlowField({ GridX = 25, GridZ = 25 }, BOUNDS, {})
-	local flowFields: { [string]: Pathfinding.FlowField } = { b1 = flow }
+	self._isRaiding = true
+	self._macthConnection = task.spawn(function()
+		local startTime = tick()
+		local endTime = startTime + CONFIG.MATCH_TIMEOUT
+		while self._isRaiding and tick() < endTime do
+			Simulation.stepTick(self._state, self._flowFields)
 
-	-- ทหาร 2 แบบใช้ field เดียวกัน: melee (range 1, แดง) แถวล่าง + ranged (range 6, ฟ้า) แถวบน
-	local units: { Simulation.UnitState } = {}
-	local nextId = 0
-	local function spawn(gx: number, gz: number, range: number)
-		nextId += 1
-		local u = Simulation.RegisterUnit(`u{nextId}`, { GridX = gx, GridZ = gz }, 50, 5, 5, range, 6)
-		u.TargetId = "b1"
-		table.insert(units, u)
-	end
-	for i = 0, 50, 5 do
-		spawn(i, 0, 1)
-		spawn(i, 50, 6)
-	end
-
-	local state: Simulation.State = { Tick = 0, Units = units, Buildings = { building }, Spells = {} }
-
-	-- ── ภาพ ────────────────────────────────────────────────
-	local old = Workspace:FindFirstChild("CombatTest")
-	if old then
-		old:Destroy()
-	end
-	local folder = Instance.new("Folder")
-	folder.Name = "CombatTest"
-	folder.Parent = Workspace
-
-	local function world(gridX: number, gridZ: number, y: number): Vector3
-		return self:GridCoordsToWorld(gridX, gridZ, 1, 1) + Vector3.new(0, y, 0)
-	end
-
-	local buildPart = Instance.new("Part")
-	buildPart.Anchored, buildPart.CanCollide = true, false
-	buildPart.Material = Enum.Material.Neon
-	buildPart.Color = Color3.fromRGB(60, 230, 90)
-	buildPart.Size = Vector3.new(8, 10, 8)
-	buildPart.Position = world(25, 25, 5)
-	buildPart.Parent = folder
-
-	local unitParts: { [string]: BasePart } = {}
-	for _, u in units do
-		local ball = Instance.new("Part")
-		ball.Shape = Enum.PartType.Ball
-		ball.Anchored, ball.CanCollide = true, false
-		ball.Material = Enum.Material.Neon
-		ball.Color = if u.Range > 1 then Color3.fromRGB(70, 160, 255) else Color3.fromRGB(255, 90, 70)
-		ball.Size = Vector3.new(1.8, 1.8, 1.8)
-		ball.Position = world(u.Position.GridX, u.Position.GridZ, 2.5)
-		ball.Parent = folder
-		unitParts[u.UnitId] = ball
-	end
-
-	local lasers = Instance.new("Folder")
-	lasers.Name = "Lasers"
-	lasers.Parent = folder
-
-	-- ── เดิน sim ───────────────────────────────────────────
-	task.spawn(function()
-		for _ = 1, 1000 do
-			if building.Hp <= 0 then
-				break
-			end
-			Simulation.stepTick(state, flowFields)
-			lasers:ClearAllChildren()
-
-			for _, u in units do
-				local ball = unitParts[u.UnitId]
-				ball.Position = world(u.Position.GridX, u.Position.GridZ, 2.5)
-
-				-- เข้าระยะ → ยิงเลเซอร์ไปที่ตึก (สีตามชนิดทหาร)
-				local dx = u.Position.GridX - building.Position.GridX
-				local dz = u.Position.GridZ - building.Position.GridZ
-				if dx * dx + dz * dz <= u.Range * u.Range then
-					local from = world(u.Position.GridX, u.Position.GridZ, 2.5)
-					local to = world(25, 25, 5)
-					local len = (from - to).Magnitude
-					local beam = Instance.new("Part")
-					beam.Anchored, beam.CanCollide = true, false
-					beam.Material = Enum.Material.Neon
-					beam.Color = ball.Color
-					beam.Size = Vector3.new(0.15, 0.15, len)
-					beam.CFrame = CFrame.lookAt((from + to) / 2, to)
-					beam.Parent = lasers
-				end
-			end
-
-			-- ตึกเปลี่ยนสีตาม Hp (เขียว → แดง)
-			local ratio = building.Hp / building.MaxHp
-			buildPart.Color =
-				Color3.fromRGB(math.floor(60 + (1 - ratio) * 195), math.floor(230 * ratio), math.floor(90 * ratio))
-
-			task.wait(0.1)
+			task.wait(CONFIG.INTERVAL)
 		end
-
-		buildPart:Destroy()
-		lasers:Destroy()
-		warn(`[BattleController] 🏚️ ตึกพังที่ tick {state.Tick}`)
 	end)
 end
 
@@ -420,7 +295,7 @@ function BattleController:Start()
 			return
 		end
 		for buildingId, buildingdata in buildings do
-			self:RegisterBuildings(
+			self._buildings[buildingId] = Simulation.RegisterBuilding(
 				buildingId,
 				buildingdata[CONFIG.KEYSTORE["Gridx"]],
 				buildingdata[CONFIG.KEYSTORE["Gridz"]],
@@ -428,15 +303,49 @@ function BattleController:Start()
 				buildingdata[CONFIG.KEYSTORE["BuildingLevel"]],
 				buildingdata[CONFIG.KEYSTORE["EndTime"]],
 				buildingdata[CONFIG.KEYSTORE["LastCollectedTime"]]
+			) :: Simulation.BuildingState
+			self:occupyCell(
+				self:GridCoordsToWorld(
+					buildingdata[CONFIG.KEYSTORE["Gridx"]],
+					buildingdata[CONFIG.KEYSTORE["Gridz"]],
+					self._buildings[buildingId].Dimensions.Width,
+					self._buildings[buildingId].Dimensions.Length
+				),
+				self._buildings[buildingId].Dimensions.Width,
+				self._buildings[buildingId].Dimensions.Length
 			)
 		end
 	end)
 
-	-- EventBus:On(Events.LOCAL_DEPLOY_UNIT, function(data)
-	-- 	-- self:RegisterUnit(data.UnitTypeEnum, data.UnitLevel, data.Position)
-	-- end)
+	-- Raid Start()
+	-- Register Building ที่อยู่นอกสุด แล้วสร้าง FlowField ของแต่ละ Building
+	EventBus:On(Events.LOCAL_DEPLOY_UNIT, function(data)
+		self._isRaiding = true
+		self:StartRiding()
+		local unit = data.unit
+		if not unit then
+			warn("[BattleController] No unit data received for deployment")
+			return
+		end
 
-	-- TEST
+		local unitRegister = Simulation.RegisterUnit(
+			unit.UnitId,
+			{ GridX = unit.GridX, GridZ = unit.GridZ },
+			unit.MaxHp,
+			unit.Attack,
+			unit.WalkSpeed,
+			unit.Range,
+			unit.AttackCooldown
+		)
+
+		-- เอายูนิตเข้า Game run
+
+		-- LooK up
+		-- self._state.UnitState[unit.UnitId] = unitRegister
+		-- ต้องส่งเป็น arr
+		table.insert(self._state.Units, unitRegister)
+	end)
+
 	EventBus:On(Events.LOCAL_FOLDER_READY, function(data)
 		local folder = data.Folder
 		local GridPart = folder:WaitForChild("GridPart", 30):WaitForChild("LogicPart", 30)
@@ -455,3 +364,110 @@ function BattleController:Start()
 end
 
 return BattleController.new()
+
+-- -- ponytail: เดโม่ combat ล้วนๆ ลบทิ้งได้ — รันครั้งเดียวเห็น ranged attack ทำงานจริง
+-- function BattleController:_TestCombatWow()
+-- 	local BOUNDS = { MinX = 0, MaxX = 50, MinZ = 0, MaxZ = 50 }
+
+-- 	-- ตึกเป้าหมายตรงกลาง + flow field พาทหารวิ่งเข้าหา
+-- 	local building = Simulation.RegisterBuilding("b1", { GridX = 25, GridZ = 25 }, 1500)
+-- 	local flow = Pathfinding.buildFlowField({ GridX = 25, GridZ = 25 }, BOUNDS, {})
+-- 	local flowFields: { [string]: Pathfinding.FlowField } = { b1 = flow }
+
+-- 	-- ทหาร 2 แบบใช้ field เดียวกัน: melee (range 1, แดง) แถวล่าง + ranged (range 6, ฟ้า) แถวบน
+-- 	local units: { Simulation.UnitState } = {}
+-- 	local nextId = 0
+-- 	local function spawn(gx: number, gz: number, range: number)
+-- 		nextId += 1
+-- 		local u = Simulation.RegisterUnit(`u{nextId}`, { GridX = gx, GridZ = gz }, 50, 5, 5, range, 6)
+-- 		u.TargetId = "b1"
+-- 		table.insert(units, u)
+-- 	end
+-- 	for i = 0, 50, 5 do
+-- 		spawn(i, 0, 1)
+-- 		spawn(i, 50, 6)
+-- 	end
+
+-- 	local state: Simulation.State = { Tick = 0, Units = units, Buildings = { building }, Spells = {} }
+
+-- 	-- ── ภาพ ────────────────────────────────────────────────
+-- 	local old = Workspace:FindFirstChild("CombatTest")
+-- 	if old then
+-- 		old:Destroy()
+-- 	end
+-- 	local folder = Instance.new("Folder")
+-- 	folder.Name = "CombatTest"
+-- 	folder.Parent = Workspace
+
+-- 	local function world(gridX: number, gridZ: number, y: number): Vector3
+-- 		return self:GridCoordsToWorld(gridX, gridZ, 1, 1) + Vector3.new(0, y, 0)
+-- 	end
+
+-- 	local buildPart = Instance.new("Part")
+-- 	buildPart.Anchored, buildPart.CanCollide = true, false
+-- 	buildPart.Material = Enum.Material.Neon
+-- 	buildPart.Color = Color3.fromRGB(60, 230, 90)
+-- 	buildPart.Size = Vector3.new(8, 10, 8)
+-- 	buildPart.Position = world(25, 25, 5)
+-- 	buildPart.Parent = folder
+
+-- 	local unitParts: { [string]: BasePart } = {}
+-- 	for _, u in units do
+-- 		local ball = Instance.new("Part")
+-- 		ball.Shape = Enum.PartType.Ball
+-- 		ball.Anchored, ball.CanCollide = true, false
+-- 		ball.Material = Enum.Material.Neon
+-- 		ball.Color = if u.Range > 1 then Color3.fromRGB(70, 160, 255) else Color3.fromRGB(255, 90, 70)
+-- 		ball.Size = Vector3.new(1.8, 1.8, 1.8)
+-- 		ball.Position = world(u.Position.GridX, u.Position.GridZ, 2.5)
+-- 		ball.Parent = folder
+-- 		unitParts[u.UnitId] = ball
+-- 	end
+
+-- 	local lasers = Instance.new("Folder")
+-- 	lasers.Name = "Lasers"
+-- 	lasers.Parent = folder
+
+-- 	-- ── เดิน sim ───────────────────────────────────────────
+-- 	task.spawn(function()
+-- 		for _ = 1, 1000 do
+-- 			if building.Hp <= 0 then
+-- 				break
+-- 			end
+-- 			Simulation.stepTick(state, flowFields)
+-- 			lasers:ClearAllChildren()
+
+-- 			for _, u in units do
+-- 				local ball = unitParts[u.UnitId]
+-- 				ball.Position = world(u.Position.GridX, u.Position.GridZ, 2.5)
+
+-- 				-- เข้าระยะ → ยิงเลเซอร์ไปที่ตึก (สีตามชนิดทหาร)
+-- 				local dx = u.Position.GridX - building.Position.GridX
+-- 				local dz = u.Position.GridZ - building.Position.GridZ
+-- 				if dx * dx + dz * dz <= u.Range * u.Range then
+-- 					local from = world(u.Position.GridX, u.Position.GridZ, 2.5)
+-- 					local to = world(25, 25, 5)
+-- 					local len = (from - to).Magnitude
+-- 					local beam = Instance.new("Part")
+-- 					beam.Anchored, beam.CanCollide = true, false
+-- 					beam.Material = Enum.Material.Neon
+-- 					beam.Color = ball.Color
+-- 					beam.Size = Vector3.new(0.15, 0.15, len)
+-- 					beam.CFrame = CFrame.lookAt((from + to) / 2, to)
+-- 					beam.Parent = lasers
+-- 				end
+-- 			end
+
+-- 			-- ตึกเปลี่ยนสีตาม Hp (เขียว → แดง)
+-- 			local ratio = building.Hp / building.MaxHp
+-- 			buildPart.Color =
+-- 				Color3.fromRGB(math.floor(60 + (1 - ratio) * 195), math.floor(230 * ratio), math.floor(90 * ratio))
+
+-- 			task.wait(0.1)
+-- 		end
+
+-- 		buildPart:Destroy()
+-- 		lasers:Destroy()
+-- 		warn(`[BattleController] 🏚️ ตึกพังที่ tick {state.Tick}`)
+-- 	end)
+-- end
