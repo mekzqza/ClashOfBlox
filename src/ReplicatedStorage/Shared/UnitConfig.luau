@@ -41,7 +41,7 @@ function UnitConfig:GetUnitLevelData(unitType: string, level: number): UnitLevel
 end
 
 function UnitConfig:GetUnitLevelDataByEnum(unitId: number, level: number): UnitLevelData?
-	local unitType = GameEnum:GetBuildingTypeById(unitId)
+	local unitType = GameEnum:GetUnitTypeById(unitId)
 	if unitType then
 		return self:GetUnitLevelData(unitType, level)
 	end
