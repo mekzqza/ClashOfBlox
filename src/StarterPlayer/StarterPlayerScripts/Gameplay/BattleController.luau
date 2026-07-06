@@ -265,6 +265,53 @@ function BattleController:_TestPathfindingWow()
 	end
 end
 
+function BattleController:SpawnUnit(unitId: string, unitEnum: number, unitLevel, position: Simulation.GridPosition)
+	if not self._state.Units then
+		self._state.Units = {}
+	end
+
+	-- find target for this unit Then retunr the buildingId
+	-- and then Create flow field for this unit to move to the target
+	local test_nestest_building = "n1"
+	if not self._buildings[test_nestest_building] then
+		warn("[BattleController] No building data found for target buildingId: " .. test_nestest_building)
+		return
+	end
+
+	if not self._flowFields[test_nestest_building] then
+		self._flowFields[test_nestest_building] =
+			Pathfinding.buildFlowField(self._buildings[test_nestest_building].Position, {
+				MinX = 0,
+				MaxX = 50,
+				MinZ = 0,
+				MaxZ = 50,
+			}, self._occupiedCells)
+	end
+
+	local unit = Simulation.RegisterUnit(unitId, unitEnum, unitLevel, position)
+	if not unit then
+		warn("[BattleController] Failed to register unit with ID: " .. unitId)
+		return
+	end
+
+	local unitModel = self:_creatUnitModel(GameEnum:GetUnitTypeById(unitEnum), unitLevel)
+	if not unitModel then
+		warn("[BattleController] Failed to create unit model for unitId: " .. unitId)
+		return
+	end
+	unitModel.Name = unitId
+	unitModel.Parent = self._BattleFolder
+	local worldPos = self:GridCoordsToWorld(position.GridX, position.GridZ, 1, 1)
+	unitModel:PivotTo(CFrame.new(worldPos))
+	self._unitModels[unitId] = unitModel
+
+	self._units[unitId] = unit
+	self._units[unitId].TargetId = test_nestest_building
+	table.insert(self._state.Units, self._units[unitId])
+
+	self._currentUnitId += 1
+end
+
 function BattleController:StartRiding()
 	if not self._state.Tick or not self._state.Buildings or not self._state.Spells then
 		self._state.Buildings = self._state.Buildings or {}
@@ -401,60 +448,14 @@ function BattleController:Start()
 		-- 	return
 		-- end
 
-		if not self._state.Units then
-			self._state.Units = {}
-		end
-
-		-- ตำแหน่ง Grid ของ unit ที่จะถูกวางลงไปใน ระหว่าง cellนั้ๆ แบบละเอียด 1 - 1000 เพื่อทำให้การเดินสท
 		local test_Unit_position = {
 			GridX = 5,
 			GridZ = 5,
 		}
-
 		local unitId = `test_Unit{self._currentUnitId}`
 		local unitLevel = 1
 		local unitEnum = 1
-
-		-- find target for this unit Then retunr the buildingId
-		-- and then Create flow field for this unit to move to the target
-		local test_nestest_building = "n1"
-		if not self._buildings[test_nestest_building] then
-			warn("[BattleController] No building data found for target buildingId: " .. test_nestest_building)
-			return
-		end
-
-		if not self._flowFields[test_nestest_building] then
-			self._flowFields[test_nestest_building] =
-				Pathfinding.buildFlowField(self._buildings[test_nestest_building].Position, {
-					MinX = 0,
-					MaxX = 50,
-					MinZ = 0,
-					MaxZ = 50,
-				}, self._occupiedCells)
-		end
-
-		local unit = Simulation.RegisterUnit(unitId, unitEnum, unitLevel, test_Unit_position)
-		if not unit then
-			warn("[BattleController] Failed to register unit with ID: " .. unitId)
-			return
-		end
-
-		local unitModel = self:_creatUnitModel(GameEnum:GetUnitTypeById(unitEnum), unitLevel)
-		if not unitModel then
-			warn("[BattleController] Failed to create unit model for unitId: " .. unitId)
-			return
-		end
-		unitModel.Name = unitId
-		unitModel.Parent = self._BattleFolder
-		local worldPos = self:GridCoordsToWorld(test_Unit_position.GridX, test_Unit_position.GridZ, 1, 1)
-		unitModel:PivotTo(CFrame.new(worldPos))
-		self._unitModels[unitId] = unitModel
-
-		self._units[unitId] = unit
-		self._units[unitId].TargetId = test_nestest_building
-		table.insert(self._state.Units, self._units[unitId])
-
-		self._currentUnitId += 1
+		self:SpawnUnit(unitId, unitEnum, unitLevel, test_Unit_position)
 	end)
 
 	EventBus:On(Events.LOCAL_FOLDER_READY, function(data)
