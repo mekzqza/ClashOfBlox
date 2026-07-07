@@ -7,7 +7,7 @@ return {
         {
             Type = "string",
             Name = "Goal",
-            Description = "Type 1 to  for test _TestPathfindingWow, 2 to _TestCombatWow",
+            Description = "Type 1 to  for test _TestPathfindingWow,",
             Optional = true,
         },
 
@@ -26,9 +26,8 @@ return {
         if Goal == "1" then
             BattleController:_TestPathfindingWow()
             return
-        elseif Goal == "2" then
-            BattleController:_TestCombatWow()
-            return
+        elseif Goal == "00" then
+            EventBus:Emit(Events.LOCAL_DEPLOY_UNIT)
         end
     end,
 }

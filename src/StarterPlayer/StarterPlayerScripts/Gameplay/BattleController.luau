@@ -26,9 +26,7 @@ local CONFIG = {
 		["LastCollectedTime"] = 6,
 	},
 	INTERVAL = 0.1, -- วินาที
-	MAX_QUEUE_SIZE = 1000,
 	MATCH_TIMEOUT = 20, -- วินาที
-	GRID_DISTANCE_INSTUD = 1000, -- smoothly move unit to target (in studs)
 }
 
 local BattleController = {}
@@ -40,16 +38,22 @@ function BattleController.new()
 
 	self._state = {} :: Simulation.State
 
+	-- Data Visualization
 	self._currentUnitId = 1
 	self._units = {} :: { [string]: Simulation.UnitState }
 	self._buildings = {} :: { [string]: Simulation.BuildingState }
+
+	--Model Visualization
+	self._UnitsTemplate = nil
+	self._unitModels = {} :: { [string]: Model }
+	self._buildingModels = {} :: { [string]: Model }
 
 	-- FlowField ของBuildingแต่ละตัว
 	self._flowFields = {} :: { [string]: Pathfinding.FlowField }
 	self._validCells = {} :: { [number]: true }
 	self._occupiedCells = {} :: { [number]: true }
 
-	self._isFindingMatch = false
+	self._isFindingRaid = false
 	self._isRaidStarted = false
 	self._isRaiding = false
 	self._macthConnection = nil
@@ -61,10 +65,6 @@ function BattleController.new()
 	self._gridOriginZ = 0 :: number
 	self._gridSurfaceY = 0 :: number
 
-	--Visualization
-	self._UnitsTemplate = nil
-	self._unitModels = {} :: { [string]: Model }
-	self._buildingModels = {} :: { [string]: Model }
 	return self
 end
 
@@ -164,13 +164,6 @@ function BattleController:freeCell(position: Vector3, sizeX: number?, sizeZ: num
 	end
 end
 
--- หลังจากวาง unit แล้วให้หา target ที่ใกล้ที่สุดจาก unit นั้น
--- [[
---  @TODO After place unit in the raid, find the nearest target from that unit. If there is no target, the unit will wait until a target appears.
--- ]]
-function BattleController:UnitfindindTarget(unitId: string) end
-
--- ponytail: เดโม่ wow ล้วนๆ ลบทิ้งได้
 function BattleController:_TestPathfindingWow()
 	local BOUNDS = { MinX = 0, MaxX = 50, MinZ = 0, MaxZ = 50 }
 	local GOAL = { GridX = 25, GridZ = 25 }
@@ -265,6 +258,34 @@ function BattleController:_TestPathfindingWow()
 	end
 end
 
+function BattleController:SpawnUnit(unitId: string, unitEnum: number, unitLevel, position: Simulation.GridPosition)
+	if not self._state.Units then
+		self._state.Units = {}
+	end
+
+	local unit = Simulation.RegisterUnit(unitId, unitEnum, unitLevel, position)
+	if not unit then
+		warn("[BattleController] Failed to register unit with ID: " .. unitId)
+		return
+	end
+
+	local unitModel = self:_creatUnitModel(GameEnum:GetUnitTypeById(unitEnum), unitLevel)
+	if not unitModel then
+		warn("[BattleController] Failed to create unit model for unitId: " .. unitId)
+		return
+	end
+	unitModel.Name = unitId
+	unitModel.Parent = self._BattleFolder
+	local worldPos = self:GridCoordsToWorld(position.GridX, position.GridZ, 1, 1)
+	unitModel:PivotTo(CFrame.new(worldPos))
+	self._unitModels[unitId] = unitModel
+
+	self._units[unitId] = unit
+	table.insert(self._state.Units, self._units[unitId])
+
+	self._currentUnitId += 1
+end
+
 function BattleController:StartRiding()
 	if not self._state.Tick or not self._state.Buildings or not self._state.Spells then
 		self._state.Buildings = self._state.Buildings or {}
@@ -286,8 +307,35 @@ function BattleController:StartRiding()
 					warn("[BattleController] Unit has no UnitId, skipping")
 					continue
 				end
+
+				local unitTargetId = unit.TargetId
+
+				if unitTargetId then
+					-- @TODO
+					--building HP == 0, remove flowfield
+					if self._buildings[unitTargetId].Hp <= 0 then
+						self._flowFields[unitTargetId] = nil
+						warn(
+							"[BattleController] Building with ID: "
+								.. unitTargetId
+								.. " is destroyed, removing flow field"
+						)
+						continue
+					end
+					if not self._flowFields[unitTargetId] then
+						self._flowFields[unitTargetId] =
+							Pathfinding.buildFlowField(self._buildings[unitTargetId].Position, {
+								MinX = 0,
+								MaxX = 50,
+								MinZ = 0,
+								MaxZ = 50,
+							}, self._occupiedCells)
+					end
+				end
+
 				local unitState = self._units[unitId]
 				if not unitState or unit.Hp <= 0 then
+					-- @TODO monster die, remove model
 					continue
 				end
 
@@ -297,27 +345,48 @@ function BattleController:StartRiding()
 			end
 			task.wait(CONFIG.INTERVAL)
 		end
-		-- self:MatchEnd()
+		self:MatchEnd()
+		warn("[BattleController] Match ended after " .. (tick() - startTime) .. " seconds")
 	end)
 end
 
 function BattleController:MatchEnd()
 	self._isRaiding = false
+	self._isRaidStarted = false
+	self._currentUnitId = 1
+
 	if self._macthConnection then
-		task.cancel(self._macthConnection)
 		self._macthConnection = nil
 	end
+	self._state.Tick = 0
+	self._state.Buildings = {}
+	self._state.Units = {}
+	self._state.Spells = {}
+	self._flowFields = {}
+	self._occupiedCells = {}
+	self._units = {}
+	self._buildings = {}
 
-	if self._state then
-		self._state.Tick = 0
-		self._state.Buildings = {}
-		self._state.Units = {}
-		self._state.Spells = {}
+	-- ในอนาคตจะทำ unit polling
+	if self._unitModels then
+		for _, model in self._unitModels do
+			if model and model.Parent then
+				model:Destroy()
+			end
+		end
+		self._unitModels = {}
 	end
 
-	if self._flowFields then
-		self._flowFields = {}
+	if self._buildingModels then
+		for _, model in self._buildingModels do
+			if model and model.Parent then
+				model:Destroy()
+			end
+		end
+		self._buildingModels = {}
 	end
+
+	self._matchStartTime = 0
 end
 
 function BattleController:Init()
@@ -369,17 +438,20 @@ function BattleController:Start()
 				warn("[BattleController] Failed to register building with ID: " .. buildingId)
 				continue
 			end
+
 			self._buildings[buildingId] = building
-			self:occupyCell(
-				self:GridCoordsToWorld(
-					buildingdata[CONFIG.KEYSTORE["Gridx"]],
-					buildingdata[CONFIG.KEYSTORE["Gridz"]],
-					self._buildings[buildingId].Dimensions.Width,
-					self._buildings[buildingId].Dimensions.Length
-				),
+			local buildPosion = self:GridCoordsToWorld(
+				buildingdata[CONFIG.KEYSTORE["Gridx"]],
+				buildingdata[CONFIG.KEYSTORE["Gridz"]],
 				self._buildings[buildingId].Dimensions.Width,
 				self._buildings[buildingId].Dimensions.Length
 			)
+			self:occupyCell(
+				buildPosion,
+				self._buildings[buildingId].Dimensions.Width,
+				self._buildings[buildingId].Dimensions.Length
+			)
+			--create model
 			table.insert(self._state.Buildings, self._buildings[buildingId])
 		end
 	end)
@@ -401,60 +473,14 @@ function BattleController:Start()
 		-- 	return
 		-- end
 
-		if not self._state.Units then
-			self._state.Units = {}
-		end
-
-		-- ตำแหน่ง Grid ของ unit ที่จะถูกวางลงไปใน ระหว่าง cellนั้ๆ แบบละเอียด 1 - 1000 เพื่อทำให้การเดินสท
 		local test_Unit_position = {
 			GridX = 5,
 			GridZ = 5,
 		}
-
 		local unitId = `test_Unit{self._currentUnitId}`
 		local unitLevel = 1
 		local unitEnum = 1
-
-		-- find target for this unit Then retunr the buildingId
-		-- and then Create flow field for this unit to move to the target
-		local test_nestest_building = "n1"
-		if not self._buildings[test_nestest_building] then
-			warn("[BattleController] No building data found for target buildingId: " .. test_nestest_building)
-			return
-		end
-
-		if not self._flowFields[test_nestest_building] then
-			self._flowFields[test_nestest_building] =
-				Pathfinding.buildFlowField(self._buildings[test_nestest_building].Position, {
-					MinX = 0,
-					MaxX = 50,
-					MinZ = 0,
-					MaxZ = 50,
-				}, self._occupiedCells)
-		end
-
-		local unit = Simulation.RegisterUnit(unitId, unitEnum, unitLevel, test_Unit_position)
-		if not unit then
-			warn("[BattleController] Failed to register unit with ID: " .. unitId)
-			return
-		end
-
-		local unitModel = self:_creatUnitModel(GameEnum:GetUnitTypeById(unitEnum), unitLevel)
-		if not unitModel then
-			warn("[BattleController] Failed to create unit model for unitId: " .. unitId)
-			return
-		end
-		unitModel.Name = unitId
-		unitModel.Parent = self._BattleFolder
-		local worldPos = self:GridCoordsToWorld(test_Unit_position.GridX, test_Unit_position.GridZ, 1, 1)
-		unitModel:PivotTo(CFrame.new(worldPos))
-		self._unitModels[unitId] = unitModel
-
-		self._units[unitId] = unit
-		self._units[unitId].TargetId = test_nestest_building
-		table.insert(self._state.Units, self._units[unitId])
-
-		self._currentUnitId += 1
+		self:SpawnUnit(unitId, unitEnum, unitLevel, test_Unit_position)
 	end)
 
 	EventBus:On(Events.LOCAL_FOLDER_READY, function(data)
