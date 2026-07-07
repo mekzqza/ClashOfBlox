@@ -38,9 +38,15 @@ function BattleController.new()
 
 	self._state = {} :: Simulation.State
 
+	-- Data Visualization
 	self._currentUnitId = 1
 	self._units = {} :: { [string]: Simulation.UnitState }
 	self._buildings = {} :: { [string]: Simulation.BuildingState }
+
+	--Model Visualization
+	self._UnitsTemplate = nil
+	self._unitModels = {} :: { [string]: Model }
+	self._buildingModels = {} :: { [string]: Model }
 
 	-- FlowField ของBuildingแต่ละตัว
 	self._flowFields = {} :: { [string]: Pathfinding.FlowField }
@@ -59,10 +65,6 @@ function BattleController.new()
 	self._gridOriginZ = 0 :: number
 	self._gridSurfaceY = 0 :: number
 
-	--Visualization
-	self._UnitsTemplate = nil
-	self._unitModels = {} :: { [string]: Model }
-	self._buildingModels = {} :: { [string]: Model }
 	return self
 end
 
@@ -162,7 +164,6 @@ function BattleController:freeCell(position: Vector3, sizeX: number?, sizeZ: num
 	end
 end
 
--- ponytail: เดโม่ wow ล้วนๆ ลบทิ้งได้
 function BattleController:_TestPathfindingWow()
 	local BOUNDS = { MinX = 0, MaxX = 50, MinZ = 0, MaxZ = 50 }
 	local GOAL = { GridX = 25, GridZ = 25 }
@@ -307,10 +308,23 @@ function BattleController:StartRiding()
 					continue
 				end
 
-				if unit.TargetId then
-					if not self._flowFields[unit.TargetId] then
-						self._flowFields[unit.TargetId] =
-							Pathfinding.buildFlowField(self._buildings[unit.TargetId].Position, {
+				local unitTargetId = unit.TargetId
+
+				if unitTargetId then
+					-- @TODO
+					--building HP == 0, remove flowfield
+					if self._buildings[unitTargetId].Hp <= 0 then
+						self._flowFields[unitTargetId] = nil
+						warn(
+							"[BattleController] Building with ID: "
+								.. unitTargetId
+								.. " is destroyed, removing flow field"
+						)
+						continue
+					end
+					if not self._flowFields[unitTargetId] then
+						self._flowFields[unitTargetId] =
+							Pathfinding.buildFlowField(self._buildings[unitTargetId].Position, {
 								MinX = 0,
 								MaxX = 50,
 								MinZ = 0,
@@ -321,6 +335,7 @@ function BattleController:StartRiding()
 
 				local unitState = self._units[unitId]
 				if not unitState or unit.Hp <= 0 then
+					-- @TODO monster die, remove model
 					continue
 				end
 
@@ -331,30 +346,44 @@ function BattleController:StartRiding()
 			task.wait(CONFIG.INTERVAL)
 		end
 		self:MatchEnd()
+		warn("[BattleController] Match ended after " .. (tick() - startTime) .. " seconds")
 	end)
 end
 
 function BattleController:MatchEnd()
 	self._isRaiding = false
 	self._isRaidStarted = false
+	self._currentUnitId = 1
 
 	if self._macthConnection then
 		self._macthConnection = nil
 	end
+	self._state.Tick = 0
+	self._state.Buildings = {}
+	self._state.Units = {}
+	self._state.Spells = {}
+	self._flowFields = {}
+	self._occupiedCells = {}
+	self._units = {}
+	self._buildings = {}
 
-	if self._state then
-		self._state.Tick = 0
-		self._state.Buildings = {}
-		self._state.Units = {}
-		self._state.Spells = {}
+	-- ในอนาคตจะทำ unit polling
+	if self._unitModels then
+		for _, model in self._unitModels do
+			if model and model.Parent then
+				model:Destroy()
+			end
+		end
+		self._unitModels = {}
 	end
 
-	if self._flowFields then
-		self._flowFields = {}
-	end
-
-	if self._occupiedCells then
-		self._occupiedCells = {}
+	if self._buildingModels then
+		for _, model in self._buildingModels do
+			if model and model.Parent then
+				model:Destroy()
+			end
+		end
+		self._buildingModels = {}
 	end
 
 	self._matchStartTime = 0
@@ -409,17 +438,20 @@ function BattleController:Start()
 				warn("[BattleController] Failed to register building with ID: " .. buildingId)
 				continue
 			end
+
 			self._buildings[buildingId] = building
-			self:occupyCell(
-				self:GridCoordsToWorld(
-					buildingdata[CONFIG.KEYSTORE["Gridx"]],
-					buildingdata[CONFIG.KEYSTORE["Gridz"]],
-					self._buildings[buildingId].Dimensions.Width,
-					self._buildings[buildingId].Dimensions.Length
-				),
+			local buildPosion = self:GridCoordsToWorld(
+				buildingdata[CONFIG.KEYSTORE["Gridx"]],
+				buildingdata[CONFIG.KEYSTORE["Gridz"]],
 				self._buildings[buildingId].Dimensions.Width,
 				self._buildings[buildingId].Dimensions.Length
 			)
+			self:occupyCell(
+				buildPosion,
+				self._buildings[buildingId].Dimensions.Width,
+				self._buildings[buildingId].Dimensions.Length
+			)
+			--create model
 			table.insert(self._state.Buildings, self._buildings[buildingId])
 		end
 	end)
