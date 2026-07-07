@@ -26,9 +26,7 @@ local CONFIG = {
 		["LastCollectedTime"] = 6,
 	},
 	INTERVAL = 0.1, -- วินาที
-	MAX_QUEUE_SIZE = 1000,
 	MATCH_TIMEOUT = 20, -- วินาที
-	GRID_DISTANCE_INSTUD = 1000, -- smoothly move unit to target (in studs)
 }
 
 local BattleController = {}
@@ -49,7 +47,7 @@ function BattleController.new()
 	self._validCells = {} :: { [number]: true }
 	self._occupiedCells = {} :: { [number]: true }
 
-	self._isFindingMatch = false
+	self._isFindingRaid = false
 	self._isRaidStarted = false
 	self._isRaiding = false
 	self._macthConnection = nil
@@ -164,12 +162,6 @@ function BattleController:freeCell(position: Vector3, sizeX: number?, sizeZ: num
 	end
 end
 
--- หลังจากวาง unit แล้วให้หา target ที่ใกล้ที่สุดจาก unit นั้น
--- [[
---  @TODO After place unit in the raid, find the nearest target from that unit. If there is no target, the unit will wait until a target appears.
--- ]]
-function BattleController:UnitfindindTarget(unitId: string) end
-
 -- ponytail: เดโม่ wow ล้วนๆ ลบทิ้งได้
 function BattleController:_TestPathfindingWow()
 	local BOUNDS = { MinX = 0, MaxX = 50, MinZ = 0, MaxZ = 50 }
@@ -270,24 +262,6 @@ function BattleController:SpawnUnit(unitId: string, unitEnum: number, unitLevel,
 		self._state.Units = {}
 	end
 
-	-- find target for this unit Then retunr the buildingId
-	-- and then Create flow field for this unit to move to the target
-	local test_nestest_building = "n1"
-	if not self._buildings[test_nestest_building] then
-		warn("[BattleController] No building data found for target buildingId: " .. test_nestest_building)
-		return
-	end
-
-	if not self._flowFields[test_nestest_building] then
-		self._flowFields[test_nestest_building] =
-			Pathfinding.buildFlowField(self._buildings[test_nestest_building].Position, {
-				MinX = 0,
-				MaxX = 50,
-				MinZ = 0,
-				MaxZ = 50,
-			}, self._occupiedCells)
-	end
-
 	local unit = Simulation.RegisterUnit(unitId, unitEnum, unitLevel, position)
 	if not unit then
 		warn("[BattleController] Failed to register unit with ID: " .. unitId)
@@ -306,7 +280,6 @@ function BattleController:SpawnUnit(unitId: string, unitEnum: number, unitLevel,
 	self._unitModels[unitId] = unitModel
 
 	self._units[unitId] = unit
-	self._units[unitId].TargetId = test_nestest_building
 	table.insert(self._state.Units, self._units[unitId])
 
 	self._currentUnitId += 1
@@ -333,6 +306,19 @@ function BattleController:StartRiding()
 					warn("[BattleController] Unit has no UnitId, skipping")
 					continue
 				end
+
+				if unit.TargetId then
+					if not self._flowFields[unit.TargetId] then
+						self._flowFields[unit.TargetId] =
+							Pathfinding.buildFlowField(self._buildings[unit.TargetId].Position, {
+								MinX = 0,
+								MaxX = 50,
+								MinZ = 0,
+								MaxZ = 50,
+							}, self._occupiedCells)
+					end
+				end
+
 				local unitState = self._units[unitId]
 				if not unitState or unit.Hp <= 0 then
 					continue
@@ -344,12 +330,14 @@ function BattleController:StartRiding()
 			end
 			task.wait(CONFIG.INTERVAL)
 		end
-		-- self:MatchEnd()
+		self:MatchEnd()
 	end)
 end
 
 function BattleController:MatchEnd()
 	self._isRaiding = false
+	self._isRaidStarted = false
+
 	if self._macthConnection then
 		task.cancel(self._macthConnection)
 		self._macthConnection = nil
@@ -365,6 +353,12 @@ function BattleController:MatchEnd()
 	if self._flowFields then
 		self._flowFields = {}
 	end
+
+	if self._occupiedCells then
+		self._occupiedCells = {}
+	end
+
+	self._matchStartTime = 0
 end
 
 function BattleController:Init()

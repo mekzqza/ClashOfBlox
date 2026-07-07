@@ -144,7 +144,6 @@ local function findBuilding(buildings: { BuildingState }, id: string): BuildingS
 	return nil
 end
 
--- เลือกตึก(ที่ยังไม่พัง)ที่ใกล้ที่สุด
 local function nearestBuilding(unit: UnitState, buildings: { BuildingState }): string?
 	local bestId: string? = nil
 	local bestDist = math.huge
@@ -160,9 +159,6 @@ local function nearestBuilding(unit: UnitState, buildings: { BuildingState }): s
 	return bestId
 end
 
--- เดินทีละ tick → mutate state ในที่
--- ponytail: in-place mutation; ถ้าต้องการ replay/rollback ค่อย snapshot ก่อนเรียก
--- flowFields[buildingId] = สนามที่พาทหารวิ่งเข้าตึกนั้น
 function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.FlowField }): State
 	state.Tick += 1
 
@@ -171,14 +167,13 @@ function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.F
 			continue
 		end
 
-		-- หาเป้าใหม่ถ้ายังไม่มี หรือเป้าเดิมพังไปแล้ว
 		local target = if unit.TargetId then findBuilding(state.Buildings, unit.TargetId) else nil
 		if not target or target.Hp <= 0 then
 			unit.TargetId = nearestBuilding(unit, state.Buildings)
 			target = if unit.TargetId then findBuilding(state.Buildings, unit.TargetId) else nil
 		end
 		if not target then
-			continue -- ไม่มีตึกเหลือ = ทหารตัวนี้ไม่มีอะไรทำ
+			continue
 		end
 
 		if distanceSq(unit.Position, target.Position) <= unit.Range * unit.Range then
