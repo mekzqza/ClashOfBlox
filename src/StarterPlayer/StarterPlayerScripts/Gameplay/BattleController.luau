@@ -339,7 +339,6 @@ function BattleController:MatchEnd()
 	self._isRaidStarted = false
 
 	if self._macthConnection then
-		task.cancel(self._macthConnection)
 		self._macthConnection = nil
 	end
 
