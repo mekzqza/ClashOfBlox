@@ -50,8 +50,7 @@ function BattleController.new()
 	self._unitModels = {} :: { [string]: Model }
 	self._buildingModels = {} :: { [string]: Model }
 
-	self._lastTimeCheck = 0 :: number
-	self._unitVisuals = {} :: { [string]: { Prev: Vector3, Current: Vector3 } }
+	self._unitVisuals = {} :: { [string]: { Prev: Vector3, Current: Vector3, StartTime: number, Duration: number } }
 	self._runServiceConnection = nil :: RBXScriptConnection?
 
 	-- FlowField ของBuildingแต่ละตัว
@@ -256,10 +255,11 @@ function BattleController:_TestPathfindingWow()
 	end
 end
 
-function BattleController:SpawnUnit(unitId: string, unitEnum: number, unitLevel, position: Simulation.GridPosition)
+function BattleController:SpawnUnit(unitEnum: number, unitLevel, position: Simulation.GridPosition)
 	if not self._state.Units then
 		self._state.Units = {}
 	end
+	local unitId = "Unit_" .. self._currentUnitId
 
 	local unit = Simulation.RegisterUnit(unitId, unitEnum, unitLevel, position)
 	if not unit then
@@ -294,8 +294,8 @@ function BattleController:StartRiding()
 	self._isRaiding = true
 
 	self._runServiceConnection = RunService.Heartbeat:Connect(function()
-		local alpha = math.clamp((os.clock() - self._lastTimeCheck) / CONFIG.INTERVAL, 0, 1)
 		for unitId, visual in self._unitVisuals do
+			local alpha = math.clamp((os.clock() - visual.StartTime) / visual.Duration, 0, 1)
 			local model = self._unitModels[unitId]
 			if model then
 				local prevPos = visual.Prev
@@ -311,7 +311,6 @@ function BattleController:StartRiding()
 		local endTime = startTime + CONFIG.MATCH_TIMEOUT
 		while self._isRaiding and tick() < endTime do
 			Simulation.stepTick(self._state, self._flowFields)
-			self._lastTimeCheck = os.clock()
 
 			for _, unit in self._state.Units do
 				local unitId = unit.UnitId
@@ -351,13 +350,18 @@ function BattleController:StartRiding()
 					continue
 				end
 
-				-- @TODO update unit model position Smothly
 				local currentWorld = self:GridCoordsToWorld(unit.Position.GridX, unit.Position.GridZ, 1, 1)
 				local oldVisual = self._unitVisuals[unitId]
-				self._unitVisuals[unitId] = {
-					Prev = oldVisual and oldVisual.Current or currentWorld,
-					Current = currentWorld,
-				}
+				if not oldVisual or oldVisual.Current ~= currentWorld then
+					self._unitVisuals[unitId] = {
+						Prev = oldVisual and oldVisual.Current or currentWorld,
+						Current = currentWorld,
+						StartTime = os.clock(),
+						Duration = if (10 / unit.WalkSpeed) * CONFIG.INTERVAL == 0
+							then CONFIG.INTERVAL
+							else (10 / unit.WalkSpeed) * CONFIG.INTERVAL,
+					}
+				end
 			end
 			task.wait(CONFIG.INTERVAL)
 		end
@@ -383,7 +387,6 @@ function BattleController:MatchEnd()
 	self._units = {}
 	self._buildings = {}
 	self._unitVisuals = {}
-	self._lastTimeCheck = 0
 
 	if self._runServiceConnection then
 		self._runServiceConnection:Disconnect()
@@ -477,26 +480,19 @@ function BattleController:Start()
 			self:StartRiding()
 		end
 
-		-- local enum = data.UnitEnum
-		-- if not enum then
-		-- 	warn("[BattleController] No unit enum data received for deployment")
-		-- 	return
-		-- end
+		local unitEnum = data.UnitEnum
+		if not unitEnum then
+			warn("[BattleController] No unit enum data received for deployment")
+			return
+		end
 
-		-- local position = data.Position
-		-- if not position then
-		-- 	warn("[BattleController] No position data received for deployment")
-		-- 	return
-		-- end
-
-		local test_Unit_position = {
-			GridX = 5,
-			GridZ = 5,
-		}
-		local unitId = `test_Unit{self._currentUnitId}`
-		local unitLevel = 1
-		local unitEnum = 1
-		self:SpawnUnit(unitId, unitEnum, unitLevel, test_Unit_position)
+		local position = data.Position
+		if not position then
+			warn("[BattleController] No position data received for deployment")
+			return
+		end
+		local unitLevel = data.UnitLevel or 1
+		self:SpawnUnit(unitEnum, unitLevel, position)
 	end)
 
 	EventBus:On(Events.LOCAL_FOLDER_READY, function(data)

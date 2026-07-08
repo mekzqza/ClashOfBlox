@@ -27,7 +27,22 @@ return {
             BattleController:_TestPathfindingWow()
             return
         elseif Goal == "00" then
-            EventBus:Emit(Events.LOCAL_DEPLOY_UNIT)
+            local test_Unit_position = {
+                GridX = 5,
+                GridZ = 5,
+            }
+            local unitLevel = 1
+            local unitEnum = 1
+            EventBus:Emit(Events.LOCAL_DEPLOY_UNIT, {
+                UnitEnum = unitEnum,
+                UnitLevel = unitLevel,
+                Position = test_Unit_position,
+            })
+            EventBus:Emit(Events.LOCAL_DEPLOY_UNIT, {
+                UnitEnum = 2,
+                UnitLevel = unitLevel,
+                Position = test_Unit_position,
+            })
         end
     end,
 }
