@@ -332,9 +332,11 @@ function BattleController:StartRiding()
 					continue
 				end
 
-				self._unitModels[unitId]:PivotTo(
-					CFrame.new(self:GridCoordsToWorld(unit.Position.GridX, unit.Position.GridZ, 1, 1))
-				)
+				-- @TODO update unit model position Smothly
+				self._unitVisuals[unitId] = {
+					Prev = self:GridCoordsToWorld(unitState.Position.GridX, unitState.Position.GridZ, 1, 1),
+					Current = self:GridCoordsToWorld(unit.Position.GridX, unit.Position.GridZ, 1, 1),
+				}
 			end
 			task.wait(CONFIG.INTERVAL)
 		end
