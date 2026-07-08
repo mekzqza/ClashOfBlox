@@ -36,6 +36,7 @@ function BattleController.new()
 	self._BattleFolder = nil :: Folder?
 	self._victem = nil :: Player?
 
+	-- game simulation state
 	self._state = {} :: Simulation.State
 
 	-- Data Visualization
@@ -65,21 +66,13 @@ function BattleController.new()
 	self._gridOriginZ = 0 :: number
 	self._gridSurfaceY = 0 :: number
 
+	self._UnitController = nil
+
 	return self
 end
 
-function BattleController:_creatUnitModel(unitType: string, unitLevel: number): Model?
-	local unitFolder = self._UnitsTemplate:FindFirstChild(unitType)
-	if not unitFolder then
-		warn("[BattleController] Unit type not found: " .. unitType)
-		return nil
-	end
-	local unitModel = unitFolder:FindFirstChild(tostring(unitLevel))
-	if not unitModel then
-		warn("[BattleController] Unit level not found: " .. unitLevel .. " for type: " .. unitType)
-		return nil
-	end
-	return unitModel:Clone()
+function BattleController:SetDependencies(locator)
+	self._UnitController = locator:Get("UnitController")
 end
 
 function BattleController:_gridKeyfromCoords(gridx: number, gridz: number): number
@@ -269,7 +262,7 @@ function BattleController:SpawnUnit(unitId: string, unitEnum: number, unitLevel,
 		return
 	end
 
-	local unitModel = self:_creatUnitModel(GameEnum:GetUnitTypeById(unitEnum), unitLevel)
+	local unitModel = self._UnitController:GetUnit(GameEnum:GetUnitTypeById(unitEnum), unitLevel)
 	if not unitModel then
 		warn("[BattleController] Failed to create unit model for unitId: " .. unitId)
 		return
@@ -390,15 +383,8 @@ function BattleController:MatchEnd()
 end
 
 function BattleController:Init()
-	local Assets = ReplicatedStorage:WaitForChild("Assets")
-	if not Assets then
-		warn("[BattleController] Assets folder not found in ReplicatedStorage")
-		return
-	end
-
-	self._UnitsTemplate = Assets:WaitForChild("Units")
-	if not self._UnitsTemplate then
-		warn("[BattleController] Units template not found in Assets")
+	if not self._UnitController then
+		warn("[BattleController] UnitController dependency not set")
 		return
 	end
 end
