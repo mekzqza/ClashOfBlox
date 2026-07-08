@@ -25,9 +25,21 @@ local Units = {
 			MaxHp = 100,
 
 			Damage = 10,
-			WalkSpeed = 5,
+			WalkSpeed = 10,
 			Range = 1,
 			AttackCooldown = 1,
+		},
+	},
+	["Barbarian"] = {
+		[1] = {
+			UpgradeCost = 100,
+			UpgradeTime = 10,
+			MaxHp = 200,
+
+			Damage = 20,
+			WalkSpeed = 5,
+			Range = 1,
+			AttackCooldown = 1.5,
 		},
 	},
 }
