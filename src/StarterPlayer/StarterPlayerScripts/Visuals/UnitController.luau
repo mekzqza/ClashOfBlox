@@ -59,6 +59,7 @@ function UnitController:RecycleUnit(unitModel: Model)
 		self._unitAvaliable[unitType][unitLevel] = {}
 	end
 
+	unitModel.Parent = self._pool_Unit_Floder
 	unitModel:PivotTo(CFrame.new(self._pool_Position_Floder))
 	table.insert(self._unitAvaliable[unitType][unitLevel], unitModel)
 end
@@ -76,6 +77,7 @@ function UnitController:CreateUnit(unitType: string, unitLevel: number): Model?
 	end
 
 	local newUnitModel = unitModel:Clone()
+	newUnitModel.Parent = self._pool_Unit_Floder
 	newUnitModel:PivotTo(CFrame.new(self._pool_Position_Floder))
 	newUnitModel:SetAttribute("UnitType", unitType)
 	newUnitModel:SetAttribute("UnitLevel", unitLevel)
