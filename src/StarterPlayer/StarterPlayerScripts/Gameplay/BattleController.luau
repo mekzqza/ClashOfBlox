@@ -7,6 +7,7 @@
 ]]
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 
 local Events = require(ReplicatedStorage.Shared.Events)
 local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
@@ -48,6 +49,10 @@ function BattleController.new()
 	self._UnitsTemplate = nil
 	self._unitModels = {} :: { [string]: Model }
 	self._buildingModels = {} :: { [string]: Model }
+
+	self._lastTimeCheck = 0 :: number
+	self._unitVisuals = {} :: { [string]: { Prev: Vector3, Current: Vector3 } }
+	self._runServiceConnection = nil :: RBXScriptConnection?
 
 	-- FlowField ของBuildingแต่ละตัว
 	self._flowFields = {} :: { [string]: Pathfinding.FlowField }
@@ -286,13 +291,27 @@ function BattleController:StartRiding()
 		self._state.Units = {}
 		self._state.Spells = {}
 	end
-
 	self._isRaiding = true
+
+	self._runServiceConnection = RunService.Heartbeat:Connect(function()
+		local alpha = math.clamp((os.clock() - self._lastTimeCheck) / CONFIG.INTERVAL, 0, 1)
+		for unitId, visual in self._unitVisuals do
+			local model = self._unitModels[unitId]
+			if model then
+				local prevPos = visual.Prev
+				local currentPos = visual.Current
+				local interpolatedPos = prevPos:Lerp(currentPos, alpha)
+				model:PivotTo(CFrame.new(interpolatedPos))
+			end
+		end
+	end)
+
 	self._macthConnection = task.spawn(function()
 		local startTime = tick()
 		local endTime = startTime + CONFIG.MATCH_TIMEOUT
 		while self._isRaiding and tick() < endTime do
 			Simulation.stepTick(self._state, self._flowFields)
+			self._lastTimeCheck = os.clock()
 
 			for _, unit in self._state.Units do
 				local unitId = unit.UnitId
@@ -333,9 +352,11 @@ function BattleController:StartRiding()
 				end
 
 				-- @TODO update unit model position Smothly
+				local currentWorld = self:GridCoordsToWorld(unit.Position.GridX, unit.Position.GridZ, 1, 1)
+				local oldVisual = self._unitVisuals[unitId]
 				self._unitVisuals[unitId] = {
-					Prev = self:GridCoordsToWorld(unitState.Position.GridX, unitState.Position.GridZ, 1, 1),
-					Current = self:GridCoordsToWorld(unit.Position.GridX, unit.Position.GridZ, 1, 1),
+					Prev = oldVisual and oldVisual.Current or currentWorld,
+					Current = currentWorld,
 				}
 			end
 			task.wait(CONFIG.INTERVAL)
@@ -361,12 +382,19 @@ function BattleController:MatchEnd()
 	self._occupiedCells = {}
 	self._units = {}
 	self._buildings = {}
+	self._unitVisuals = {}
+	self._lastTimeCheck = 0
+
+	if self._runServiceConnection then
+		self._runServiceConnection:Disconnect()
+		self._runServiceConnection = nil
+	end
 
 	-- ในอนาคตจะทำ unit polling
 	if self._unitModels then
 		for _, model in self._unitModels do
 			if model and model.Parent then
-				model:Destroy()
+				self._UnitController:RecycleUnit(model)
 			end
 		end
 		self._unitModels = {}
