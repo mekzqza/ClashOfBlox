@@ -44,6 +44,9 @@ export type UnitState = {
 	CooldownLeft: number, -- runtime: นับถอยหลังถึงยิงครั้งถัดไป
 	Position: GridPosition,
 
+	-- 1-10 เพื่อสะสมกำลังในการเดิน ถึง10 ให้เดิน 1 ช่อง (ถ้า WalkSpeed=1) → deterministic
+	MoveProgress: number,
+
 	TargetId: string?,
 }
 
@@ -121,6 +124,7 @@ function Simulation.RegisterUnit(
 		Hp = unitData.MaxHp,
 		Damage = unitData.Damage,
 		WalkSpeed = unitData.WalkSpeed,
+		MoveProgress = 0,
 		Range = unitData.Range,
 		AttackCooldown = unitData.AttackCooldown,
 		CooldownLeft = 0,
@@ -184,12 +188,16 @@ function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.F
 				unit.CooldownLeft = unit.AttackCooldown
 			end
 		else
-			-- ยังไกล → เดิน 1 ก้าวตาม flow field ของเป้า
-			-- ponytail: 1 ช่อง/tick; ผูก WalkSpeed กับความถี่ก้าวทีหลังถ้าอยากให้ความเร็วต่างกัน
 			local flow = flowFields[target.BuildingId]
-			local nxt = if flow then Pathfinding.nextStep(flow, unit.Position) else nil
-			if nxt then
-				unit.Position = nxt
+
+			unit.MoveProgress += unit.WalkSpeed
+			if unit.MoveProgress >= 10 then
+				unit.MoveProgress -= 10
+				local nxt = if flow then Pathfinding.nextStep(flow, unit.Position) else nil
+				if nxt then
+					unit.Position = nxt
+				end
+			else
 			end
 		end
 	end
