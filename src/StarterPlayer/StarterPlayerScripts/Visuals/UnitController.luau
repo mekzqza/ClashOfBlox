@@ -115,7 +115,7 @@ function UnitController:Init()
 		return
 	end
 
-	local positionPart = poolFolder:FindFirstChild("Position", true)
+	local positionPart = poolFolder:WaitForChild("Position", 30)
 	if not positionPart then
 		warn("[UnitController] Positions part not found in Pool")
 		return
