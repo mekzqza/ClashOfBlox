@@ -44,6 +44,7 @@ function BattleController.new()
 	self._currentUnitId = 1
 	self._units = {} :: { [string]: Simulation.UnitState }
 	self._buildings = {} :: { [string]: Simulation.BuildingState }
+	self._destroyedBuildings = {} :: { [string]: true }
 
 	--Model Visualization
 	self._UnitsTemplate = nil
@@ -312,6 +313,7 @@ function BattleController:StartRiding()
 		while self._isRaiding and tick() < endTime do
 			Simulation.stepTick(self._state, self._flowFields)
 
+			--@Unit Loop
 			for _, unit in self._state.Units do
 				local unitId = unit.UnitId
 				if not unitId then
@@ -322,17 +324,6 @@ function BattleController:StartRiding()
 				local unitTargetId = unit.TargetId
 
 				if unitTargetId then
-					-- @TODO
-					--building HP == 0, remove flowfield
-					if self._buildings[unitTargetId].Hp <= 0 then
-						self._flowFields[unitTargetId] = nil
-						warn(
-							"[BattleController] Building with ID: "
-								.. unitTargetId
-								.. " is destroyed, removing flow field"
-						)
-						continue
-					end
 					if not self._flowFields[unitTargetId] then
 						self._flowFields[unitTargetId] =
 							Pathfinding.buildFlowField(self._buildings[unitTargetId].Position, {
@@ -363,6 +354,25 @@ function BattleController:StartRiding()
 					}
 				end
 			end
+
+			-- @Building Loop
+			for _, building in self._state.Buildings do
+				if self._destroyedBuildings[building.BuildingId] then
+					continue
+				end
+
+				if building.Hp <= 0 then
+					self._destroyedBuildings[building.BuildingId] = true
+					local sizeX = building.Dimensions.Width
+					local sizeZ = building.Dimensions.Length
+					local buildingPosition =
+						self:GridCoordsToWorld(building.Position.GridX, building.Position.GridZ, sizeX, sizeZ)
+					self:freeCell(buildingPosition, sizeX, sizeZ)
+					self._flowFields = {}
+				else
+					-- @TODO update building model health bar
+				end
+			end
 			task.wait(CONFIG.INTERVAL)
 		end
 		self:MatchEnd()
@@ -387,6 +397,7 @@ function BattleController:MatchEnd()
 	self._units = {}
 	self._buildings = {}
 	self._unitVisuals = {}
+	self._destroyedBuildings = {}
 
 	if self._runServiceConnection then
 		self._runServiceConnection:Disconnect()
@@ -470,7 +481,7 @@ function BattleController:Start()
 				self._buildings[buildingId].Dimensions.Width,
 				self._buildings[buildingId].Dimensions.Length
 			)
-			--create model
+			-- @TODO create Buildingmodel
 			table.insert(self._state.Buildings, self._buildings[buildingId])
 		end
 	end)
