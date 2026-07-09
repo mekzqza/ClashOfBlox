@@ -44,6 +44,7 @@ function BattleController.new()
 	self._currentUnitId = 1
 	self._units = {} :: { [string]: Simulation.UnitState }
 	self._buildings = {} :: { [string]: Simulation.BuildingState }
+	self._buildingPositionGolas = {} :: { [string]: { Simulation.GridPosition } }
 	self._destroyedBuildings = {} :: { [string]: true }
 
 	--Model Visualization
@@ -285,6 +286,20 @@ function BattleController:SpawnUnit(unitEnum: number, unitLevel, position: Simul
 	self._currentUnitId += 1
 end
 
+function BattleController:_getListOfFootPrintCells(
+	buildingPosition: Simulation.GridPosition,
+	sizeX: number,
+	sizeZ: number
+): { Simulation.GridPosition }
+	local cells: { Simulation.GridPosition } = {}
+	for x = 0, sizeX - 1 do
+		for z = 0, sizeZ - 1 do
+			table.insert(cells, { GridX = buildingPosition.GridX + x, GridZ = buildingPosition.GridZ + z })
+		end
+	end
+	return cells
+end
+
 function BattleController:StartRiding()
 	if not self._state.Tick or not self._state.Buildings or not self._state.Spells then
 		self._state.Buildings = self._state.Buildings or {}
@@ -326,7 +341,7 @@ function BattleController:StartRiding()
 				if unitTargetId then
 					if not self._flowFields[unitTargetId] then
 						self._flowFields[unitTargetId] =
-							Pathfinding.buildFlowField(self._buildings[unitTargetId].Position, {
+							Pathfinding.buildFlowField(self._buildingPositionGolas[unitTargetId], {
 								MinX = 0,
 								MaxX = 50,
 								MinZ = 0,
@@ -398,6 +413,7 @@ function BattleController:MatchEnd()
 	self._buildings = {}
 	self._unitVisuals = {}
 	self._destroyedBuildings = {}
+	self._buildingPositionGolas = {}
 
 	if self._runServiceConnection then
 		self._runServiceConnection:Disconnect()
@@ -481,6 +497,8 @@ function BattleController:Start()
 				self._buildings[buildingId].Dimensions.Width,
 				self._buildings[buildingId].Dimensions.Length
 			)
+			self._buildingPositionGolas[buildingId] =
+				self:_getListOfFootPrintCells(building.Position, building.Dimensions.Width, building.Dimensions.Length)
 			-- @TODO create Buildingmodel
 			table.insert(self._state.Buildings, self._buildings[buildingId])
 		end
