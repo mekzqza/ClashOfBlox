@@ -163,100 +163,6 @@ function BattleController:freeCell(position: Vector3, sizeX: number?, sizeZ: num
 	end
 end
 
-function BattleController:_TestPathfindingWow()
-	local BOUNDS = { MinX = 0, MaxX = 50, MinZ = 0, MaxZ = 50 }
-	local GOAL = { GridX = 25, GridZ = 25 }
-
-	-- กำแพงตั้ง 2 ท่อน เว้นช่อง → บังคับให้ฝูงไหลคดเคี้ยว
-	local occupied: Pathfinding.Occupied = self._occupiedCells
-
-	local old = Workspace:FindFirstChild("PathfindingTest")
-	if old then
-		old:Destroy()
-	end
-	local folder = Instance.new("Folder")
-	folder.Name = "PathfindingTest"
-	folder.Parent = Workspace
-
-	local function world(gridX: number, gridZ: number, y: number): Vector3
-		return self:GridCoordsToWorld(gridX, gridZ, 1, 1) + Vector3.new(0, y, 0)
-	end
-
-	local flow = Pathfinding.buildFlowField(GOAL, BOUNDS, occupied)
-
-	-- กำแพง(แดง) + goal(เขียวใหญ่)
-	for hash in occupied do
-		local gx, gz = Pathfinding.decode(hash)
-		if gx and gz then
-			local w = Instance.new("Part")
-			w.Anchored, w.CanCollide = true, false
-			w.Material = Enum.Material.Neon
-			w.Color = Color3.fromRGB(200, 50, 50)
-			w.Size = Vector3.new(4, 4, 4)
-			w.Position = world(gx, gz, 2)
-			w.Parent = folder
-		end
-	end
-	local goalPart = Instance.new("Part")
-	goalPart.Anchored, goalPart.CanCollide = true, false
-	goalPart.Material = Enum.Material.Neon
-	goalPart.Color = Color3.fromRGB(60, 230, 90)
-	goalPart.Size = Vector3.new(4, 8, 4)
-	goalPart.Position = world(GOAL.GridX, GOAL.GridZ, 4)
-	goalPart.Parent = folder
-
-	-- ★ วาดลูกศรทั้ง field (ใช้ nextStep หาทิศ ไม่ต้องแตะภายใน Pathfinding)
-	for hash in flow do
-		local gx, gz = Pathfinding.decode(hash)
-		if gx and gz then
-			local nxt = Pathfinding.nextStep(flow, { GridX = gx, GridZ = gz })
-			if nxt then
-				local from = world(gx, gz, 0.5)
-				local to = world(nxt.GridX, nxt.GridZ, 0.5)
-				local a = Instance.new("Part")
-				a.Anchored, a.CanCollide = true, false
-				a.Material = Enum.Material.Neon
-				a.Color = Color3.fromRGB(70, 160, 255)
-				a.Size = Vector3.new(0.4, 0.4, 3)
-				a.CFrame = CFrame.lookAt(from, to)
-				a.Parent = folder
-			end
-		end
-	end
-
-	-- ★ ปล่อยฝูงทหาร (checkerboard เว้นช่อง) ทุกตัวใช้ field เดียวกัน
-	for hash in flow do
-		local gx, gz = Pathfinding.decode(hash)
-		if (gx + gz) % 2 == 0 then
-			local ball = Instance.new("Part")
-			ball.Shape = Enum.PartType.Ball
-			ball.Anchored, ball.CanCollide = true, false
-			ball.Material = Enum.Material.Neon
-			ball.Color = Color3.fromHSV(math.random(), 0.85, 1)
-			ball.Size = Vector3.new(1.6, 1.6, 1.6)
-			ball.Position = world(gx, gz, 2.5)
-			ball.Parent = folder
-
-			task.spawn(function()
-				local pos = { GridX = gx, GridZ = gz }
-				for _ = 1, 200 do
-					if ball.Parent == nil then
-						return
-					end
-					local nxt = Pathfinding.nextStep(flow, pos)
-					if not nxt then
-						break
-					end
-					pos = nxt
-					ball.Position = world(pos.GridX, pos.GridZ, 2.5)
-					task.wait(0.18)
-				end
-				ball:Destroy()
-			end)
-		end
-	end
-end
-
 function BattleController:SpawnUnit(unitEnum: number, unitLevel, position: Simulation.GridPosition)
 	if not self._state.Units then
 		self._state.Units = {}
@@ -393,6 +299,21 @@ function BattleController:StartRiding()
 		self:MatchEnd()
 		warn("[BattleController] Match ended after " .. (tick() - startTime) .. " seconds")
 	end)
+end
+
+function BattleController:ResetRaidState()
+	self._buildings = {}
+	self._units = {}
+	self._occupiedCells = {}
+
+	if self._buildingModels then
+		for _, model in self._buildingModels do
+			if model and model.Parent then
+				model:Destroy()
+			end
+		end
+		self._buildingModels = {}
+	end
 end
 
 function BattleController:MatchEnd()
