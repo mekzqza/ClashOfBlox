@@ -44,6 +44,9 @@ export type UnitState = {
 	CooldownLeft: number, -- runtime: นับถอยหลังถึงยิงครั้งถัดไป
 	Position: GridPosition,
 
+	-- 1-10 เพื่อสะสมกำลังในการเดิน ถึง10 ให้เดิน 1 ช่อง (ถ้า WalkSpeed=1) → deterministic
+	MoveProgress: number,
+
 	TargetId: string?,
 }
 
@@ -121,6 +124,7 @@ function Simulation.RegisterUnit(
 		Hp = unitData.MaxHp,
 		Damage = unitData.Damage,
 		WalkSpeed = unitData.WalkSpeed,
+		MoveProgress = 0,
 		Range = unitData.Range,
 		AttackCooldown = unitData.AttackCooldown,
 		CooldownLeft = 0,
@@ -128,10 +132,15 @@ function Simulation.RegisterUnit(
 	}
 end
 
--- ระยะกำลังสอง (ไม่ sqrt → deterministic, ได้ range เป็นวงกลม)
-local function distanceSq(a: GridPosition, b: GridPosition): number
-	local dx = a.GridX - b.GridX
-	local dz = a.GridZ - b.GridZ
+-- ระยะกำลังสองถึงจุดที่ใกล้สุดบน footprint ของตึก
+-- (clamp พิกัดเข้ากรอบตึก → ได้ระยะถึงขอบด้านใกล้สุด, integer ล้วน ไม่ sqrt → deterministic)
+local function distanceSqToBuilding(pos: GridPosition, building: BuildingState): number
+	local nearestX =
+		math.clamp(pos.GridX, building.Position.GridX, building.Position.GridX + building.Dimensions.Width - 1)
+	local nearestZ =
+		math.clamp(pos.GridZ, building.Position.GridZ, building.Position.GridZ + building.Dimensions.Length - 1)
+	local dx = pos.GridX - nearestX
+	local dz = pos.GridZ - nearestZ
 	return dx * dx + dz * dz
 end
 
@@ -149,7 +158,7 @@ local function nearestBuilding(unit: UnitState, buildings: { BuildingState }): s
 	local bestDist = math.huge
 	for _, b in buildings do
 		if b.Hp > 0 then
-			local d = distanceSq(unit.Position, b.Position)
+			local d = distanceSqToBuilding(unit.Position, b)
 			if d < bestDist then
 				bestDist = d
 				bestId = b.BuildingId
@@ -176,7 +185,7 @@ function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.F
 			continue
 		end
 
-		if distanceSq(unit.Position, target.Position) <= unit.Range * unit.Range then
+		if distanceSqToBuilding(unit.Position, target) <= unit.Range * unit.Range then
 			-- เข้าระยะ → หยุดเดิน แล้วตีตามจังหวะ cooldown
 			unit.CooldownLeft -= 1
 			if unit.CooldownLeft <= 0 then
@@ -184,12 +193,16 @@ function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.F
 				unit.CooldownLeft = unit.AttackCooldown
 			end
 		else
-			-- ยังไกล → เดิน 1 ก้าวตาม flow field ของเป้า
-			-- ponytail: 1 ช่อง/tick; ผูก WalkSpeed กับความถี่ก้าวทีหลังถ้าอยากให้ความเร็วต่างกัน
 			local flow = flowFields[target.BuildingId]
-			local nxt = if flow then Pathfinding.nextStep(flow, unit.Position) else nil
-			if nxt then
-				unit.Position = nxt
+
+			unit.MoveProgress += unit.WalkSpeed
+			if unit.MoveProgress >= 10 then
+				unit.MoveProgress -= 10
+				local nxt = if flow then Pathfinding.nextStep(flow, unit.Position) else nil
+				if nxt then
+					unit.Position = nxt
+				end
+			else
 			end
 		end
 	end

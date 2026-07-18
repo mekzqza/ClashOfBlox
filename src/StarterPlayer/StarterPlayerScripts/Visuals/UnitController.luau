@@ -1,4 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 local TweenService = game:GetService("TweenService")
 
 local CONFIG = {
@@ -11,6 +12,8 @@ function UnitController.new()
 	local self = setmetatable({}, UnitController)
 	self._unitAvaliable = {} :: { [string]: { [number]: { Model } } }
 
+	self._pool_Unit_Floder = nil
+	self._pool_Position_Floder = nil
 	self._UnitsTemplate = nil
 	return self
 end
@@ -56,6 +59,8 @@ function UnitController:RecycleUnit(unitModel: Model)
 		self._unitAvaliable[unitType][unitLevel] = {}
 	end
 
+	unitModel.Parent = self._pool_Unit_Floder
+	unitModel:PivotTo(CFrame.new(self._pool_Position_Floder))
 	table.insert(self._unitAvaliable[unitType][unitLevel], unitModel)
 end
 
@@ -71,10 +76,19 @@ function UnitController:CreateUnit(unitType: string, unitLevel: number): Model?
 		return nil
 	end
 
-	return unitModel:Clone()
+	local newUnitModel = unitModel:Clone()
+	newUnitModel.Parent = self._pool_Unit_Floder
+	newUnitModel:PivotTo(CFrame.new(self._pool_Position_Floder))
+	newUnitModel:SetAttribute("UnitType", unitType)
+	newUnitModel:SetAttribute("UnitLevel", unitLevel)
+
+	return newUnitModel
 end
 
-function UnitController:UpdateUnit(unitState) end
+function UnitController:UnitWalk(model: Model) end
+
+-- @TODO UpdateUnit Walk, Attack, Die,
+function UnitController:UpdateUnit(model: Model, prevPosition: Vector3, curr) end
 
 function UnitController:Init()
 	local Assets = ReplicatedStorage:WaitForChild("Assets", 30)
@@ -88,8 +102,31 @@ function UnitController:Init()
 		warn("[UnitController] Units template not found in Assets")
 		return
 	end
+
+	local poolFolder = Workspace:WaitForChild("Pool", 30)
+	if not poolFolder then
+		warn("[UnitController] Pool folder not found in Workspace")
+		return
+	end
+
+	self._pool_Unit_Floder = poolFolder:WaitForChild("Units", 30)
+	if not self._pool_Unit_Floder then
+		warn("[UnitController] Units pool folder not found in Pool")
+		return
+	end
+
+	local positionPart = poolFolder:WaitForChild("Position", 30)
+	if not positionPart then
+		warn("[UnitController] Positions part not found in Pool")
+		return
+	end
+	self._pool_Position_Floder =
+		Vector3.new(positionPart.Position.X, positionPart.Position.Y + 10, positionPart.Position.Z)
 end
 
-function UnitController:Start() end
+function UnitController:Start()
 
-return UnitController
+	-- @TODO ในอนาคต ดึง playLoadUnit player data มาใช้ในการ spawn unit
+end
+
+return UnitController.new()

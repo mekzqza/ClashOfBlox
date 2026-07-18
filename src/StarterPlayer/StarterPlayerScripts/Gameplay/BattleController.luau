@@ -7,6 +7,7 @@
 ]]
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 
 local Events = require(ReplicatedStorage.Shared.Events)
 local EventBus = require(ReplicatedStorage.SystemsShared.EventBus)
@@ -43,11 +44,16 @@ function BattleController.new()
 	self._currentUnitId = 1
 	self._units = {} :: { [string]: Simulation.UnitState }
 	self._buildings = {} :: { [string]: Simulation.BuildingState }
+	self._buildingPositionGolas = {} :: { [string]: { Simulation.GridPosition } }
+	self._destroyedBuildings = {} :: { [string]: true }
 
 	--Model Visualization
 	self._UnitsTemplate = nil
 	self._unitModels = {} :: { [string]: Model }
 	self._buildingModels = {} :: { [string]: Model }
+
+	self._unitVisuals = {} :: { [string]: { Prev: Vector3, Current: Vector3, StartTime: number, Duration: number } }
+	self._runServiceConnection = nil :: RBXScriptConnection?
 
 	-- FlowField ของBuildingแต่ละตัว
 	self._flowFields = {} :: { [string]: Pathfinding.FlowField }
@@ -157,104 +163,11 @@ function BattleController:freeCell(position: Vector3, sizeX: number?, sizeZ: num
 	end
 end
 
-function BattleController:_TestPathfindingWow()
-	local BOUNDS = { MinX = 0, MaxX = 50, MinZ = 0, MaxZ = 50 }
-	local GOAL = { GridX = 25, GridZ = 25 }
-
-	-- กำแพงตั้ง 2 ท่อน เว้นช่อง → บังคับให้ฝูงไหลคดเคี้ยว
-	local occupied: Pathfinding.Occupied = self._occupiedCells
-
-	local old = Workspace:FindFirstChild("PathfindingTest")
-	if old then
-		old:Destroy()
-	end
-	local folder = Instance.new("Folder")
-	folder.Name = "PathfindingTest"
-	folder.Parent = Workspace
-
-	local function world(gridX: number, gridZ: number, y: number): Vector3
-		return self:GridCoordsToWorld(gridX, gridZ, 1, 1) + Vector3.new(0, y, 0)
-	end
-
-	local flow = Pathfinding.buildFlowField(GOAL, BOUNDS, occupied)
-
-	-- กำแพง(แดง) + goal(เขียวใหญ่)
-	for hash in occupied do
-		local gx, gz = Pathfinding.decode(hash)
-		if gx and gz then
-			local w = Instance.new("Part")
-			w.Anchored, w.CanCollide = true, false
-			w.Material = Enum.Material.Neon
-			w.Color = Color3.fromRGB(200, 50, 50)
-			w.Size = Vector3.new(4, 4, 4)
-			w.Position = world(gx, gz, 2)
-			w.Parent = folder
-		end
-	end
-	local goalPart = Instance.new("Part")
-	goalPart.Anchored, goalPart.CanCollide = true, false
-	goalPart.Material = Enum.Material.Neon
-	goalPart.Color = Color3.fromRGB(60, 230, 90)
-	goalPart.Size = Vector3.new(4, 8, 4)
-	goalPart.Position = world(GOAL.GridX, GOAL.GridZ, 4)
-	goalPart.Parent = folder
-
-	-- ★ วาดลูกศรทั้ง field (ใช้ nextStep หาทิศ ไม่ต้องแตะภายใน Pathfinding)
-	for hash in flow do
-		local gx, gz = Pathfinding.decode(hash)
-		if gx and gz then
-			local nxt = Pathfinding.nextStep(flow, { GridX = gx, GridZ = gz })
-			if nxt then
-				local from = world(gx, gz, 0.5)
-				local to = world(nxt.GridX, nxt.GridZ, 0.5)
-				local a = Instance.new("Part")
-				a.Anchored, a.CanCollide = true, false
-				a.Material = Enum.Material.Neon
-				a.Color = Color3.fromRGB(70, 160, 255)
-				a.Size = Vector3.new(0.4, 0.4, 3)
-				a.CFrame = CFrame.lookAt(from, to)
-				a.Parent = folder
-			end
-		end
-	end
-
-	-- ★ ปล่อยฝูงทหาร (checkerboard เว้นช่อง) ทุกตัวใช้ field เดียวกัน
-	for hash in flow do
-		local gx, gz = Pathfinding.decode(hash)
-		if (gx + gz) % 2 == 0 then
-			local ball = Instance.new("Part")
-			ball.Shape = Enum.PartType.Ball
-			ball.Anchored, ball.CanCollide = true, false
-			ball.Material = Enum.Material.Neon
-			ball.Color = Color3.fromHSV(math.random(), 0.85, 1)
-			ball.Size = Vector3.new(1.6, 1.6, 1.6)
-			ball.Position = world(gx, gz, 2.5)
-			ball.Parent = folder
-
-			task.spawn(function()
-				local pos = { GridX = gx, GridZ = gz }
-				for _ = 1, 200 do
-					if ball.Parent == nil then
-						return
-					end
-					local nxt = Pathfinding.nextStep(flow, pos)
-					if not nxt then
-						break
-					end
-					pos = nxt
-					ball.Position = world(pos.GridX, pos.GridZ, 2.5)
-					task.wait(0.18)
-				end
-				ball:Destroy()
-			end)
-		end
-	end
-end
-
-function BattleController:SpawnUnit(unitId: string, unitEnum: number, unitLevel, position: Simulation.GridPosition)
+function BattleController:SpawnUnit(unitEnum: number, unitLevel, position: Simulation.GridPosition)
 	if not self._state.Units then
 		self._state.Units = {}
 	end
+	local unitId = "Unit_" .. self._currentUnitId
 
 	local unit = Simulation.RegisterUnit(unitId, unitEnum, unitLevel, position)
 	if not unit then
@@ -279,6 +192,20 @@ function BattleController:SpawnUnit(unitId: string, unitEnum: number, unitLevel,
 	self._currentUnitId += 1
 end
 
+function BattleController:_getListOfFootPrintCells(
+	buildingPosition: Simulation.GridPosition,
+	sizeX: number,
+	sizeZ: number
+): { Simulation.GridPosition }
+	local cells: { Simulation.GridPosition } = {}
+	for x = 0, sizeX - 1 do
+		for z = 0, sizeZ - 1 do
+			table.insert(cells, { GridX = buildingPosition.GridX + x, GridZ = buildingPosition.GridZ + z })
+		end
+	end
+	return cells
+end
+
 function BattleController:StartRiding()
 	if not self._state.Tick or not self._state.Buildings or not self._state.Spells then
 		self._state.Buildings = self._state.Buildings or {}
@@ -286,14 +213,28 @@ function BattleController:StartRiding()
 		self._state.Units = {}
 		self._state.Spells = {}
 	end
-
 	self._isRaiding = true
+
+	self._runServiceConnection = RunService.Heartbeat:Connect(function()
+		for unitId, visual in self._unitVisuals do
+			local alpha = math.clamp((os.clock() - visual.StartTime) / visual.Duration, 0, 1)
+			local model = self._unitModels[unitId]
+			if model then
+				local prevPos = visual.Prev
+				local currentPos = visual.Current
+				local interpolatedPos = prevPos:Lerp(currentPos, alpha)
+				model:PivotTo(CFrame.new(interpolatedPos))
+			end
+		end
+	end)
+
 	self._macthConnection = task.spawn(function()
 		local startTime = tick()
 		local endTime = startTime + CONFIG.MATCH_TIMEOUT
 		while self._isRaiding and tick() < endTime do
 			Simulation.stepTick(self._state, self._flowFields)
 
+			--@Unit Loop
 			for _, unit in self._state.Units do
 				local unitId = unit.UnitId
 				if not unitId then
@@ -304,20 +245,9 @@ function BattleController:StartRiding()
 				local unitTargetId = unit.TargetId
 
 				if unitTargetId then
-					-- @TODO
-					--building HP == 0, remove flowfield
-					if self._buildings[unitTargetId].Hp <= 0 then
-						self._flowFields[unitTargetId] = nil
-						warn(
-							"[BattleController] Building with ID: "
-								.. unitTargetId
-								.. " is destroyed, removing flow field"
-						)
-						continue
-					end
 					if not self._flowFields[unitTargetId] then
 						self._flowFields[unitTargetId] =
-							Pathfinding.buildFlowField(self._buildings[unitTargetId].Position, {
+							Pathfinding.buildFlowField(self._buildingPositionGolas[unitTargetId], {
 								MinX = 0,
 								MaxX = 50,
 								MinZ = 0,
@@ -332,15 +262,58 @@ function BattleController:StartRiding()
 					continue
 				end
 
-				self._unitModels[unitId]:PivotTo(
-					CFrame.new(self:GridCoordsToWorld(unit.Position.GridX, unit.Position.GridZ, 1, 1))
-				)
+				local currentWorld = self:GridCoordsToWorld(unit.Position.GridX, unit.Position.GridZ, 1, 1)
+				local oldVisual = self._unitVisuals[unitId]
+				if not oldVisual or oldVisual.Current ~= currentWorld then
+					self._unitVisuals[unitId] = {
+						Prev = oldVisual and oldVisual.Current or currentWorld,
+						Current = currentWorld,
+						StartTime = os.clock(),
+						Duration = if (10 / unit.WalkSpeed) * CONFIG.INTERVAL == 0
+							then CONFIG.INTERVAL
+							else (10 / unit.WalkSpeed) * CONFIG.INTERVAL,
+					}
+				end
+			end
+
+			-- @Building Loop
+			for _, building in self._state.Buildings do
+				if self._destroyedBuildings[building.BuildingId] then
+					continue
+				end
+
+				if building.Hp <= 0 then
+					self._destroyedBuildings[building.BuildingId] = true
+					local sizeX = building.Dimensions.Width
+					local sizeZ = building.Dimensions.Length
+					local buildingPosition =
+						self:GridCoordsToWorld(building.Position.GridX, building.Position.GridZ, sizeX, sizeZ)
+					self:freeCell(buildingPosition, sizeX, sizeZ)
+					self._flowFields = {}
+				else
+					-- @TODO update building model health bar
+				end
 			end
 			task.wait(CONFIG.INTERVAL)
 		end
 		self:MatchEnd()
 		warn("[BattleController] Match ended after " .. (tick() - startTime) .. " seconds")
 	end)
+end
+
+function BattleController:ResetRaidState()
+	self._buildings = {}
+	self._units = {}
+	self._occupiedCells = {}
+
+	if self._buildingModels then
+		for _, model in self._buildingModels do
+			if model and model.Parent then
+				model:Destroy()
+			end
+		end
+		self._buildingModels = {}
+	end
 end
 
 function BattleController:MatchEnd()
@@ -359,12 +332,20 @@ function BattleController:MatchEnd()
 	self._occupiedCells = {}
 	self._units = {}
 	self._buildings = {}
+	self._unitVisuals = {}
+	self._destroyedBuildings = {}
+	self._buildingPositionGolas = {}
+
+	if self._runServiceConnection then
+		self._runServiceConnection:Disconnect()
+		self._runServiceConnection = nil
+	end
 
 	-- ในอนาคตจะทำ unit polling
 	if self._unitModels then
 		for _, model in self._unitModels do
 			if model and model.Parent then
-				model:Destroy()
+				self._UnitController:RecycleUnit(model)
 			end
 		end
 		self._unitModels = {}
@@ -437,7 +418,9 @@ function BattleController:Start()
 				self._buildings[buildingId].Dimensions.Width,
 				self._buildings[buildingId].Dimensions.Length
 			)
-			--create model
+			self._buildingPositionGolas[buildingId] =
+				self:_getListOfFootPrintCells(building.Position, building.Dimensions.Width, building.Dimensions.Length)
+			-- @TODO create Buildingmodel
 			table.insert(self._state.Buildings, self._buildings[buildingId])
 		end
 	end)
@@ -447,26 +430,19 @@ function BattleController:Start()
 			self:StartRiding()
 		end
 
-		-- local enum = data.UnitEnum
-		-- if not enum then
-		-- 	warn("[BattleController] No unit enum data received for deployment")
-		-- 	return
-		-- end
+		local unitEnum = data.UnitEnum
+		if not unitEnum then
+			warn("[BattleController] No unit enum data received for deployment")
+			return
+		end
 
-		-- local position = data.Position
-		-- if not position then
-		-- 	warn("[BattleController] No position data received for deployment")
-		-- 	return
-		-- end
-
-		local test_Unit_position = {
-			GridX = 5,
-			GridZ = 5,
-		}
-		local unitId = `test_Unit{self._currentUnitId}`
-		local unitLevel = 1
-		local unitEnum = 1
-		self:SpawnUnit(unitId, unitEnum, unitLevel, test_Unit_position)
+		local position = data.Position
+		if not position then
+			warn("[BattleController] No position data received for deployment")
+			return
+		end
+		local unitLevel = data.UnitLevel or 1
+		self:SpawnUnit(unitEnum, unitLevel, position)
 	end)
 
 	EventBus:On(Events.LOCAL_FOLDER_READY, function(data)

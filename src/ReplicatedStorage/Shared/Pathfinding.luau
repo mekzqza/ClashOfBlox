@@ -24,6 +24,7 @@ export type Occupied = {
 
 local Pathfinding = {}
 
+-- ใช้สร้าง field (BFS 4 ทิศ → เลขคือจำนวนก้าวแนวตรง, ห้ามใส่ทแยงไม่งั้นน้ำทะลุมุมกำแพง)
 local NEIGHBORS = {
 	{ GridX = 0, GridZ = -1 }, -- Up
 	{ GridX = 0, GridZ = 1 }, -- Down
@@ -31,11 +32,16 @@ local NEIGHBORS = {
 	{ GridX = 1, GridZ = 0 }, -- Right
 }
 
-local OPPOSITE_DIRECTION = {
-	[1] = 2,
-	[2] = 1,
-	[3] = 4,
-	[4] = 3,
+-- ใช้ตอนเดิน (8 ทิศ) ลำดับคือ tie-breaker ห้ามสลับ → deterministic
+local MOVE_NEIGHBORS = {
+	{ GridX = 0, GridZ = -1 }, -- Up
+	{ GridX = 0, GridZ = 1 }, -- Down
+	{ GridX = -1, GridZ = 0 }, -- Left
+	{ GridX = 1, GridZ = 0 }, -- Right
+	{ GridX = -1, GridZ = -1 }, -- UpLeft
+	{ GridX = 1, GridZ = -1 }, -- UpRight
+	{ GridX = -1, GridZ = 1 }, -- DownLeft
+	{ GridX = 1, GridZ = 1 }, -- DownRight
 }
 
 local STRIDE = 100 -- ponytail: bounds เป็น 0-based (พิกัด 0..99/แกน) เลยไม่ต้อง offset; ถ้าวันไหน Min ติดลบ ใช้ (x-MinX)
@@ -53,17 +59,21 @@ local function key(position: GridPosition): number
 end
 
 --สร้างสนามจากเป้าหมาย คือนค่าสนามที่มี Gridx, Girdz ที่มีค่าของตัวเลขติดกำกับ
-function Pathfinding.buildFlowField(goal: GridPosition, bounds: Bounds, occupied: Occupied): FlowField
+function Pathfinding.buildFlowField(goals: { GridPosition }, bounds: Bounds, occupied: Occupied): FlowField
 	local flow: FlowField = {}
-	flow[key(goal)] = 0
+
+	local queue: { GridPosition } = {}
+	for _, goal in goals do
+		flow[key(goal)] = 0 -- 0 = target
+		table.insert(queue, goal)
+	end
 
 	local head = 1
-	local queue: { GridPosition } = { goal }
 
 	while head <= #queue do
 		local cur = queue[head]
 		head += 1
-		for i, dir in NEIGHBORS do
+		for _, dir in NEIGHBORS do
 			local Gx = cur.GridX + dir.GridX
 			local Gz = cur.GridZ + dir.GridZ
 			local N = { GridX = Gx, GridZ = Gz }
@@ -76,7 +86,7 @@ function Pathfinding.buildFlowField(goal: GridPosition, bounds: Bounds, occupied
 				and bounds.MaxZ >= Gz
 				and bounds.MinZ <= Gz
 			then
-				flow[Nkey] = OPPOSITE_DIRECTION[i]
+				flow[Nkey] = flow[key(cur)] + 1
 				table.insert(queue, N)
 			end
 		end
@@ -85,27 +95,48 @@ function Pathfinding.buildFlowField(goal: GridPosition, bounds: Bounds, occupied
 	return flow
 end
 
--- ดึงต่ำแหน่งปัจจุบันของตัวเอง และสนามตัวเลขของเป้าหมาย คืนค่าตำแหน่งที่ตัวเองต้องเดินถัดไป
+-- ดึงตำแหน่งปัจจุบันของตัวเอง และสนามระยะทางของเป้าหมาย คืนค่าตำแหน่งที่ตัวเองต้องเดินถัดไป
+-- (ไหลลงเขา: ก้าวไปเพื่อนบ้าน 8 ทิศที่เลขต่ำกว่าตัวเองและต่ำที่สุด)
 function Pathfinding.nextStep(flow: FlowField, currentPosition: GridPosition): GridPosition?
-	local dir = flow[key(currentPosition)]
-	-- เดินไม่ได้ อยู่ในจุดที่ไม่มีไดเรคชั่นให้เดินต่อ
-	if dir == nil then
+	local currentDist = flow[key(currentPosition)]
+	-- เดินไม่ได้ อยู่นอกสนาม/โดนล้อม
+	if currentDist == nil then
 		return nil
 	end
 
 	-- ยืนบนเป้าหมายแล้ว ไม่ต้องเดินต่อ
-	if dir == 0 then
+	if currentDist == 0 then
 		return nil
 	end
 
-	-- ดินต่อไป
-	local cuurenStep = NEIGHBORS[dir]
-	local nextPosition = {
-		GridX = currentPosition.GridX + cuurenStep.GridX,
-		GridZ = currentPosition.GridZ + cuurenStep.GridZ,
-	}
+	local bestDist = currentDist
+	local bestPosition: GridPosition? = nil
 
-	return nextPosition
+	for _, step in MOVE_NEIGHBORS do
+		local Gx = currentPosition.GridX + step.GridX
+		local Gz = currentPosition.GridZ + step.GridZ
+		local nextValue = flow[Pathfinding.key(Gx, Gz)]
+		if nextValue == nil then
+			continue
+		end
+
+		-- กัน corner-cutting: ก้าวทแยงได้ต่อเมื่อช่องแนวตรงข้างตัวทั้งคู่เดินได้
+		if step.GridX ~= 0 and step.GridZ ~= 0 then
+			local sideA = flow[Pathfinding.key(Gx, currentPosition.GridZ)]
+			local sideB = flow[Pathfinding.key(currentPosition.GridX, Gz)]
+			if sideA == nil or sideB == nil then
+				continue
+			end
+		end
+
+		-- strict < : เจอเลขเท่ากันตัวแรกในลำดับชนะ → deterministic
+		if nextValue < bestDist then
+			bestDist = nextValue
+			bestPosition = { GridX = Gx, GridZ = Gz }
+		end
+	end
+
+	return bestPosition
 end
 
 return Pathfinding
