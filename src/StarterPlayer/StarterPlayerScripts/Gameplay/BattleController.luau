@@ -361,6 +361,7 @@ function BattleController:MatchEnd()
 	end
 
 	self._matchStartTime = 0
+	EventBus:Emit(Events.LOCAL_MODE_CHANGED, "OwnHome")
 end
 
 function BattleController:Init()
@@ -423,6 +424,8 @@ function BattleController:Start()
 			-- @TODO create Buildingmodel
 			table.insert(self._state.Buildings, self._buildings[buildingId])
 		end
+
+		EventBus:Emit(Events.LOCAL_MODE_CHANGED, "Raid")
 	end)
 
 	EventBus:On(Events.LOCAL_DEPLOY_UNIT, function(data)
