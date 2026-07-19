@@ -436,13 +436,13 @@ function BattleController:Start()
 			return
 		end
 
-		local position = data.Position
-		if not position then
-			warn("[BattleController] No position data received for deployment")
+		local girdPosition = data.GirdPosition
+		if not girdPosition then
+			warn("[BattleController] No grid position data received for unit deployment")
 			return
 		end
 		local unitLevel = data.UnitLevel or 1
-		self:SpawnUnit(unitEnum, unitLevel, position)
+		self:SpawnUnit(unitEnum, unitLevel, girdPosition)
 	end)
 
 	EventBus:On(Events.LOCAL_FOLDER_READY, function(data)

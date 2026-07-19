@@ -25,7 +25,7 @@ local Units = {
 			MaxHp = 100,
 
 			Damage = 10,
-			WalkSpeed = 10,
+			WalkSpeed = 5,
 			Range = 1,
 			AttackCooldown = 1,
 		},
@@ -37,7 +37,7 @@ local Units = {
 			MaxHp = 200,
 
 			Damage = 20,
-			WalkSpeed = 5,
+			WalkSpeed = 2,
 			Range = 1,
 			AttackCooldown = 1.5,
 		},

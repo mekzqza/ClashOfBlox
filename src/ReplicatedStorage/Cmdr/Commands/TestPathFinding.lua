@@ -27,21 +27,24 @@ return {
             BattleController:_TestPathfindingWow()
             return
         elseif Goal == "00" then
-            local test_Unit_position = {
+            local girdPosition = {
                 GridX = 5,
                 GridZ = 5,
             }
-            local unitLevel = 1
-            local unitEnum = 1
+            local posiiton     = BattleController:GridCoordsToWorld(5, 5, 1, 1)
+            local unitLevel    = 1
+            local unitEnum     = 1
+            warn("Deploying unit at position:", posiiton, "GridPosition:", girdPosition, "UnitEnum:", unitEnum,
+                "UnitLevel:", unitLevel)
             EventBus:Emit(Events.LOCAL_DEPLOY_UNIT, {
                 UnitEnum = unitEnum,
                 UnitLevel = unitLevel,
-                Position = test_Unit_position,
+                GirdPosition = girdPosition,
             })
             EventBus:Emit(Events.LOCAL_DEPLOY_UNIT, {
                 UnitEnum = 2,
                 UnitLevel = unitLevel,
-                Position = test_Unit_position,
+                GirdPosition = girdPosition,
             })
         end
     end,
