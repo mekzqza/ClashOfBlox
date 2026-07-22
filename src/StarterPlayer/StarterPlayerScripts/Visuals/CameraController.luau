@@ -96,7 +96,10 @@ function CameraController:BlindInput()
 		self:OnCameraChanged()
 	end)
 
-	self._ChangeConn = UserInputService.InputChanged:Connect(function(input)
+	self._ChangeConn = UserInputService.InputChanged:Connect(function(input, gameProcessed)
+		if gameProcessed then
+			return
+		end
 		if input.UserInputType == Enum.UserInputType.MouseWheel then
 			self._zoom =
 				math.clamp(self._zoom - (input.Position.Z * CONFIG.WHEEL_SENSITIVITY), CONFIG.ZOOM_MIN, CONFIG.ZOOM_MAX)
@@ -109,7 +112,11 @@ function CameraController:BlindInput()
 		end
 	end)
 
-	self._BeginConn = UserInputService.InputBegan:Connect(function(input)
+	self._BeginConn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		if gameProcessed then
+			return
+		end
+
 		if self._isMoveBuildingMode then
 			return
 		end
@@ -119,7 +126,10 @@ function CameraController:BlindInput()
 		end
 	end)
 
-	self._EndConn = UserInputService.InputEnded:Connect(function(input)
+	self._EndConn = UserInputService.InputEnded:Connect(function(input, gameProcessed)
+		if gameProcessed then
+			return
+		end
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			self._isDragging = false
 		end
