@@ -14,6 +14,7 @@ function MainInputUiController.new()
 
 	--Ui
 	self._MainInPut = nil
+	self._mainFrame = nil
 	self._btnConns = {} :: { [string]: RBXScriptConnection }
 	return self
 end
@@ -21,6 +22,7 @@ end
 function MainInputUiController:Init()
 	self._playerGui = Player:WaitForChild("PlayerGui")
 	self._MainInPut = self._playerGui:WaitForChild("MainInPut") :: ScreenGui
+	self._mainFrame = self._MainInPut:WaitForChild("MainFrame")
 end
 
 function MainInputUiController:Start()
@@ -34,6 +36,16 @@ function MainInputUiController:Start()
 			end)
 		end
 	end
+
+	EventBus:On(Events.LOCAL_MODE_CHANGED, function(mode)
+		if mode == "Raid" then
+			self._mainFrame.Visible = false
+			warn("[MainInputUiController] Raid mode started, hiding main input UI")
+		elseif mode == "OwnHome" then
+			self._mainFrame.Visible = true
+			warn("[MainInputUiController] OwnHome mode started, showing main input UI")
+		end
+	end)
 end
 
 return MainInputUiController.new()

@@ -274,7 +274,7 @@ function BuildingVisualize:Init()
 	self._raycastParams = params
 end
 
-function BuildingVisualize:Start()
+function BuildingVisualize:_bindInput()
 	self._connInputBegan = UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		if gameProcessed then
 			return
@@ -348,6 +348,20 @@ function BuildingVisualize:Start()
 			EventBus:Emit(Events.LOCAL_MOVE_BUILDING_CONFIRM)
 		end
 		self:_cancelPress()
+	end)
+end
+
+function BuildingVisualize:Start()
+	self:_bindInput()
+
+	EventBus:On(Events.LOCAL_MODE_CHANGED, function(mode)
+		if mode ~= "OwnHome" then
+			self:_cancelPress()
+			self:_stopConnections()
+			return
+		end
+		warn("Mode changed to OwnHome, re-binding input")
+		self:_bindInput()
 	end)
 end
 

@@ -16,6 +16,7 @@ local CONFIG = {
 	EPSILON = 0.01,
 
 	WHEEL_SENSITIVITY = 5,
+	DRAG_SENSITIVITY = 10,
 }
 
 local CameraController = {}
@@ -26,6 +27,7 @@ function CameraController.new()
 	--state
 	self._isDragging = false
 	self._isMoveBuildingMode = false
+	self._dragStart = Vector3.new(0, 0, 0)
 
 	--references
 	self._focus = Vector3.new(0, 0, 0)
@@ -45,12 +47,7 @@ function CameraController.new()
 	self._BeginConn = nil
 	self._EndConn = nil
 
-	--dependencies
-	self._GridController = nil
 	return self
-end
-function CameraController:SetDependencies(locator)
-	self._GridController = locator:Get("GridController")
 end
 
 function CameraController:SetAngles(key: string, value: number)
@@ -101,7 +98,10 @@ function CameraController:BlindInput()
 		self:OnCameraChanged()
 	end)
 
-	self._ChangeConn = UserInputService.InputChanged:Connect(function(input)
+	self._ChangeConn = UserInputService.InputChanged:Connect(function(input, gameProcessed)
+		if gameProcessed then
+			return
+		end
 		if input.UserInputType == Enum.UserInputType.MouseWheel then
 			self._zoom =
 				math.clamp(self._zoom - (input.Position.Z * CONFIG.WHEEL_SENSITIVITY), CONFIG.ZOOM_MIN, CONFIG.ZOOM_MAX)
@@ -114,7 +114,12 @@ function CameraController:BlindInput()
 		end
 	end)
 
-	self._BeginConn = UserInputService.InputBegan:Connect(function(input)
+	self._BeginConn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		if gameProcessed then
+			return
+		end
+		self._dragStart = input.Position
+
 		if self._isMoveBuildingMode then
 			return
 		end
@@ -124,7 +129,18 @@ function CameraController:BlindInput()
 		end
 	end)
 
-	self._EndConn = UserInputService.InputEnded:Connect(function(input)
+	self._EndConn = UserInputService.InputEnded:Connect(function(input, gameProcessed)
+		if gameProcessed then
+			return
+		end
+
+		if (input.Position - self._dragStart).Magnitude < CONFIG.DRAG_SENSITIVITY then
+			local hit = self:_ScreenToGround(input.Position)
+			if hit then
+				EventBus:Emit(Events.LOCAL_GROUND_TAP, hit)
+			end
+		end
+
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			self._isDragging = false
 		end
@@ -147,12 +163,7 @@ function CameraController:Disconnect()
 	RunService:UnbindFromRenderStep("CameraController")
 end
 
-function CameraController:Init()
-	if not self._GridController then
-		warn("[CameraController] No GridController found, camera will not function properly.")
-		return
-	end
-end
+function CameraController:Init() end
 
 function CameraController:Start()
 	self._Camera.CameraType = Enum.CameraType.Scriptable
