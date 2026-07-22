@@ -16,6 +16,7 @@ local CONFIG = {
 	EPSILON = 0.01,
 
 	WHEEL_SENSITIVITY = 5,
+	DRAG_SENSITIVITY = 10,
 }
 
 local CameraController = {}
@@ -26,6 +27,7 @@ function CameraController.new()
 	--state
 	self._isDragging = false
 	self._isMoveBuildingMode = false
+	self._dragStart = Vector3.new(0, 0, 0)
 
 	--references
 	self._focus = Vector3.new(0, 0, 0)
@@ -116,6 +118,7 @@ function CameraController:BlindInput()
 		if gameProcessed then
 			return
 		end
+		self._dragStart = input.Position
 
 		if self._isMoveBuildingMode then
 			return
@@ -130,6 +133,14 @@ function CameraController:BlindInput()
 		if gameProcessed then
 			return
 		end
+
+		if (input.Position - self._dragStart).Magnitude < CONFIG.DRAG_SENSITIVITY then
+			local hit = self:_ScreenToGround(input.Position)
+			if hit then
+				EventBus:Emit(Events.LOCAL_GROUND_TAP, hit)
+			end
+		end
+
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			self._isDragging = false
 		end

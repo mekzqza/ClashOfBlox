@@ -294,6 +294,7 @@ function BattleController:StartRiding()
 					-- @TODO update building model health bar
 				end
 			end
+
 			task.wait(CONFIG.INTERVAL)
 		end
 		self:MatchEnd()
@@ -316,6 +317,7 @@ function BattleController:ResetRaidState()
 	end
 end
 
+--  @TODOขาดUnit ตายหมด ,สิ่งก่อสร้างพังหมด
 function BattleController:MatchEnd()
 	self._isRaiding = false
 	self._isRaidStarted = false
@@ -361,6 +363,7 @@ function BattleController:MatchEnd()
 	end
 
 	self._matchStartTime = 0
+	EventBus:Emit(Events.LOCAL_RAID_ENDED)
 	EventBus:Emit(Events.LOCAL_MODE_CHANGED, "OwnHome")
 end
 
@@ -389,6 +392,7 @@ function BattleController:Start()
 			warn("[BattleController] No building data found for player")
 			return
 		end
+		EventBus:Emit(Events.LOCAL_MODE_CHANGED, "Raid")
 
 		self._state.Buildings = {}
 		for buildingId, buildingdata in buildings do
@@ -424,8 +428,6 @@ function BattleController:Start()
 			-- @TODO create Buildingmodel
 			table.insert(self._state.Buildings, self._buildings[buildingId])
 		end
-
-		EventBus:Emit(Events.LOCAL_MODE_CHANGED, "Raid")
 	end)
 
 	EventBus:On(Events.LOCAL_DEPLOY_UNIT, function(data)

@@ -39,8 +39,15 @@ function InraidController.new()
 	self._giveUpframe = nil
 
 	--Connections
-	self._cardActivated =
-		{} :: { [Frame]: { conn: RBXScriptConnection, unitType: string, TroopCount: number, TroopLevel: number } }
+	self._cardActivated = {} :: {
+		[Frame]: {
+			conn: RBXScriptConnection,
+			unitType: string,
+			unitEnum: number,
+			TroopCount: number,
+			TroopLevel: number,
+		},
+	}
 	self._giveUpConn = nil
 	self._Uitemplate = nil
 	return self
@@ -102,6 +109,7 @@ function InraidController:RegisterUnitCard(unit: TroopCardField)
 			)
 		end),
 		unitType = unitType,
+		unitEnum = unit.UnitEnum,
 		TroopCount = unit.TroopCount,
 		TroopLevel = unit.TroopLevel,
 	}
@@ -132,8 +140,14 @@ end
 
 function InraidController:Start()
 	self._giveUpConn = self._giveUpframe.Btn.Activated:Connect(function()
-		--@TODO
+		--@TODO : Implement give up logic, such as notifying the server and ending the raid
 		warn("[InraidController] Give up button activated")
+	end)
+
+	EventBus:On(Events.LOCAL_RAID_ENDED, function()
+		warn("[InraidController] Raid ended")
+		self:RaidEnd()
+		self._mainFrame.Visible = false
 	end)
 
 	EventBus:On(Events.LOCAL_MODE_CHANGED, function(mode)
@@ -142,20 +156,34 @@ function InraidController:Start()
 			self._inraid = false
 			return
 		end
+		warn("[InraidController] Raid mode started")
 		self._mainFrame.Visible = true
 		self._inraid = true
-		warn("[InraidController] Raid mode started")
 		for _, unit in ipairs(TEST_UNIT) do
 			self:RegisterUnitCard(unit)
-			warn(
-				"[InraidController] Registered unit card for unit:",
-				unit.UnitEnum,
-				"count:",
-				unit.TroopCount,
-				"level:",
-				unit.TroopLevel
-			)
 		end
+	end)
+
+	EventBus:On(Events.LOCAL_GROUND_TAP, function(hit)
+		if not self._inraid then
+			return
+		end
+		if not self._currentCardtroopFrame then
+			return
+		end
+
+		local Unitdata = self._cardActivated[self._currentCardtroopFrame]
+		if not Unitdata then
+			warn("[InraidController] No unit data found for the selected card")
+			return
+		end
+
+		EventBus:Emit(Events.LOCAL_DEPLOY_UNIT, {
+			UnitEnum = Unitdata.unitEnum,
+			UnitLevel = Unitdata.TroopLevel,
+			--@TODO: Replace with actual grid position based on hit position
+			GirdPosition = { GridX = 5, GridZ = 5 },
+		})
 	end)
 end
 
