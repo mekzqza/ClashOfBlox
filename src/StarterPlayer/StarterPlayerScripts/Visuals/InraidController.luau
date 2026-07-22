@@ -18,6 +18,8 @@ export type TroopCardField = {
 
 local CONFIG = {
 	TROOP_CARD_FRAME_NAME = "Troopcard",
+	THICKNESS_SELECTED_CARD = 2,
+	THICKNESS_UNSELECTED_CARD = 0,
 }
 
 --@TODO : Remove this test data and replace it with actual data from the server when the raid starts
@@ -50,20 +52,27 @@ function InraidController.new()
 	}
 	self._giveUpConn = nil
 	self._Uitemplate = nil
+
+	--dependencry
+	self._BattleController = nil
 	return self
+end
+
+function InraidController:SetDependencies(locator)
+	self._BattleController = locator:Get("BattleController")
 end
 
 function InraidController:onSelectCard(frame: Frame)
 	if self._currentCardtroopFrame then
 		local previousUIStroke = self._currentCardtroopFrame:FindFirstChild("UIStroke")
 		if previousUIStroke then
-			previousUIStroke.Thickness = 0
+			previousUIStroke.Thickness = CONFIG.THICKNESS_UNSELECTED_CARD
 		end
 	end
 
 	local UIStroke = frame:FindFirstChild("UIStroke")
 	if UIStroke then
-		UIStroke.Thickness = 2
+		UIStroke.Thickness = CONFIG.THICKNESS_SELECTED_CARD
 	end
 end
 
@@ -99,14 +108,7 @@ function InraidController:RegisterUnitCard(unit: TroopCardField)
 	self._cardActivated[card] = {
 		conn = card.Btn.Activated:Connect(function()
 			self._currentCardtroopFrame = card
-			warn(
-				"[InraidController] Card activated for unit:",
-				unitType,
-				"count:",
-				unit.TroopCount,
-				"level:",
-				unit.TroopLevel
-			)
+			self:onSelectCard(card)
 		end),
 		unitType = unitType,
 		unitEnum = unit.UnitEnum,
@@ -123,6 +125,7 @@ function InraidController:RaidEnd()
 		data.conn:Disconnect()
 		card:Destroy()
 	end
+	self._cardActivated = {}
 end
 
 function InraidController:Init()
@@ -156,6 +159,12 @@ function InraidController:Start()
 			self._inraid = false
 			return
 		end
+
+		if self._inraid then
+			warn("[InraidController] Raid mode already active")
+			return
+		end
+
 		warn("[InraidController] Raid mode started")
 		self._mainFrame.Visible = true
 		self._inraid = true
@@ -164,7 +173,7 @@ function InraidController:Start()
 		end
 	end)
 
-	EventBus:On(Events.LOCAL_GROUND_TAP, function(hit)
+	EventBus:On(Events.LOCAL_GROUND_TAP, function(hitPosition)
 		if not self._inraid then
 			return
 		end
@@ -178,11 +187,12 @@ function InraidController:Start()
 			return
 		end
 
+		--@TODO: Replace with actual grid position based on hit position
+		local gridX, gridZ = self._BattleController:GetFootPrintStart(hitPosition, 1, 1)
 		EventBus:Emit(Events.LOCAL_DEPLOY_UNIT, {
 			UnitEnum = Unitdata.unitEnum,
 			UnitLevel = Unitdata.TroopLevel,
-			--@TODO: Replace with actual grid position based on hit position
-			GirdPosition = { GridX = 5, GridZ = 5 },
+			GirdPosition = { GridX = gridX, GridZ = gridZ },
 		})
 	end)
 end
