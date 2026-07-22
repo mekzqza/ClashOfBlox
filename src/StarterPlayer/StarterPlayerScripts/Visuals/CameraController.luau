@@ -45,12 +45,7 @@ function CameraController.new()
 	self._BeginConn = nil
 	self._EndConn = nil
 
-	--dependencies
-	self._GridController = nil
 	return self
-end
-function CameraController:SetDependencies(locator)
-	self._GridController = locator:Get("GridController")
 end
 
 function CameraController:SetAngles(key: string, value: number)
@@ -147,12 +142,7 @@ function CameraController:Disconnect()
 	RunService:UnbindFromRenderStep("CameraController")
 end
 
-function CameraController:Init()
-	if not self._GridController then
-		warn("[CameraController] No GridController found, camera will not function properly.")
-		return
-	end
-end
+function CameraController:Init() end
 
 function CameraController:Start()
 	self._Camera.CameraType = Enum.CameraType.Scriptable
