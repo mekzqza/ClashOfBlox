@@ -53,6 +53,8 @@ function BattleController.new()
 	self._buildingModels = {} :: { [string]: Model }
 
 	self._unitVisuals = {} :: { [string]: { Prev: Vector3, Current: Vector3, StartTime: number, Duration: number } }
+	-- ระยะเยื้องจากกลาง cell ตอนวาง unit ครั้งแรก (visual เท่านั้น — simulation อยู่บน grid ล้วน)
+	self._unitOffsets = {} :: { [string]: Vector3 }
 	self._runServiceConnection = nil :: RBXScriptConnection?
 
 	-- FlowField ของBuildingแต่ละตัว
@@ -163,7 +165,7 @@ function BattleController:freeCell(position: Vector3, sizeX: number?, sizeZ: num
 	end
 end
 
-function BattleController:SpawnUnit(unitEnum: number, unitLevel, position: Simulation.GridPosition)
+function BattleController:SpawnUnit(unitEnum: number, unitLevel, position: Simulation.GridPosition, offset: Vector3?)
 	if not self._state.Units then
 		self._state.Units = {}
 	end
@@ -182,7 +184,9 @@ function BattleController:SpawnUnit(unitEnum: number, unitLevel, position: Simul
 	end
 	unitModel.Name = unitId
 	unitModel.Parent = self._BattleFolder
-	local worldPos = self:GridCoordsToWorld(position.GridX, position.GridZ, 1, 1)
+	self._unitOffsets[unitId] = offset or Vector3.zero
+	local worldPos = (self:GridCoordsToWorld(position.GridX, position.GridZ, 1, 1) :: Vector3)
+		+ self._unitOffsets[unitId]
 	unitModel:PivotTo(CFrame.new(worldPos))
 	self._unitModels[unitId] = unitModel
 
@@ -262,9 +266,10 @@ function BattleController:StartRiding()
 					continue
 				end
 
-				local currentWorld = self:GridCoordsToWorld(unit.Position.GridX, unit.Position.GridZ, 1, 1)
+				local currentWorld = (self:GridCoordsToWorld(unit.Position.GridX, unit.Position.GridZ, 1, 1) :: Vector3)
+					+ (self._unitOffsets[unitId] or Vector3.zero)
 				local oldVisual = self._unitVisuals[unitId]
-				if not oldVisual or oldVisual.Current ~= currentWorld then
+				if not oldVisual or (oldVisual.Current :: Vector3) ~= currentWorld then
 					self._unitVisuals[unitId] = {
 						Prev = oldVisual and oldVisual.Current or currentWorld,
 						Current = currentWorld,
@@ -335,6 +340,7 @@ function BattleController:MatchEnd()
 	self._units = {}
 	self._buildings = {}
 	self._unitVisuals = {}
+	self._unitOffsets = {}
 	self._destroyedBuildings = {}
 	self._buildingPositionGolas = {}
 
@@ -447,7 +453,7 @@ function BattleController:Start()
 			return
 		end
 		local unitLevel = data.UnitLevel or 1
-		self:SpawnUnit(unitEnum, unitLevel, girdPosition)
+		self:SpawnUnit(unitEnum, unitLevel, girdPosition, data.Offset)
 	end)
 
 	EventBus:On(Events.LOCAL_FOLDER_READY, function(data)

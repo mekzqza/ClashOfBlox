@@ -20,6 +20,8 @@ local CONFIG = {
 	TROOP_CARD_FRAME_NAME = "Troopcard",
 	THICKNESS_SELECTED_CARD = 2,
 	THICKNESS_UNSELECTED_CARD = 0,
+	-- ครึ่ง cell คือ 2 studs เว้นขอบไว้กัน unit เบียดเข้า cell ข้าง
+	MAX_DEPLOY_OFFSET = 1.5,
 }
 
 --@TODO : Remove this test data and replace it with actual data from the server when the raid starts
@@ -187,12 +189,18 @@ function InraidController:Start()
 			return
 		end
 
-		--@TODO: Replace with actual grid position based on hit position
 		local gridX, gridZ = self._BattleController:GetFootPrintStart(hitPosition, 1, 1)
+		local cellCenter = self._BattleController:GridCoordsToWorld(gridX, gridZ, 1, 1)
+		local offset = Vector3.new(
+			math.clamp(hitPosition.X - cellCenter.X, -CONFIG.MAX_DEPLOY_OFFSET, CONFIG.MAX_DEPLOY_OFFSET),
+			0,
+			math.clamp(hitPosition.Z - cellCenter.Z, -CONFIG.MAX_DEPLOY_OFFSET, CONFIG.MAX_DEPLOY_OFFSET)
+		)
 		EventBus:Emit(Events.LOCAL_DEPLOY_UNIT, {
 			UnitEnum = Unitdata.unitEnum,
 			UnitLevel = Unitdata.TroopLevel,
 			GirdPosition = { GridX = gridX, GridZ = gridZ },
+			Offset = offset,
 		})
 	end)
 end
