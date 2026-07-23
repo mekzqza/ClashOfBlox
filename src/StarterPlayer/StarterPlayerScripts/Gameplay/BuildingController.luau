@@ -373,7 +373,6 @@ function BuildingController:_createBuilding(buildingType: string, snapPosition: 
 	end
 
 	local newBuilding = Template:Clone()
-	newBuilding.Parent = self._PlayerFolder
 
 	local primaryPart: BasePart? = newBuilding.PrimaryPart
 	if not primaryPart then
@@ -966,11 +965,14 @@ function BuildingController:Start()
 		self:_confirmMove()
 	end)
 
-	EventBus:On(Events.LOCAL_PLAYER_RAID_START, function()
+	EventBus:On(Events.C2S_REQUEST_FINDING_RAID, function()
 		self:HideAllBuilding()
 	end)
 
-	EventBus:On(Events.LOCAL_PLAYER_RAID_END, function()
+	EventBus:On(Events.LOCAL_MODE_CHANGED, function(mode)
+		if mode ~= "OwnHome" then
+			return
+		end
 		self:CancelAllBuildingMove()
 	end)
 
