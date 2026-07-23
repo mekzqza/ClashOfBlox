@@ -155,19 +155,18 @@ function InraidController:Start()
 		self._mainFrame.Visible = false
 	end)
 
-	EventBus:On(Events.LOCAL_MODE_CHANGED, function(mode)
-		if mode ~= "Raid" then
-			self._mainFrame.Visible = false
-			self._inraid = false
-			return
-		end
+	EventBus:On(Events.LOCAL_FOUND_RAID_TARGET, function()
+		-- if mode ~= "Raid" then
+		-- 	self._mainFrame.Visible = false
+		-- 	self._inraid = false
+		-- 	return
+		-- end
 
 		if self._inraid then
 			warn("[InraidController] Raid mode already active")
 			return
 		end
 
-		warn("[InraidController] Raid mode started")
 		self._mainFrame.Visible = true
 		self._inraid = true
 		for _, unit in ipairs(TEST_UNIT) do

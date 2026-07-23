@@ -16,8 +16,8 @@ local Simulation = require(ReplicatedStorage.Shared.Simulation)
 local GameEnum = require(ReplicatedStorage.Shared.GameEnum)
 
 local CONFIG = {
-	CELL_SIZE = 4,
-	STRIDE = 100,
+	CELL_SIZE = 4, --stud
+	STRIDE = 100, --stud
 	KEYSTORE = {
 		["Gridx"] = 1,
 		["Gridz"] = 2,
@@ -28,6 +28,7 @@ local CONFIG = {
 	},
 	INTERVAL = 0.1, -- วินาที
 	MATCH_TIMEOUT = 20, -- วินาที
+	CREATE_BUILDING_TEMPLATE = "CreatingBuilding",
 }
 
 local BattleController = {}
@@ -81,6 +82,7 @@ end
 
 function BattleController:SetDependencies(locator)
 	self._UnitController = locator:Get("UnitController")
+	self._BuildingController = locator:Get("BuildingController")
 end
 
 function BattleController:_gridKeyfromCoords(gridx: number, gridz: number): number
@@ -185,8 +187,7 @@ function BattleController:SpawnUnit(unitEnum: number, unitLevel, position: Simul
 	unitModel.Name = unitId
 	unitModel.Parent = self._BattleFolder
 	self._unitOffsets[unitId] = offset or Vector3.zero
-	local worldPos = (self:GridCoordsToWorld(position.GridX, position.GridZ, 1, 1) :: Vector3)
-		+ self._unitOffsets[unitId]
+	local worldPos = self:GridCoordsToWorld(position.GridX, position.GridZ, 1, 1) :: Vector3 + self._unitOffsets[unitId]
 	unitModel:PivotTo(CFrame.new(worldPos))
 	self._unitModels[unitId] = unitModel
 
@@ -211,6 +212,8 @@ function BattleController:_getListOfFootPrintCells(
 end
 
 function BattleController:StartRiding()
+	EventBus:Emit(Events.LOCAL_MODE_CHANGED, "Raid")
+
 	if not self._state.Tick or not self._state.Buildings or not self._state.Spells then
 		self._state.Buildings = self._state.Buildings or {}
 		self._state.Tick = 0
@@ -266,8 +269,12 @@ function BattleController:StartRiding()
 					continue
 				end
 
-				local currentWorld = (self:GridCoordsToWorld(unit.Position.GridX, unit.Position.GridZ, 1, 1) :: Vector3)
-					+ (self._unitOffsets[unitId] or Vector3.zero)
+				local currentWorld = self:GridCoordsToWorld(
+						unit.Position.GridX,
+						unit.Position.GridZ,
+						1,
+						1
+					) :: Vector3 + (self._unitOffsets[unitId] or Vector3.zero)
 				local oldVisual = self._unitVisuals[unitId]
 				if not oldVisual or (oldVisual.Current :: Vector3) ~= currentWorld then
 					self._unitVisuals[unitId] = {
@@ -289,6 +296,9 @@ function BattleController:StartRiding()
 
 				if building.Hp <= 0 then
 					self._destroyedBuildings[building.BuildingId] = true
+					-- @TODO Change building model to destroyed state and play building destroyed animation
+					self._buildingModels[building.BuildingId]:Destroy()
+					self._buildingModels[building.BuildingId] = nil
 					local sizeX = building.Dimensions.Width
 					local sizeZ = building.Dimensions.Length
 					local buildingPosition =
@@ -363,6 +373,7 @@ function BattleController:MatchEnd()
 		for _, model in self._buildingModels do
 			if model and model.Parent then
 				model:Destroy()
+				warn("[BattleController] Destroying building model: " .. model.Name)
 			end
 		end
 		self._buildingModels = {}
@@ -398,7 +409,6 @@ function BattleController:Start()
 			warn("[BattleController] No building data found for player")
 			return
 		end
-		EventBus:Emit(Events.LOCAL_MODE_CHANGED, "Raid")
 
 		self._state.Buildings = {}
 		for buildingId, buildingdata in buildings do
@@ -431,7 +441,15 @@ function BattleController:Start()
 			)
 			self._buildingPositionGolas[buildingId] =
 				self:_getListOfFootPrintCells(building.Position, building.Dimensions.Width, building.Dimensions.Length)
-			-- @TODO create Buildingmodel
+			local buildingType = GameEnum:GetBuildingTypeById(building.BuildingEnum)
+			local model = self._BuildingController:_createBuilding(buildingType, buildPosion, building.BuildingLevel)
+			local footprint = self._BuildingController:_createFootPrints(
+				buildPosion,
+				building.Dimensions.Width * building.Dimensions.Length
+			)
+			footprint.Parent = model
+			model.Parent = self._BattleFolder
+			self._buildingModels[buildingId] = model
 			table.insert(self._state.Buildings, self._buildings[buildingId])
 		end
 	end)
