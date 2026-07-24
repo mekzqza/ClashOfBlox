@@ -14,7 +14,14 @@ local BuildingConfig = require(ReplicatedStorage.Shared.BuildingConfig)
 local UnitConfig = require(ReplicatedStorage.Shared.UnitConfig)
 local Pathfinding = require(ReplicatedStorage.Shared.Pathfinding)
 
-export type GridPosition = {
+local CONFIG = {
+	KEY_EVENT = {
+		["Unit_Attack"] = 1,
+		["Building_Destroyed"] = 2,
+		["Unit_Died"] = 3,
+	},
+}
+type GridPosition = {
 	GridX: number,
 	GridZ: number,
 }
@@ -193,7 +200,7 @@ function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.F
 		if unit.Hp <= 0 then
 			unit.state = 4 -- "DIED"
 			unit.state = table.insert(stateEvents, {
-				Type = 3, -- 3 = "UNIT_DIED"
+				Type = CONFIG.KEY_EVENT["Unit_Died"],
 				UnitId = unit.UnitId,
 			})
 			continue
@@ -213,7 +220,7 @@ function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.F
 			unit.CooldownLeft -= 1
 			if unit.CooldownLeft <= 0 then
 				table.insert(stateEvents, {
-					Type = 1, --1 = "UNIT_ATTACK"
+					Type = CONFIG.KEY_EVENT["Unit_Attack"],
 					UnitId = unit.UnitId,
 					TargetId = target.BuildingId,
 					Damage = unit.Damage,
@@ -221,7 +228,7 @@ function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.F
 				target.Hp = math.max(0, target.Hp - unit.Damage)
 				if target.Hp <= 0 then
 					table.insert(stateEvents, {
-						Type = 2, -- 2 = "BUILDING_DESTROY"
+						Type = CONFIG.KEY_EVENT["Building_Destroyed"],
 						BuildingId = target.BuildingId,
 					})
 				end
