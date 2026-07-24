@@ -30,6 +30,8 @@ export type BuildingState = {
 	MaxHp: number,
 	Hp: number,
 
+	state: number?, -- "IDLE", "DIED"
+
 	Dimensions: { Width: number, Length: number },
 }
 
@@ -46,6 +48,8 @@ export type UnitState = {
 
 	-- 1-10 เพื่อสะสมกำลังในการเดิน ถึง10 ให้เดิน 1 ช่อง (ถ้า WalkSpeed=1) → deterministic
 	MoveProgress: number,
+	--@TODO State Enum 1 = "IDLE", 2 = "MOVING", 3 = "ATTACKING", 4 = "DIED"
+	state: number?,
 
 	TargetId: string?,
 }
@@ -63,6 +67,14 @@ export type State = {
 	Units: { UnitState },
 	Buildings: { BuildingState },
 	Spells: { SpellState },
+}
+
+export type SimEvent = {
+	Type: number, --State Enum
+	UnitId: string?,
+	TargetId: string?,
+	BuildingId: string?,
+	Damage: number?,
 }
 
 local Simulation = {}
@@ -100,6 +112,7 @@ function Simulation.RegisterBuilding(
 
 		MaxHp = buildingData.MaxHp,
 		Hp = buildingData.MaxHp,
+		state = 1, -- "IDLE"
 
 		Dimensions = {
 			Width = dimensions.Width,
@@ -125,6 +138,7 @@ function Simulation.RegisterUnit(
 		Damage = unitData.Damage,
 		WalkSpeed = unitData.WalkSpeed,
 		MoveProgress = 0,
+		state = 1, -- "IDLE"
 		Range = unitData.Range,
 		AttackCooldown = unitData.AttackCooldown,
 		CooldownLeft = 0,
@@ -168,11 +182,20 @@ local function nearestBuilding(unit: UnitState, buildings: { BuildingState }): s
 	return bestId
 end
 
-function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.FlowField }): State
+function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.FlowField }): (State, { SimEvent })
 	state.Tick += 1
+	local stateEvents: { SimEvent } = {}
 
 	for _, unit in state.Units do
+		if unit.state == 4 then
+			continue
+		end
 		if unit.Hp <= 0 then
+			unit.state = 4 -- "DIED"
+			unit.state = table.insert(stateEvents, {
+				Type = 3, -- 3 = "UNIT_DIED"
+				UnitId = unit.UnitId,
+			})
 			continue
 		end
 
@@ -189,7 +212,19 @@ function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.F
 			-- เข้าระยะ → หยุดเดิน แล้วตีตามจังหวะ cooldown
 			unit.CooldownLeft -= 1
 			if unit.CooldownLeft <= 0 then
+				table.insert(stateEvents, {
+					Type = 1, --1 = "UNIT_ATTACK"
+					UnitId = unit.UnitId,
+					TargetId = target.BuildingId,
+					Damage = unit.Damage,
+				})
 				target.Hp = math.max(0, target.Hp - unit.Damage)
+				if target.Hp <= 0 then
+					table.insert(stateEvents, {
+						Type = 2, -- 2 = "BUILDING_DESTROY"
+						BuildingId = target.BuildingId,
+					})
+				end
 				unit.CooldownLeft = unit.AttackCooldown
 			end
 		else
@@ -207,7 +242,7 @@ function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.F
 		end
 	end
 
-	return state
+	return state, stateEvents
 end
 
 -- loop เรียก stepTick ตั้งแต่เริ่ม จนจบ → finalState

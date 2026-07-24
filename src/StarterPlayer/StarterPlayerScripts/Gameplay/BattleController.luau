@@ -239,7 +239,27 @@ function BattleController:StartRiding()
 		local startTime = tick()
 		local endTime = startTime + CONFIG.MATCH_TIMEOUT
 		while self._isRaiding and tick() < endTime do
-			Simulation.stepTick(self._state, self._flowFields)
+			local _, stateEvents = Simulation.stepTick(self._state, self._flowFields)
+
+			for _, event in stateEvents do
+				if event.Type == 1 then -- Unit_Attack event
+					-- @TODO play attack animation for unit and update building health bar
+					-- local unitId = event.UnitId
+					-- local targetId = event.TargetId
+					-- local damage = event.Damage
+				elseif event.Type == 2 then -- BUILDING_DESTROY event
+					--@TODO play building destroyed animation and update building health bar
+					local targetId = event.BuildingId
+					-- warn("[BattleController] Building destroyed: " .. targetId)
+				elseif event.Type == 3 then -- UNIT_DIED event
+					-- @TODO play unit death animation and remove model
+					local unitId = event.UnitId
+					if self._unitModels[unitId] then
+						self._UnitController:RecycleUnit(self._unitModels[unitId])
+						self._unitModels[unitId] = nil
+					end
+				end
+			end
 
 			--@Unit Loop
 			for _, unit in self._state.Units do
@@ -248,6 +268,8 @@ function BattleController:StartRiding()
 					warn("[BattleController] Unit has no UnitId, skipping")
 					continue
 				end
+
+				--@TODO play animation for unit movement and attack
 
 				local unitTargetId = unit.TargetId
 
