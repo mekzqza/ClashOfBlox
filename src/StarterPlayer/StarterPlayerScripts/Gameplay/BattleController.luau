@@ -6,7 +6,6 @@
 
 ]]
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 
 local Events = require(ReplicatedStorage.Shared.Events)
@@ -32,6 +31,7 @@ local CONFIG = {
 }
 
 local BattleController = {}
+local EventHandler: { [number]: (any, Simulation.SimEvent) -> () } = {}
 BattleController.__index = BattleController
 function BattleController.new()
 	local self = setmetatable({}, BattleController)
@@ -46,7 +46,6 @@ function BattleController.new()
 	self._units = {} :: { [string]: Simulation.UnitState }
 	self._buildings = {} :: { [string]: Simulation.BuildingState }
 	self._buildingPositionGolas = {} :: { [string]: { Simulation.GridPosition } }
-	self._destroyedBuildings = {} :: { [string]: true }
 
 	--Model Visualization
 	self._UnitsTemplate = nil
@@ -171,7 +170,7 @@ function BattleController:SpawnUnit(unitEnum: number, unitLevel, position: Simul
 	if not self._state.Units then
 		self._state.Units = {}
 	end
-	local unitId = "Unit_" .. self._currentUnitId
+	local unitId = "Unit_" .. tostring(self._currentUnitId)
 
 	local unit = Simulation.RegisterUnit(unitId, unitEnum, unitLevel, position)
 	if not unit then
@@ -211,6 +210,51 @@ function BattleController:_getListOfFootPrintCells(
 	return cells
 end
 
+EventHandler[Simulation.EVENT.Unit_Attack] = function(self, event: Simulation.SimEvent)
+	-- @TODO play attack animation for unit and update building health bar
+end
+
+EventHandler[Simulation.EVENT.Building_Destroyed] = function(self, event: Simulation.SimEvent)
+	local buildingId = event.BuildingId
+	if not buildingId then
+		return
+	end
+
+	-- @TODO play building destroyed animation แล้วค่อยลบ model
+	local model = self._buildingModels[buildingId]
+	if model then
+		model:Destroy()
+		self._buildingModels[buildingId] = nil
+	end
+
+	local building = self._buildings[buildingId]
+	if building then
+		local sizeX = building.Dimensions.Width
+		local sizeZ = building.Dimensions.Length
+		local worldPosition = self:GridCoordsToWorld(building.Position.GridX, building.Position.GridZ, sizeX, sizeZ)
+		self:freeCell(worldPosition, sizeX, sizeZ)
+	end
+
+	-- ตึกหาย → ทางเดินเปลี่ยน ทิ้ง flow field ทั้งหมดให้สร้างใหม่
+	self._flowFields = {}
+end
+
+EventHandler[Simulation.EVENT.Unit_Died] = function(self, event: Simulation.SimEvent)
+	local unitId = event.UnitId
+	if not unitId then
+		return
+	end
+
+	-- @TODO play unit death animation ให้จบก่อนแล้วค่อย recycle (ต้อง Stop track ก่อนคืน pool)
+	local model = self._unitModels[unitId]
+	if model then
+		self._UnitController:RecycleUnit(model)
+		self._unitModels[unitId] = nil
+	end
+	self._unitVisuals[unitId] = nil
+	self._unitOffsets[unitId] = nil
+end
+
 function BattleController:StartRiding()
 	EventBus:Emit(Events.LOCAL_MODE_CHANGED, "Raid")
 
@@ -242,22 +286,11 @@ function BattleController:StartRiding()
 			local _, stateEvents = Simulation.stepTick(self._state, self._flowFields)
 
 			for _, event in stateEvents do
-				if event.Type == 1 then -- Unit_Attack event
-					-- @TODO play attack animation for unit and update building health bar
-					-- local unitId = event.UnitId
-					-- local targetId = event.TargetId
-					-- local damage = event.Damage
-				elseif event.Type == 2 then -- BUILDING_DESTROY event
-					--@TODO play building destroyed animation and update building health bar
-					local targetId = event.BuildingId
-					-- warn("[BattleController] Building destroyed: " .. targetId)
-				elseif event.Type == 3 then -- UNIT_DIED event
-					-- @TODO play unit death animation and remove model
-					local unitId = event.UnitId
-					if self._unitModels[unitId] then
-						self._UnitController:RecycleUnit(self._unitModels[unitId])
-						self._unitModels[unitId] = nil
-					end
+				local handler = EventHandler[event.Type]
+				if handler then
+					handler(self, event)
+				else
+					warn("[BattleController] No handler for event type: " .. event.Type)
 				end
 			end
 
@@ -269,7 +302,8 @@ function BattleController:StartRiding()
 					continue
 				end
 
-				--@TODO play animation for unit movement and attack
+				--@TODO play animation ตาม unit.state (สลับเฉพาะตอน state เปลี่ยน)
+				warn("[BattleController] Unit state: " .. unitId .. " is " .. unit.state)
 
 				local unitTargetId = unit.TargetId
 
@@ -284,10 +318,8 @@ function BattleController:StartRiding()
 							}, self._occupiedCells)
 					end
 				end
-
 				local unitState = self._units[unitId]
 				if not unitState or unit.Hp <= 0 then
-					-- @TODO monster die, remove model
 					continue
 				end
 
@@ -307,28 +339,6 @@ function BattleController:StartRiding()
 							then CONFIG.INTERVAL
 							else (10 / unit.WalkSpeed) * CONFIG.INTERVAL,
 					}
-				end
-			end
-
-			-- @Building Loop
-			for _, building in self._state.Buildings do
-				if self._destroyedBuildings[building.BuildingId] then
-					continue
-				end
-
-				if building.Hp <= 0 then
-					self._destroyedBuildings[building.BuildingId] = true
-					-- @TODO Change building model to destroyed state and play building destroyed animation
-					self._buildingModels[building.BuildingId]:Destroy()
-					self._buildingModels[building.BuildingId] = nil
-					local sizeX = building.Dimensions.Width
-					local sizeZ = building.Dimensions.Length
-					local buildingPosition =
-						self:GridCoordsToWorld(building.Position.GridX, building.Position.GridZ, sizeX, sizeZ)
-					self:freeCell(buildingPosition, sizeX, sizeZ)
-					self._flowFields = {}
-				else
-					-- @TODO update building model health bar
 				end
 			end
 
@@ -373,7 +383,6 @@ function BattleController:MatchEnd()
 	self._buildings = {}
 	self._unitVisuals = {}
 	self._unitOffsets = {}
-	self._destroyedBuildings = {}
 	self._buildingPositionGolas = {}
 
 	if self._runServiceConnection then
@@ -443,7 +452,6 @@ function BattleController:Start()
 				buildingdata[CONFIG.KEYSTORE["EndTime"]],
 				buildingdata[CONFIG.KEYSTORE["LastCollectedTime"]]
 			)
-			warn("[BattleController] Register building with ID: " .. buildingId)
 			if not building then
 				warn("[BattleController] Failed to register building with ID: " .. buildingId)
 				continue

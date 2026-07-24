@@ -14,14 +14,7 @@ local BuildingConfig = require(ReplicatedStorage.Shared.BuildingConfig)
 local UnitConfig = require(ReplicatedStorage.Shared.UnitConfig)
 local Pathfinding = require(ReplicatedStorage.Shared.Pathfinding)
 
-local CONFIG = {
-	KEY_EVENT = {
-		["Unit_Attack"] = 1,
-		["Building_Destroyed"] = 2,
-		["Unit_Died"] = 3,
-	},
-}
-type GridPosition = {
+export type GridPosition = {
 	GridX: number,
 	GridZ: number,
 }
@@ -36,8 +29,6 @@ export type BuildingState = {
 
 	MaxHp: number,
 	Hp: number,
-
-	state: number?, -- "IDLE", "DIED"
 
 	Dimensions: { Width: number, Length: number },
 }
@@ -55,8 +46,7 @@ export type UnitState = {
 
 	-- 1-10 เพื่อสะสมกำลังในการเดิน ถึง10 ให้เดิน 1 ช่อง (ถ้า WalkSpeed=1) → deterministic
 	MoveProgress: number,
-	--@TODO State Enum 1 = "IDLE", 2 = "MOVING", 3 = "ATTACKING", 4 = "DIED"
-	state: number?,
+	state: number, -- Simulation.UNIT_STATE
 
 	TargetId: string?,
 }
@@ -85,6 +75,20 @@ export type SimEvent = {
 }
 
 local Simulation = {}
+
+-- source of truth ทั้ง sim และฝั่ง visual — อย่าคัดลอกไปไว้ที่อื่น
+Simulation.UNIT_STATE = {
+	IDLE = 1,
+	MOVING = 2,
+	ATTACKING = 3,
+	DIED = 4,
+}
+
+Simulation.EVENT = {
+	Unit_Attack = 1,
+	Building_Destroyed = 2,
+	Unit_Died = 3,
+}
 
 function Simulation.RegisterBuilding(
 	buildingId: string,
@@ -119,7 +123,6 @@ function Simulation.RegisterBuilding(
 
 		MaxHp = buildingData.MaxHp,
 		Hp = buildingData.MaxHp,
-		state = 1, -- "IDLE"
 
 		Dimensions = {
 			Width = dimensions.Width,
@@ -145,7 +148,7 @@ function Simulation.RegisterUnit(
 		Damage = unitData.Damage,
 		WalkSpeed = unitData.WalkSpeed,
 		MoveProgress = 0,
-		state = 1, -- "IDLE"
+		state = Simulation.UNIT_STATE.IDLE,
 		Range = unitData.Range,
 		AttackCooldown = unitData.AttackCooldown,
 		CooldownLeft = 0,
@@ -194,13 +197,13 @@ function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.F
 	local stateEvents: { SimEvent } = {}
 
 	for _, unit in state.Units do
-		if unit.state == 4 then
+		if unit.state == Simulation.UNIT_STATE.DIED then
 			continue
 		end
 		if unit.Hp <= 0 then
-			unit.state = 4 -- "DIED"
-			unit.state = table.insert(stateEvents, {
-				Type = CONFIG.KEY_EVENT["Unit_Died"],
+			unit.state = Simulation.UNIT_STATE.DIED
+			table.insert(stateEvents, {
+				Type = Simulation.EVENT.Unit_Died,
 				UnitId = unit.UnitId,
 			})
 			continue
@@ -212,15 +215,19 @@ function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.F
 			target = if unit.TargetId then findBuilding(state.Buildings, unit.TargetId) else nil
 		end
 		if not target then
+			-- ตึกพังหมดแล้ว ไม่มีอะไรให้ตี
+			unit.state = Simulation.UNIT_STATE.IDLE
 			continue
 		end
 
 		if distanceSqToBuilding(unit.Position, target) <= unit.Range * unit.Range then
 			-- เข้าระยะ → หยุดเดิน แล้วตีตามจังหวะ cooldown
+			-- state ต้อง set ที่หัว branch: ยืนจ่อ = ATTACKING ทุก tick ไม่ใช่เฉพาะ tick ที่หมัดลง
+			unit.state = Simulation.UNIT_STATE.ATTACKING
 			unit.CooldownLeft -= 1
 			if unit.CooldownLeft <= 0 then
 				table.insert(stateEvents, {
-					Type = CONFIG.KEY_EVENT["Unit_Attack"],
+					Type = Simulation.EVENT.Unit_Attack,
 					UnitId = unit.UnitId,
 					TargetId = target.BuildingId,
 					Damage = unit.Damage,
@@ -228,7 +235,7 @@ function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.F
 				target.Hp = math.max(0, target.Hp - unit.Damage)
 				if target.Hp <= 0 then
 					table.insert(stateEvents, {
-						Type = CONFIG.KEY_EVENT["Building_Destroyed"],
+						Type = Simulation.EVENT.Building_Destroyed,
 						BuildingId = target.BuildingId,
 					})
 				end
@@ -237,6 +244,7 @@ function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.F
 		else
 			local flow = flowFields[target.BuildingId]
 
+			unit.state = Simulation.UNIT_STATE.MOVING
 			unit.MoveProgress += unit.WalkSpeed
 			if unit.MoveProgress >= 10 then
 				unit.MoveProgress -= 10
@@ -244,7 +252,6 @@ function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.F
 				if nxt then
 					unit.Position = nxt
 				end
-			else
 			end
 		end
 	end
