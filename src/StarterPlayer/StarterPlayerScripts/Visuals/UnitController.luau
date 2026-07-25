@@ -11,16 +11,18 @@ function UnitController.new()
 	self._pool_Unit_Floder = nil
 	self._pool_Position_Floder = nil
 	self._UnitsTemplate = nil
+
+	-- 1 = IDLE, 2 = MOVING, 3 = ATTACKING, 4 = DYING
+	self._tracks = {} :: { [Model]: { number: AnimationTrack } }
 	return self
 end
 
-function UnitController:AssingTrack(model: Model, state: number)
-	local unitType = model:GetAttribute("UnitType")
-	local unitAnimationId = UnitConfig:GetAnimationId(unitType, state)
-	if not unitAnimationId then
-		warn("[UnitController] Animation ID not found for unit type: " .. unitType .. " and state: " .. state)
-		return
+function UnitController:LoadAnimatioTracks(model: Model)
+	if self._tracks[model] then
+		return -- โหลดไปแล้ว เรียกซ้ำจาก GetUnit ได้ไม่พัง
 	end
+
+	local unitType = model:GetAttribute("UnitType") :: string
 
 	local animationController = model:FindFirstChild("AnimationController", true)
 	if not animationController then
@@ -28,21 +30,25 @@ function UnitController:AssingTrack(model: Model, state: number)
 		return
 	end
 
-	local animator = animationController:FindFirstChild("Animator", true) :: Animator
+	local animator = animationController:FindFirstChildOfClass("Animator")
 	if not animator then
 		warn("[UnitController] Animator not found in AnimationController for model: " .. model.Name)
 		return
 	end
 
-	local animation = Instance.new("Animation")
-	animation.AnimationId = unitAnimationId
-	animation.Parent = animator
+	local unitAnimationId = UnitConfig:GetAnimationId(unitType)
+	if not unitAnimationId then
+		warn("[UnitController] Animation ID not found for unit type: " .. unitType)
+		return
+	end
 
-	local trak = animator:LoadAnimation(animation)
-	trak.Looped = true
-	trak:Play()
-	warn(trak.Length)
-	warn("[UnitController] Playing animation for unit type: " .. unitType .. " and state: " .. state)
+	local tracks: { [number]: AnimationTrack } = {}
+	for state, id in unitAnimationId do
+		local animation = Instance.new("Animation")
+		animation.AnimationId = id
+		tracks[state] = animator:LoadAnimation(animation)
+	end
+	self._tracks[model] = tracks
 end
 
 -- @TODO Unitpolling
@@ -66,6 +72,9 @@ function UnitController:GetUnit(unitType: string, unitLevel: number): Model?
 	end
 	model:SetAttribute("UnitType", unitType)
 	model:SetAttribute("UnitLevel", unitLevel)
+	-- @TODO [ANIM] ทางนี้คือ unit ที่ถูกใช้ซ้ำจาก pool ซึ่งไม่เคยเรียก AssingTrack เลย
+	--   (มีแต่ใน CreateUnit) → ตั้งแต่เรดที่ 2 ยูนิตจะยืนแข็งทั้งสนาม
+	--   แก้โดยย้าย AssingTrack ออกจาก CreateUnit มาไว้ท้าย GetUnit ให้ครอบทั้งสองทาง
 	return model
 end
 
@@ -86,6 +95,9 @@ function UnitController:RecycleUnit(unitModel: Model)
 		self._unitAvaliable[unitType][unitLevel] = {}
 	end
 
+	-- @TODO [ANIM] Stop() ทุก track ของ model ก่อนโยนเข้า pool
+	--   ไม่งั้น unit ที่ตายไปแล้วจะยังเดิน/ตีอยู่ในกองที่จอดไว้ กิน CPU ฟรี ๆ ทั้งแมตช์
+	--   และตอนถูกหยิบไปใช้ใหม่ก็จะเล่นท่าเก่าซ้อนท่าใหม่ทันที
 	unitModel.Parent = self._pool_Unit_Floder
 	unitModel:PivotTo(CFrame.new(self._pool_Position_Floder))
 	table.insert(self._unitAvaliable[unitType][unitLevel], unitModel)
@@ -108,7 +120,10 @@ function UnitController:CreateUnit(unitType: string, unitLevel: number): Model?
 	newUnitModel:PivotTo(CFrame.new(self._pool_Position_Floder))
 	newUnitModel:SetAttribute("UnitType", unitType)
 	newUnitModel:SetAttribute("UnitLevel", unitLevel)
-	self:AssingTrack(newUnitModel, 2) -- @TODO state 2 = walk
+	-- @TODO [ANIM] เลข 2 คือ Simulation.UNIT_STATE.MOVING ที่ฮาร์ดโค้ดไว้
+	--   ควรเป็น IDLE (1) มากกว่า เพราะ unit ที่เพิ่งสร้างยังจอดอยู่ใน pool ไม่ได้เดินไปไหน
+	--   แล้วให้ BattleController สั่งสลับเป็น MOVING เองตอนเริ่มเดินจริง
+	self:AssingTrack(newUnitModel, 2)
 
 	return newUnitModel
 end
