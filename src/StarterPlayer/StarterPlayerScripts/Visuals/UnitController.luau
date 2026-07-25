@@ -13,7 +13,8 @@ function UnitController.new()
 	self._UnitsTemplate = nil
 
 	-- 1 = IDLE, 2 = MOVING, 3 = ATTACKING, 4 = DYING
-	self._tracks = {} :: { [Model]: { number: AnimationTrack } }
+	self._tracks = {} :: { [Model]: { [number]: AnimationTrack } }
+	self._currentAnimationState = {} :: { [Model]: number }
 	return self
 end
 
@@ -51,6 +52,33 @@ function UnitController:LoadAnimatioTracks(model: Model)
 	self._tracks[model] = tracks
 end
 
+function UnitController:PlayAnimation(model: Model, state: number)
+	local currentState = self._currentAnimationState[model]
+	if currentState == state then
+		return -- อยู่ท่านี้อยู่แล้ว ปล่อยให้เล่นต่อ อย่ารีสตาร์ท
+	end
+
+	local tracks = self._tracks[model]
+	if not tracks then
+		warn("[UnitController] No animation tracks found for model: " .. model.Name)
+		return
+	end
+
+	local trackToPlay = tracks[state]
+	if not trackToPlay then
+		warn("[UnitController] No animation track for state: " .. state .. " in model: " .. model.Name)
+		return
+	end
+
+	local currTrack = if currentState then tracks[currentState] else nil
+	if currTrack then
+		currTrack:Stop(0.1)
+	end
+
+	trackToPlay:Play(0.1)
+	self._currentAnimationState[model] = state
+end
+
 -- @TODO Unitpolling
 function UnitController:GetUnit(unitType: string, unitLevel: number): Model?
 	if not self._unitAvaliable[unitType] then
@@ -72,9 +100,8 @@ function UnitController:GetUnit(unitType: string, unitLevel: number): Model?
 	end
 	model:SetAttribute("UnitType", unitType)
 	model:SetAttribute("UnitLevel", unitLevel)
-	-- @TODO [ANIM] ทางนี้คือ unit ที่ถูกใช้ซ้ำจาก pool ซึ่งไม่เคยเรียก AssingTrack เลย
-	--   (มีแต่ใน CreateUnit) → ตั้งแต่เรดที่ 2 ยูนิตจะยืนแข็งทั้งสนาม
-	--   แก้โดยย้าย AssingTrack ออกจาก CreateUnit มาไว้ท้าย GetUnit ให้ครอบทั้งสองทาง
+	-- @TODO [ANIM] ทางนี้คือ unit ที่ใช้ซ้ำจาก pool — track ยังอยู่ครบ (LoadAnimatioTracks กันซ้ำอยู่แล้ว)
+	--   แต่ยังไม่มีใครสั่ง PlayAnimation ให้ ต้องให้ BattleController สั่งท่าเริ่มต้นตอน spawn
 	return model
 end
 
@@ -95,9 +122,15 @@ function UnitController:RecycleUnit(unitModel: Model)
 		self._unitAvaliable[unitType][unitLevel] = {}
 	end
 
-	-- @TODO [ANIM] Stop() ทุก track ของ model ก่อนโยนเข้า pool
-	--   ไม่งั้น unit ที่ตายไปแล้วจะยังเดิน/ตีอยู่ในกองที่จอดไว้ กิน CPU ฟรี ๆ ทั้งแมตช์
-	--   และตอนถูกหยิบไปใช้ใหม่ก็จะเล่นท่าเก่าซ้อนท่าใหม่ทันที
+	-- หยุดท่าที่ค้างอยู่ก่อนโยนเข้า pool แล้วล้าง state ทิ้ง
+	-- (ต้องล้าง ไม่งั้น PlayAnimation ตอนถูกหยิบไปใช้ใหม่จะเห็นว่า state เดิมแล้ว return ทันที = ยืนแข็ง)
+	local currentState = self._currentAnimationState[unitModel]
+	local tracks = self._tracks[unitModel]
+	if currentState and tracks and tracks[currentState] then
+		tracks[currentState]:Stop()
+	end
+	self._currentAnimationState[unitModel] = nil
+
 	unitModel.Parent = self._pool_Unit_Floder
 	unitModel:PivotTo(CFrame.new(self._pool_Position_Floder))
 	table.insert(self._unitAvaliable[unitType][unitLevel], unitModel)
@@ -120,10 +153,8 @@ function UnitController:CreateUnit(unitType: string, unitLevel: number): Model?
 	newUnitModel:PivotTo(CFrame.new(self._pool_Position_Floder))
 	newUnitModel:SetAttribute("UnitType", unitType)
 	newUnitModel:SetAttribute("UnitLevel", unitLevel)
-	-- @TODO [ANIM] เลข 2 คือ Simulation.UNIT_STATE.MOVING ที่ฮาร์ดโค้ดไว้
-	--   ควรเป็น IDLE (1) มากกว่า เพราะ unit ที่เพิ่งสร้างยังจอดอยู่ใน pool ไม่ได้เดินไปไหน
-	--   แล้วให้ BattleController สั่งสลับเป็น MOVING เองตอนเริ่มเดินจริง
-	self:AssingTrack(newUnitModel, 2)
+
+	self:LoadAnimatioTracks(newUnitModel)
 
 	return newUnitModel
 end
