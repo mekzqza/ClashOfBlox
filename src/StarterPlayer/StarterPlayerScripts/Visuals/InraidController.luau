@@ -28,6 +28,7 @@ local CONFIG = {
 local TEST_UNIT = {
 	{ UnitEnum = 1, TroopCount = 10, TroopLevel = 1 },
 	{ UnitEnum = 2, TroopCount = 5, TroopLevel = 1 },
+	{ UnitEnum = 3, TroopCount = 20, TroopLevel = 1 },
 }
 
 local InraidController = {}

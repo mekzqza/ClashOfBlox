@@ -192,6 +192,10 @@ local function nearestBuilding(unit: UnitState, buildings: { BuildingState }): s
 	return bestId
 end
 
+-- เปิดให้ฝั่ง visual เรียกตอน spawn เพื่อหันหน้าเข้าเป้าหมายได้ทันที ไม่ต้องรอ tick แรก
+-- (ใช้ logic เดียวกับที่ stepTick เลือกเป้า จะได้ไม่หันคนละตัวกับที่ยูนิตจะเดินไปจริง)
+Simulation.NearestBuilding = nearestBuilding
+
 function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.FlowField }): (State, { SimEvent })
 	state.Tick += 1
 	local stateEvents: { SimEvent } = {}

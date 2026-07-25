@@ -27,8 +27,23 @@ local CONFIG = {
 	},
 	INTERVAL = 0.1, -- วินาที
 	MATCH_TIMEOUT = 20, -- วินาที
+	TURN_SPEED = 10, -- ยิ่งมากยิ่งเลี้ยวไว (หน่วยเป็น 1/วินาที) ปรับด้วยตาได้เลย
+
 	CREATE_BUILDING_TEMPLATE = "CreatingBuilding",
 }
+
+-- หันหน้าจาก position ไปหา target โดยตัดแกน Y ออก (ไม่ก้ม/เงยตอนพื้นต่างระดับ)
+-- คืน nil เมื่อไม่มีเป้าหมาย หรือสองจุดทับกันจนหามุมไม่ได้ — ให้ผู้เรียกคงมุมเดิมไว้
+local function lookAtFlat(position: Vector3, target: Vector3?): CFrame?
+	if not target then
+		return nil
+	end
+	local flat = Vector3.new(target.X, position.Y, target.Z)
+	if (flat - position).Magnitude < 0.01 then
+		return nil
+	end
+	return CFrame.lookAt(position, flat)
+end
 
 local BattleController = {}
 local EventHandler: { [number]: (any, Simulation.SimEvent) -> () } = {}
@@ -52,9 +67,14 @@ function BattleController.new()
 	self._unitModels = {} :: { [string]: Model }
 	self._buildingModels = {} :: { [string]: Model }
 
-	self._unitVisuals = {} :: { [string]: { Prev: Vector3, Current: Vector3, StartTime: number, Duration: number } }
+	-- Dir = ทิศเดินของช่วงนี้ คำนวณตอนสร้าง entry (10Hz) ไม่ใช่ทุกเฟรม
+	self._unitVisuals = {} :: {
+		[string]: { Prev: Vector3, Current: Vector3, Dir: Vector3, StartTime: number, Duration: number },
+	}
 	-- ระยะเยื้องจากกลาง cell ตอนวาง unit ครั้งแรก (visual เท่านั้น — simulation อยู่บน grid ล้วน)
 	self._unitOffsets = {} :: { [string]: Vector3 }
+	-- จุดที่ unit หันหน้าเข้าหาตอนยืนนิ่ง = ตำแหน่งตึกเป้าหมาย (ตอนเดินหันตามทิศเดินแทน)
+	self._unitFacing = {} :: { [string]: Vector3 }
 	self._runServiceConnection = nil :: RBXScriptConnection?
 
 	-- FlowField ของBuildingแต่ละตัว
@@ -92,6 +112,20 @@ function BattleController:GridCoordsToWorld(startX: number, startZ: number, size
 	local x = self._gridOriginX + startX * CONFIG.CELL_SIZE + sizeX * CONFIG.CELL_SIZE / 2
 	local z = self._gridOriginZ + startZ * CONFIG.CELL_SIZE + sizeZ * CONFIG.CELL_SIZE / 2
 	return Vector3.new(x, self._gridSurfaceY, z)
+end
+
+-- จุดกึ่งกลางตึกในพิกัดโลก ใช้เป็นเป้าให้ unit หันหน้าเข้าหา
+function BattleController:_buildingCenterWorld(buildingId: string): Vector3?
+	local building = self._buildings[buildingId]
+	if not building then
+		return nil
+	end
+	return self:GridCoordsToWorld(
+		building.Position.GridX,
+		building.Position.GridZ,
+		building.Dimensions.Width,
+		building.Dimensions.Length
+	)
 end
 
 function BattleController:RegisterZone(part: BasePart)
@@ -187,7 +221,10 @@ function BattleController:SpawnUnit(unitEnum: number, unitLevel, position: Simul
 	unitModel.Parent = self._BattleFolder
 	self._unitOffsets[unitId] = offset or Vector3.zero
 	local worldPos = self:GridCoordsToWorld(position.GridX, position.GridZ, 1, 1) :: Vector3 + self._unitOffsets[unitId]
-	unitModel:PivotTo(CFrame.new(worldPos))
+	-- เลือกเป้าด้วย logic เดียวกับ stepTick เพื่อให้หันถูกตัวตั้งแต่เฟรมแรก ไม่ต้องรอ tick
+	local firstTargetId = if self._state.Buildings then Simulation.NearestBuilding(unit, self._state.Buildings) else nil
+	self._unitFacing[unitId] = if firstTargetId then self:_buildingCenterWorld(firstTargetId) else nil
+	unitModel:PivotTo(lookAtFlat(worldPos, self._unitFacing[unitId]) or CFrame.new(worldPos))
 	self._unitModels[unitId] = unitModel
 
 	self._units[unitId] = unit
@@ -253,6 +290,7 @@ EventHandler[Simulation.EVENT.Unit_Died] = function(self, event: Simulation.SimE
 	end
 	self._unitVisuals[unitId] = nil
 	self._unitOffsets[unitId] = nil
+	self._unitFacing[unitId] = nil
 end
 
 function BattleController:StartRiding()
@@ -266,7 +304,8 @@ function BattleController:StartRiding()
 	end
 	self._isRaiding = true
 
-	self._runServiceConnection = RunService.Heartbeat:Connect(function()
+	self._runServiceConnection = RunService.Heartbeat:Connect(function(deltaTime: number)
+		local turnAlpha = math.min(deltaTime * CONFIG.TURN_SPEED, 1)
 		for unitId, visual in self._unitVisuals do
 			local alpha = math.clamp((os.clock() - visual.StartTime) / visual.Duration, 0, 1)
 			local model = self._unitModels[unitId]
@@ -274,7 +313,17 @@ function BattleController:StartRiding()
 				local prevPos = visual.Prev
 				local currentPos = visual.Current
 				local interpolatedPos = prevPos:Lerp(currentPos, alpha)
-				model:PivotTo(CFrame.new(interpolatedPos))
+
+				-- กำลังเดิน → หันตามทิศเดิน, ยืนนิ่ง (เช่นตอนตีตึก) → หันเข้าหาเป้าหมาย
+				local desired = if visual.Dir.Magnitude > 0.01
+					then CFrame.lookAt(interpolatedPos, interpolatedPos + visual.Dir)
+					else lookAtFlat(interpolatedPos, self._unitFacing[unitId])
+
+				local rotation: CFrame = (model :: Model):GetPivot().Rotation
+				if desired then
+					rotation = rotation:Lerp(desired.Rotation, turnAlpha)
+				end
+				model:PivotTo(rotation + interpolatedPos)
 			end
 		end
 	end)
@@ -303,7 +352,6 @@ function BattleController:StartRiding()
 				end
 
 				--@TODO play animation ตาม unit.state (สลับเฉพาะตอน state เปลี่ยน)
-				warn("[BattleController] Unit state: " .. unitId .. " is " .. unit.state)
 
 				local unitTargetId = unit.TargetId
 
@@ -317,6 +365,8 @@ function BattleController:StartRiding()
 								MaxZ = 50,
 							}, self._occupiedCells)
 					end
+
+					self._unitFacing[unitId] = self:_buildingCenterWorld(unitTargetId) or self._unitFacing[unitId]
 				end
 				local unitState = self._units[unitId]
 				if not unitState or unit.Hp <= 0 then
@@ -331,9 +381,12 @@ function BattleController:StartRiding()
 					) :: Vector3 + (self._unitOffsets[unitId] or Vector3.zero)
 				local oldVisual = self._unitVisuals[unitId]
 				if not oldVisual or (oldVisual.Current :: Vector3) ~= currentWorld then
+					local prevWorld: Vector3 = oldVisual and oldVisual.Current or currentWorld
+					local delta = currentWorld - prevWorld
 					self._unitVisuals[unitId] = {
-						Prev = oldVisual and oldVisual.Current or currentWorld,
+						Prev = prevWorld,
 						Current = currentWorld,
+						Dir = Vector3.new(delta.X, 0, delta.Z),
 						StartTime = os.clock(),
 						Duration = if (10 / unit.WalkSpeed) * CONFIG.INTERVAL == 0
 							then CONFIG.INTERVAL
@@ -383,6 +436,7 @@ function BattleController:MatchEnd()
 	self._buildings = {}
 	self._unitVisuals = {}
 	self._unitOffsets = {}
+	self._unitFacing = {}
 	self._buildingPositionGolas = {}
 
 	if self._runServiceConnection then
