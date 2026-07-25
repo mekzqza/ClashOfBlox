@@ -1,10 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
-local TweenService = game:GetService("TweenService")
-
-local CONFIG = {
-	TWEEN_INFO = TweenInfo.new(0.5, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, 0, false, 0),
-}
+local UnitConfig = require(ReplicatedStorage.Shared.UnitConfig)
 
 local UnitController = {}
 UnitController.__index = UnitController
@@ -16,6 +12,37 @@ function UnitController.new()
 	self._pool_Position_Floder = nil
 	self._UnitsTemplate = nil
 	return self
+end
+
+function UnitController:AssingTrack(model: Model, state: number)
+	local unitType = model:GetAttribute("UnitType")
+	local unitAnimationId = UnitConfig:GetAnimationId(unitType, state)
+	if not unitAnimationId then
+		warn("[UnitController] Animation ID not found for unit type: " .. unitType .. " and state: " .. state)
+		return
+	end
+
+	local animationController = model:FindFirstChild("AnimationController", true)
+	if not animationController then
+		warn("[UnitController] AnimationController not found in model: " .. model.Name)
+		return
+	end
+
+	local animator = animationController:FindFirstChild("Animator", true) :: Animator
+	if not animator then
+		warn("[UnitController] Animator not found in AnimationController for model: " .. model.Name)
+		return
+	end
+
+	local animation = Instance.new("Animation")
+	animation.AnimationId = unitAnimationId
+	animation.Parent = animator
+
+	local trak = animator:LoadAnimation(animation)
+	trak.Looped = true
+	trak:Play()
+	warn(trak.Length)
+	warn("[UnitController] Playing animation for unit type: " .. unitType .. " and state: " .. state)
 end
 
 -- @TODO Unitpolling
@@ -81,11 +108,12 @@ function UnitController:CreateUnit(unitType: string, unitLevel: number): Model?
 	newUnitModel:PivotTo(CFrame.new(self._pool_Position_Floder))
 	newUnitModel:SetAttribute("UnitType", unitType)
 	newUnitModel:SetAttribute("UnitLevel", unitLevel)
+	self:AssingTrack(newUnitModel, 2) -- @TODO state 2 = walk
 
 	return newUnitModel
 end
 
-function UnitController:UnitWalk(model: Model) end
+function UnitController:UnitMove(model: Model) end
 
 -- @TODO UpdateUnit Walk, Attack, Die,
 function UnitController:UpdateUnit(model: Model, prevPosition: Vector3, curr) end
