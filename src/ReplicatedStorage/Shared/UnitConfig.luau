@@ -15,10 +15,18 @@ export type UnitLevelData = {
 	AttackCooldown: number,
 }
 
-export type UnitData = { [string]: { UnitLevelData } }
+-- 1 = Idle, 2 = Moving, 3 = Attacking, 4 = Dead
+export type AnimationId = {
+	number: string,
+}
+
+export type UnitData = { [string]: { UnitLevelData }, AnimationId: AnimationId }
 
 local Units = {
 	["Goblin"] = {
+		AnimationId = {
+			[2] = "rbxassetid://125749145", -- Moving
+		},
 		[1] = {
 			UpgradeCost = 50,
 			UpgradeTime = 5,
@@ -31,6 +39,9 @@ local Units = {
 		},
 	},
 	["Barbarian"] = {
+		AnimationId = {
+			[2] = "rbxassetid://125749145", -- Moving
+		},
 		[1] = {
 			UpgradeCost = 100,
 			UpgradeTime = 10,
@@ -40,6 +51,21 @@ local Units = {
 			WalkSpeed = 2,
 			Range = 1,
 			AttackCooldown = 1.5,
+		},
+	},
+	["Zombie"] = {
+		AnimationId = {
+			[2] = "rbxassetid://125749145", -- Moving
+		},
+		[1] = {
+			UpgradeCost = 150,
+			UpgradeTime = 15,
+			MaxHp = 300,
+
+			Damage = 30,
+			WalkSpeed = 1,
+			Range = 1,
+			AttackCooldown = 2,
 		},
 	},
 }
@@ -56,6 +82,14 @@ function UnitConfig:GetUnitLevelDataByEnum(unitId: number, level: number): UnitL
 	local unitType = GameEnum:GetUnitTypeById(unitId)
 	if unitType then
 		return self:GetUnitLevelData(unitType, level)
+	end
+	return nil
+end
+
+function UnitConfig:GetAnimationId(unitType: string, state: number): string?
+	local unitData = Units[unitType]
+	if unitData and unitData.AnimationId then
+		return unitData.AnimationId[state]
 	end
 	return nil
 end

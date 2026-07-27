@@ -6,7 +6,6 @@
 
 ]]
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 
 local Events = require(ReplicatedStorage.Shared.Events)
@@ -16,8 +15,8 @@ local Simulation = require(ReplicatedStorage.Shared.Simulation)
 local GameEnum = require(ReplicatedStorage.Shared.GameEnum)
 
 local CONFIG = {
-	CELL_SIZE = 4,
-	STRIDE = 100,
+	CELL_SIZE = 4, --stud
+	STRIDE = 100, --stud
 	KEYSTORE = {
 		["Gridx"] = 1,
 		["Gridz"] = 2,
@@ -28,9 +27,26 @@ local CONFIG = {
 	},
 	INTERVAL = 0.1, -- วินาที
 	MATCH_TIMEOUT = 20, -- วินาที
+	TURN_SPEED = 10, -- ยิ่งมากยิ่งเลี้ยวไว (หน่วยเป็น 1/วินาที) ปรับด้วยตาได้เลย
+
+	CREATE_BUILDING_TEMPLATE = "CreatingBuilding",
 }
 
+-- หันหน้าจาก position ไปหา target โดยตัดแกน Y ออก (ไม่ก้ม/เงยตอนพื้นต่างระดับ)
+-- คืน nil เมื่อไม่มีเป้าหมาย หรือสองจุดทับกันจนหามุมไม่ได้ — ให้ผู้เรียกคงมุมเดิมไว้
+local function lookAtFlat(position: Vector3, target: Vector3?): CFrame?
+	if not target then
+		return nil
+	end
+	local flat = Vector3.new(target.X, position.Y, target.Z)
+	if (flat - position).Magnitude < 0.01 then
+		return nil
+	end
+	return CFrame.lookAt(position, flat)
+end
+
 local BattleController = {}
+local EventHandler: { [number]: (any, Simulation.SimEvent) -> () } = {}
 BattleController.__index = BattleController
 function BattleController.new()
 	local self = setmetatable({}, BattleController)
@@ -45,14 +61,20 @@ function BattleController.new()
 	self._units = {} :: { [string]: Simulation.UnitState }
 	self._buildings = {} :: { [string]: Simulation.BuildingState }
 	self._buildingPositionGolas = {} :: { [string]: { Simulation.GridPosition } }
-	self._destroyedBuildings = {} :: { [string]: true }
 
 	--Model Visualization
 	self._UnitsTemplate = nil
 	self._unitModels = {} :: { [string]: Model }
 	self._buildingModels = {} :: { [string]: Model }
 
-	self._unitVisuals = {} :: { [string]: { Prev: Vector3, Current: Vector3, StartTime: number, Duration: number } }
+	-- Dir = ทิศเดินของช่วงนี้ คำนวณตอนสร้าง entry (10Hz) ไม่ใช่ทุกเฟรม
+	self._unitVisuals = {} :: {
+		[string]: { Prev: Vector3, Current: Vector3, Dir: Vector3, StartTime: number, Duration: number },
+	}
+	-- ระยะเยื้องจากกลาง cell ตอนวาง unit ครั้งแรก (visual เท่านั้น — simulation อยู่บน grid ล้วน)
+	self._unitOffsets = {} :: { [string]: Vector3 }
+	-- จุดที่ unit หันหน้าเข้าหาตอนยืนนิ่ง = ตำแหน่งตึกเป้าหมาย (ตอนเดินหันตามทิศเดินแทน)
+	self._unitFacing = {} :: { [string]: Vector3 }
 	self._runServiceConnection = nil :: RBXScriptConnection?
 
 	-- FlowField ของBuildingแต่ละตัว
@@ -79,6 +101,7 @@ end
 
 function BattleController:SetDependencies(locator)
 	self._UnitController = locator:Get("UnitController")
+	self._BuildingController = locator:Get("BuildingController")
 end
 
 function BattleController:_gridKeyfromCoords(gridx: number, gridz: number): number
@@ -89,6 +112,20 @@ function BattleController:GridCoordsToWorld(startX: number, startZ: number, size
 	local x = self._gridOriginX + startX * CONFIG.CELL_SIZE + sizeX * CONFIG.CELL_SIZE / 2
 	local z = self._gridOriginZ + startZ * CONFIG.CELL_SIZE + sizeZ * CONFIG.CELL_SIZE / 2
 	return Vector3.new(x, self._gridSurfaceY, z)
+end
+
+-- จุดกึ่งกลางตึกในพิกัดโลก ใช้เป็นเป้าให้ unit หันหน้าเข้าหา
+function BattleController:_buildingCenterWorld(buildingId: string): Vector3?
+	local building = self._buildings[buildingId]
+	if not building then
+		return nil
+	end
+	return self:GridCoordsToWorld(
+		building.Position.GridX,
+		building.Position.GridZ,
+		building.Dimensions.Width,
+		building.Dimensions.Length
+	)
 end
 
 function BattleController:RegisterZone(part: BasePart)
@@ -163,11 +200,11 @@ function BattleController:freeCell(position: Vector3, sizeX: number?, sizeZ: num
 	end
 end
 
-function BattleController:SpawnUnit(unitEnum: number, unitLevel, position: Simulation.GridPosition)
+function BattleController:SpawnUnit(unitEnum: number, unitLevel, position: Simulation.GridPosition, offset: Vector3?)
 	if not self._state.Units then
 		self._state.Units = {}
 	end
-	local unitId = "Unit_" .. self._currentUnitId
+	local unitId = "Unit_" .. tostring(self._currentUnitId)
 
 	local unit = Simulation.RegisterUnit(unitId, unitEnum, unitLevel, position)
 	if not unit then
@@ -182,8 +219,12 @@ function BattleController:SpawnUnit(unitEnum: number, unitLevel, position: Simul
 	end
 	unitModel.Name = unitId
 	unitModel.Parent = self._BattleFolder
-	local worldPos = self:GridCoordsToWorld(position.GridX, position.GridZ, 1, 1)
-	unitModel:PivotTo(CFrame.new(worldPos))
+	self._unitOffsets[unitId] = offset or Vector3.zero
+	local worldPos = self:GridCoordsToWorld(position.GridX, position.GridZ, 1, 1) :: Vector3 + self._unitOffsets[unitId]
+	-- เลือกเป้าด้วย logic เดียวกับ stepTick เพื่อให้หันถูกตัวตั้งแต่เฟรมแรก ไม่ต้องรอ tick
+	local firstTargetId = if self._state.Buildings then Simulation.NearestBuilding(unit, self._state.Buildings) else nil
+	self._unitFacing[unitId] = if firstTargetId then self:_buildingCenterWorld(firstTargetId) else nil
+	unitModel:PivotTo(lookAtFlat(worldPos, self._unitFacing[unitId]) or CFrame.new(worldPos))
 	self._unitModels[unitId] = unitModel
 
 	self._units[unitId] = unit
@@ -206,7 +247,55 @@ function BattleController:_getListOfFootPrintCells(
 	return cells
 end
 
+EventHandler[Simulation.EVENT.Unit_Attack] = function(self, event: Simulation.SimEvent)
+	-- @TODO play attack animation for unit and update building health bar
+end
+
+EventHandler[Simulation.EVENT.Building_Destroyed] = function(self, event: Simulation.SimEvent)
+	local buildingId = event.BuildingId
+	if not buildingId then
+		return
+	end
+
+	-- @TODO play building destroyed animation แล้วค่อยลบ model
+	local model = self._buildingModels[buildingId]
+	if model then
+		model:Destroy()
+		self._buildingModels[buildingId] = nil
+	end
+
+	local building = self._buildings[buildingId]
+	if building then
+		local sizeX = building.Dimensions.Width
+		local sizeZ = building.Dimensions.Length
+		local worldPosition = self:GridCoordsToWorld(building.Position.GridX, building.Position.GridZ, sizeX, sizeZ)
+		self:freeCell(worldPosition, sizeX, sizeZ)
+	end
+
+	-- ตึกหาย → ทางเดินเปลี่ยน ทิ้ง flow field ทั้งหมดให้สร้างใหม่
+	self._flowFields = {}
+end
+
+EventHandler[Simulation.EVENT.Unit_Died] = function(self, event: Simulation.SimEvent)
+	local unitId = event.UnitId
+	if not unitId then
+		return
+	end
+
+	-- @TODO play unit death animation ให้จบก่อนแล้วค่อย recycle (ต้อง Stop track ก่อนคืน pool)
+	local model = self._unitModels[unitId]
+	if model then
+		self._UnitController:RecycleUnit(model)
+		self._unitModels[unitId] = nil
+	end
+	self._unitVisuals[unitId] = nil
+	self._unitOffsets[unitId] = nil
+	self._unitFacing[unitId] = nil
+end
+
 function BattleController:StartRiding()
+	EventBus:Emit(Events.LOCAL_MODE_CHANGED, "Raid")
+
 	if not self._state.Tick or not self._state.Buildings or not self._state.Spells then
 		self._state.Buildings = self._state.Buildings or {}
 		self._state.Tick = 0
@@ -215,7 +304,8 @@ function BattleController:StartRiding()
 	end
 	self._isRaiding = true
 
-	self._runServiceConnection = RunService.Heartbeat:Connect(function()
+	self._runServiceConnection = RunService.Heartbeat:Connect(function(deltaTime: number)
+		local turnAlpha = math.min(deltaTime * CONFIG.TURN_SPEED, 1)
 		for unitId, visual in self._unitVisuals do
 			local alpha = math.clamp((os.clock() - visual.StartTime) / visual.Duration, 0, 1)
 			local model = self._unitModels[unitId]
@@ -223,7 +313,17 @@ function BattleController:StartRiding()
 				local prevPos = visual.Prev
 				local currentPos = visual.Current
 				local interpolatedPos = prevPos:Lerp(currentPos, alpha)
-				model:PivotTo(CFrame.new(interpolatedPos))
+
+				-- กำลังเดิน → หันตามทิศเดิน, ยืนนิ่ง (เช่นตอนตีตึก) → หันเข้าหาเป้าหมาย
+				local desired = if visual.Dir.Magnitude > 0.01
+					then CFrame.lookAt(interpolatedPos, interpolatedPos + visual.Dir)
+					else lookAtFlat(interpolatedPos, self._unitFacing[unitId])
+
+				local rotation: CFrame = (model :: Model):GetPivot().Rotation
+				if desired then
+					rotation = rotation:Lerp(desired.Rotation, turnAlpha)
+				end
+				model:PivotTo(rotation + interpolatedPos)
 			end
 		end
 	end)
@@ -232,7 +332,16 @@ function BattleController:StartRiding()
 		local startTime = tick()
 		local endTime = startTime + CONFIG.MATCH_TIMEOUT
 		while self._isRaiding and tick() < endTime do
-			Simulation.stepTick(self._state, self._flowFields)
+			local _, stateEvents = Simulation.stepTick(self._state, self._flowFields)
+
+			for _, event in stateEvents do
+				local handler = EventHandler[event.Type]
+				if handler then
+					handler(self, event)
+				else
+					warn("[BattleController] No handler for event type: " .. event.Type)
+				end
+			end
 
 			--@Unit Loop
 			for _, unit in self._state.Units do
@@ -241,6 +350,8 @@ function BattleController:StartRiding()
 					warn("[BattleController] Unit has no UnitId, skipping")
 					continue
 				end
+
+				--@TODO play animation ตาม unit.state (สลับเฉพาะตอน state เปลี่ยน)
 
 				local unitTargetId = unit.TargetId
 
@@ -254,44 +365,33 @@ function BattleController:StartRiding()
 								MaxZ = 50,
 							}, self._occupiedCells)
 					end
-				end
 
+					self._unitFacing[unitId] = self:_buildingCenterWorld(unitTargetId) or self._unitFacing[unitId]
+				end
 				local unitState = self._units[unitId]
 				if not unitState or unit.Hp <= 0 then
-					-- @TODO monster die, remove model
 					continue
 				end
 
-				local currentWorld = self:GridCoordsToWorld(unit.Position.GridX, unit.Position.GridZ, 1, 1)
+				local currentWorld = self:GridCoordsToWorld(
+						unit.Position.GridX,
+						unit.Position.GridZ,
+						1,
+						1
+					) :: Vector3 + (self._unitOffsets[unitId] or Vector3.zero)
 				local oldVisual = self._unitVisuals[unitId]
-				if not oldVisual or oldVisual.Current ~= currentWorld then
+				if not oldVisual or (oldVisual.Current :: Vector3) ~= currentWorld then
+					local prevWorld: Vector3 = oldVisual and oldVisual.Current or currentWorld
+					local delta = currentWorld - prevWorld
 					self._unitVisuals[unitId] = {
-						Prev = oldVisual and oldVisual.Current or currentWorld,
+						Prev = prevWorld,
 						Current = currentWorld,
+						Dir = Vector3.new(delta.X, 0, delta.Z),
 						StartTime = os.clock(),
 						Duration = if (10 / unit.WalkSpeed) * CONFIG.INTERVAL == 0
 							then CONFIG.INTERVAL
 							else (10 / unit.WalkSpeed) * CONFIG.INTERVAL,
 					}
-				end
-			end
-
-			-- @Building Loop
-			for _, building in self._state.Buildings do
-				if self._destroyedBuildings[building.BuildingId] then
-					continue
-				end
-
-				if building.Hp <= 0 then
-					self._destroyedBuildings[building.BuildingId] = true
-					local sizeX = building.Dimensions.Width
-					local sizeZ = building.Dimensions.Length
-					local buildingPosition =
-						self:GridCoordsToWorld(building.Position.GridX, building.Position.GridZ, sizeX, sizeZ)
-					self:freeCell(buildingPosition, sizeX, sizeZ)
-					self._flowFields = {}
-				else
-					-- @TODO update building model health bar
 				end
 			end
 
@@ -335,7 +435,8 @@ function BattleController:MatchEnd()
 	self._units = {}
 	self._buildings = {}
 	self._unitVisuals = {}
-	self._destroyedBuildings = {}
+	self._unitOffsets = {}
+	self._unitFacing = {}
 	self._buildingPositionGolas = {}
 
 	if self._runServiceConnection then
@@ -357,6 +458,7 @@ function BattleController:MatchEnd()
 		for _, model in self._buildingModels do
 			if model and model.Parent then
 				model:Destroy()
+				warn("[BattleController] Destroying building model: " .. model.Name)
 			end
 		end
 		self._buildingModels = {}
@@ -392,7 +494,6 @@ function BattleController:Start()
 			warn("[BattleController] No building data found for player")
 			return
 		end
-		EventBus:Emit(Events.LOCAL_MODE_CHANGED, "Raid")
 
 		self._state.Buildings = {}
 		for buildingId, buildingdata in buildings do
@@ -405,7 +506,6 @@ function BattleController:Start()
 				buildingdata[CONFIG.KEYSTORE["EndTime"]],
 				buildingdata[CONFIG.KEYSTORE["LastCollectedTime"]]
 			)
-			warn("[BattleController] Register building with ID: " .. buildingId)
 			if not building then
 				warn("[BattleController] Failed to register building with ID: " .. buildingId)
 				continue
@@ -425,7 +525,15 @@ function BattleController:Start()
 			)
 			self._buildingPositionGolas[buildingId] =
 				self:_getListOfFootPrintCells(building.Position, building.Dimensions.Width, building.Dimensions.Length)
-			-- @TODO create Buildingmodel
+			local buildingType = GameEnum:GetBuildingTypeById(building.BuildingEnum)
+			local model = self._BuildingController:_createBuilding(buildingType, buildPosion, building.BuildingLevel)
+			local footprint = self._BuildingController:_createFootPrints(
+				buildPosion,
+				building.Dimensions.Width * building.Dimensions.Length
+			)
+			footprint.Parent = model
+			model.Parent = self._BattleFolder
+			self._buildingModels[buildingId] = model
 			table.insert(self._state.Buildings, self._buildings[buildingId])
 		end
 	end)
@@ -447,7 +555,7 @@ function BattleController:Start()
 			return
 		end
 		local unitLevel = data.UnitLevel or 1
-		self:SpawnUnit(unitEnum, unitLevel, girdPosition)
+		self:SpawnUnit(unitEnum, unitLevel, girdPosition, data.Offset)
 	end)
 
 	EventBus:On(Events.LOCAL_FOLDER_READY, function(data)

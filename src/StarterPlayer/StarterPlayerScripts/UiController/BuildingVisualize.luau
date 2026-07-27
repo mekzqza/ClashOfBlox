@@ -360,7 +360,6 @@ function BuildingVisualize:Start()
 			self:_stopConnections()
 			return
 		end
-		warn("Mode changed to OwnHome, re-binding input")
 		self:_bindInput()
 	end)
 end

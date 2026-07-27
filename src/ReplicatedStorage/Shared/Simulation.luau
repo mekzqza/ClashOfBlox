@@ -46,6 +46,7 @@ export type UnitState = {
 
 	-- 1-10 เพื่อสะสมกำลังในการเดิน ถึง10 ให้เดิน 1 ช่อง (ถ้า WalkSpeed=1) → deterministic
 	MoveProgress: number,
+	state: number, -- Simulation.UNIT_STATE
 
 	TargetId: string?,
 }
@@ -65,7 +66,29 @@ export type State = {
 	Spells: { SpellState },
 }
 
+export type SimEvent = {
+	Type: number, --State Enum
+	UnitId: string?,
+	TargetId: string?,
+	BuildingId: string?,
+	Damage: number?,
+}
+
 local Simulation = {}
+
+-- source of truth ทั้ง sim และฝั่ง visual — อย่าคัดลอกไปไว้ที่อื่น
+Simulation.UNIT_STATE = {
+	IDLE = 1,
+	MOVING = 2,
+	ATTACKING = 3,
+	DIED = 4,
+}
+
+Simulation.EVENT = {
+	Unit_Attack = 1,
+	Building_Destroyed = 2,
+	Unit_Died = 3,
+}
 
 function Simulation.RegisterBuilding(
 	buildingId: string,
@@ -125,6 +148,7 @@ function Simulation.RegisterUnit(
 		Damage = unitData.Damage,
 		WalkSpeed = unitData.WalkSpeed,
 		MoveProgress = 0,
+		state = Simulation.UNIT_STATE.IDLE,
 		Range = unitData.Range,
 		AttackCooldown = unitData.AttackCooldown,
 		CooldownLeft = 0,
@@ -168,11 +192,24 @@ local function nearestBuilding(unit: UnitState, buildings: { BuildingState }): s
 	return bestId
 end
 
-function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.FlowField }): State
+-- เปิดให้ฝั่ง visual เรียกตอน spawn เพื่อหันหน้าเข้าเป้าหมายได้ทันที ไม่ต้องรอ tick แรก
+-- (ใช้ logic เดียวกับที่ stepTick เลือกเป้า จะได้ไม่หันคนละตัวกับที่ยูนิตจะเดินไปจริง)
+Simulation.NearestBuilding = nearestBuilding
+
+function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.FlowField }): (State, { SimEvent })
 	state.Tick += 1
+	local stateEvents: { SimEvent } = {}
 
 	for _, unit in state.Units do
+		if unit.state == Simulation.UNIT_STATE.DIED then
+			continue
+		end
 		if unit.Hp <= 0 then
+			unit.state = Simulation.UNIT_STATE.DIED
+			table.insert(stateEvents, {
+				Type = Simulation.EVENT.Unit_Died,
+				UnitId = unit.UnitId,
+			})
 			continue
 		end
 
@@ -182,19 +219,36 @@ function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.F
 			target = if unit.TargetId then findBuilding(state.Buildings, unit.TargetId) else nil
 		end
 		if not target then
+			-- ตึกพังหมดแล้ว ไม่มีอะไรให้ตี
+			unit.state = Simulation.UNIT_STATE.IDLE
 			continue
 		end
 
 		if distanceSqToBuilding(unit.Position, target) <= unit.Range * unit.Range then
 			-- เข้าระยะ → หยุดเดิน แล้วตีตามจังหวะ cooldown
+			-- state ต้อง set ที่หัว branch: ยืนจ่อ = ATTACKING ทุก tick ไม่ใช่เฉพาะ tick ที่หมัดลง
+			unit.state = Simulation.UNIT_STATE.ATTACKING
 			unit.CooldownLeft -= 1
 			if unit.CooldownLeft <= 0 then
+				table.insert(stateEvents, {
+					Type = Simulation.EVENT.Unit_Attack,
+					UnitId = unit.UnitId,
+					TargetId = target.BuildingId,
+					Damage = unit.Damage,
+				})
 				target.Hp = math.max(0, target.Hp - unit.Damage)
+				if target.Hp <= 0 then
+					table.insert(stateEvents, {
+						Type = Simulation.EVENT.Building_Destroyed,
+						BuildingId = target.BuildingId,
+					})
+				end
 				unit.CooldownLeft = unit.AttackCooldown
 			end
 		else
 			local flow = flowFields[target.BuildingId]
 
+			unit.state = Simulation.UNIT_STATE.MOVING
 			unit.MoveProgress += unit.WalkSpeed
 			if unit.MoveProgress >= 10 then
 				unit.MoveProgress -= 10
@@ -202,12 +256,11 @@ function Simulation.stepTick(state: State, flowFields: { [string]: Pathfinding.F
 				if nxt then
 					unit.Position = nxt
 				end
-			else
 			end
 		end
 	end
 
-	return state
+	return state, stateEvents
 end
 
 -- loop เรียก stepTick ตั้งแต่เริ่ม จนจบ → finalState

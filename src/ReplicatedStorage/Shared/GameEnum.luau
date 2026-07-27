@@ -22,6 +22,7 @@ local BuildingTypeById: { [number]: string } = {
 local UnitTypeById: { [number]: string } = {
 	[1] = "Goblin",
 	[2] = "Barbarian",
+	[3] = "Zombie",
 }
 
 local MapSkinById: { [number]: string } = {
